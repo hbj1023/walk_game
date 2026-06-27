@@ -1,0 +1,97 @@
+import 'package:capstone_app/services/game_api_service.dart';
+
+class RaidBoss {
+  final String id;
+  final String name;
+  final int recommendedLevel;
+  final int difficulty;
+  final bool isLocked;
+  final int hp;
+  final int attack;
+  final int defense;
+  final int agility;
+  final int rewardCoinMin;
+  final int rewardCoinMax;
+  final String? imagePath;
+  final String? iconPath;
+  final String? bgPath;
+
+  const RaidBoss({
+    this.id = '',
+    required this.name,
+    required this.recommendedLevel,
+    required this.difficulty,
+    required this.isLocked,
+    this.hp = 0,
+    this.attack = 0,
+    this.defense = 0,
+    this.agility = 0,
+    this.rewardCoinMin = 0,
+    this.rewardCoinMax = 0,
+    this.imagePath,
+    this.iconPath,
+    this.bgPath,
+  });
+
+  factory RaidBoss.fromMonster(RaidMonsterInfo monster) {
+    final normalizedName = monster.name.trim();
+    final asset = _raidBossAsset(normalizedName);
+    return RaidBoss(
+      id: monster.id,
+      name: normalizedName.isEmpty ? '레이드 보스' : normalizedName,
+      recommendedLevel: _raidRecommendedLevel(monster),
+      difficulty: _raidDifficulty(monster),
+      isLocked: false,
+      hp: monster.hp,
+      attack: monster.attack,
+      defense: monster.defense,
+      agility: monster.agility,
+      rewardCoinMin: monster.rewardCoinMin,
+      rewardCoinMax: monster.rewardCoinMax,
+      iconPath: asset.iconPath,
+      bgPath: asset.bgPath,
+    );
+  }
+}
+
+class _RaidBossAsset {
+  final String iconPath;
+  final String bgPath;
+
+  const _RaidBossAsset({required this.iconPath, required this.bgPath});
+}
+
+_RaidBossAsset _raidBossAsset(String name) {
+  if (name.contains('와이번')) {
+    return const _RaidBossAsset(
+      iconPath: 'assets/images/raid/ic_boss_wyvern.png',
+      bgPath: 'assets/images/bg/raid_volcano.png',
+    );
+  }
+  if (name.contains('고블린')) {
+    return const _RaidBossAsset(
+      iconPath: 'assets/images/raid/ic_boss_goblin.png',
+      bgPath: 'assets/images/bg/raid_forest.png',
+    );
+  }
+  return const _RaidBossAsset(
+    iconPath: 'assets/images/raid/ic_boss_golem.png',
+    bgPath: 'assets/images/bg/raid_cave.png',
+  );
+}
+
+int _raidDifficulty(RaidMonsterInfo monster) {
+  final score = monster.hp + monster.attack * 8 + monster.agility * 3;
+  if (score >= 260) return 3;
+  if (score >= 140) return 2;
+  return 1;
+}
+
+int _raidRecommendedLevel(RaidMonsterInfo monster) {
+  final difficulty = _raidDifficulty(monster);
+  return switch (difficulty) {
+    3 => 30,
+    2 => 20,
+    _ => 10,
+  };
+}

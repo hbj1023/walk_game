@@ -1,0 +1,28 @@
+services:
+  pocketbase:
+    build:
+      context: .
+      dockerfile: Dockerfile.pocketbase
+    container_name: pocketbase-fresh
+    ports:
+      - "8091:8090"
+    volumes:
+      - pocketbase_fresh_data:/pb/pb_data
+    restart: unless-stopped
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: auth-api-fresh
+    environment:
+      POCKETBASE_URL: http://pocketbase:8090
+      PORT: 8082
+    ports:
+      - "8082:8082"
+    depends_on:
+      - pocketbase
+    restart: unless-stopped
+
+volumes:
+  pocketbase_fresh_data:

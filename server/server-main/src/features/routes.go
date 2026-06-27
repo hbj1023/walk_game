@@ -1,0 +1,51 @@
+package features
+
+import (
+	"net/http"
+
+	character "server/src/features/character"
+)
+
+func RegisterRoutes(mux *http.ServeMux) {
+	mux.HandleFunc("/register", registerHandler)
+	mux.HandleFunc("/login", loginHandler)
+	mux.HandleFunc("/main", mainHandler)
+	mux.HandleFunc("/steps/sync", stepSyncHandler)
+	mux.HandleFunc("/battle/normal/start", normalBattleStartHandler)
+	mux.HandleFunc("/battle/normal/attack", normalBattleAttackHandler)
+	mux.HandleFunc("/battle/normal/leave", normalBattleLeaveHandler)
+	mux.HandleFunc("/battle/normal/current", normalBattleCurrentHandler)
+	mux.HandleFunc("/battle/normal/history", normalBattleHistoryHandler)
+	mux.HandleFunc("/battle/boss/start", bossBattleStartHandler)
+	mux.HandleFunc("/battle/boss/attack", bossBattleAttackHandler)
+	mux.HandleFunc("/battle/boss/leave", bossBattleLeaveHandler)
+	mux.HandleFunc("/stages/normal", normalStageListHandler)
+	character.RegisterRoutes(mux)
+	mux.HandleFunc("/api/items", itemsHandler)
+	mux.HandleFunc("/api/characters/", characterInventoryHandler)
+	mux.HandleFunc("/api/equipment-slot-balances", equipmentSlotBalancesHandler)
+	mux.HandleFunc("/api/equipment-rarity-balances", equipmentRarityBalancesHandler)
+	mux.HandleFunc("/api/profile-emotes", profileEmotesHandler)
+	mux.HandleFunc("/api/shops", shopsHandler)
+	mux.HandleFunc("/api/shops/", shopItemsHandler)
+	mux.HandleFunc("/api/stat-upgrades", statUpgradeHandler)
+	mux.HandleFunc("/api/stat-upgrades/", statUpgradeCostsHandler)
+	mux.HandleFunc("/api/characters/stats/", characterStatsHandler)
+	mux.HandleFunc("/api/missions", missionsHandler)
+	mux.HandleFunc("/api/notifications", notificationsHandler)
+	mux.HandleFunc("/api/notifications/unread-count", notificationUnreadCountHandler)
+	mux.HandleFunc("/api/notifications/read-all", notificationReadAllHandler)
+	mux.HandleFunc("/api/notifications/", notificationActionHandler)
+	mux.HandleFunc("/api/users/search", userSearchHandler)
+	mux.HandleFunc("/api/users/profile", userProfileHandler)
+	mux.HandleFunc("/api/users/profile-emote", userProfileHandler)
+	mux.HandleFunc("/api/users/profile-image", userProfileHandler)
+	mux.HandleFunc("/api/users/", userMissionsHandler)
+	mux.HandleFunc("/api/user-missions/", userMissionClaimHandler)
+	mux.HandleFunc("/api/raid-monsters", raidMonstersHandler)
+	mux.HandleFunc("/api/raids", raidsHandler)
+	mux.HandleFunc("/api/raids/", raidDetailHandler)
+	mux.HandleFunc("/api/raid-invitations/", raidInvitationActionHandler)
+	mux.HandleFunc("/api/friendships/request", friendshipRequestHandler)
+	mux.HandleFunc("/api/friendships/", friendshipActionHandler)
+}
