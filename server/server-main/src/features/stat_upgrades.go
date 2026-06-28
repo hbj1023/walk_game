@@ -185,7 +185,8 @@ func upgradeCharacterStat(ctx context.Context, token string, characterID string,
 		}
 	}
 	afterCoin := character.CoinBalance - cost
-	updatedStatValue := upgradedStatValue(stats, statType) + 1
+	upgradeAmount := statUpgradeAmount(statType)
+	updatedStatValue := upgradedStatValue(stats, statType) + upgradeAmount
 
 	updatedCharacter, err := patchBattleCharacter(ctx, token, characterID, map[string]any{
 		"coin_balance": afterCoin,
@@ -213,7 +214,7 @@ func upgradeCharacterStat(ctx context.Context, token string, characterID string,
 		hpDelta = delta
 	}
 
-	logRecord, err := createStatUpgradeLog(ctx, token, characterID, statType, currentStat, currentStat+1, cost, afterCoin)
+	logRecord, err := createStatUpgradeLog(ctx, token, characterID, statType, currentStat, currentStat+upgradeAmount, cost, afterCoin)
 	if err != nil {
 		return nil, err
 	}
@@ -279,6 +280,13 @@ func calculateStatUpgradeCost(currentStat int, setting statBalanceSettingRecord)
 		(float64(currentStat*currentStat) / setting.SquareDivisor) +
 		(float64(currentStat) * setting.LinearMultiplier)
 	return int(math.Floor(value))
+}
+
+func statUpgradeAmount(statType string) int {
+	if statType == "hp" {
+		return 10
+	}
+	return 1
 }
 
 func currentStatValue(stats battleCharacterStatsRecord, statType string) int {

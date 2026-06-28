@@ -230,7 +230,7 @@ class AuthService {
   ) {
     final error = body['error'] as String?;
     if (error != null && error.isNotEmpty) {
-      return error;
+      return _localizeAuthMessage(error);
     }
 
     final message = body['message'] as String?;
@@ -248,7 +248,21 @@ class AuthService {
       }
     }
 
-    return message;
+    return _localizeAuthMessage(message);
+  }
+
+  static String _localizeAuthMessage(String message) {
+    final normalized = message.trim().toLowerCase();
+    return switch (normalized) {
+      'unauthorized' ||
+      'invalid credentials' ||
+      'invalid email or password' => '이메일 또는 비밀번호가 올바르지 않습니다.',
+      'missing or invalid token' ||
+      'invalid token' => '로그인 정보가 만료되었습니다. 다시 로그인해주세요.',
+      'email already exists' || 'user already exists' => '이미 가입된 이메일입니다.',
+      'failed to create character' => '캐릭터 생성에 실패했습니다. 잠시 후 다시 시도해주세요.',
+      _ => message,
+    };
   }
 
   static int _asInt(dynamic value) {

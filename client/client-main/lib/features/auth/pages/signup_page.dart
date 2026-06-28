@@ -47,6 +47,7 @@ class _SignupPageState extends State<SignupPage> {
   }
 
   Future<void> _signup() async {
+    if (_isLoading) return;
     if (!_formKey.currentState!.validate()) return;
 
     setState(() {
@@ -66,13 +67,11 @@ class _SignupPageState extends State<SignupPage> {
 
       if (!mounted) return;
 
-      _showSnackBar('회원가입이 완료되었습니다. 로그인해주세요.');
-
-      Navigator.pop(context);
+      Navigator.pop(context, email);
     } on AuthException catch (e) {
       _showSnackBar(e.message);
     } catch (e) {
-      _showSnackBar('회원가입 실패: $e');
+      _showSnackBar('회원가입 중 문제가 발생했습니다. 잠시 후 다시 시도해주세요.');
     } finally {
       if (mounted) {
         setState(() {
@@ -149,6 +148,9 @@ class _SignupPageState extends State<SignupPage> {
                       if (value == null || value.trim().isEmpty) {
                         return '이메일을 입력해주세요.';
                       }
+                      if (value.trim().contains(' ')) {
+                        return '이메일에는 공백을 넣을 수 없습니다.';
+                      }
                       final emailRegex = RegExp(
                         r'^[\w\-.]+@([\w-]+\.)+[\w-]{2,4}$',
                       );
@@ -170,8 +172,12 @@ class _SignupPageState extends State<SignupPage> {
                       if (value == null || value.trim().isEmpty) {
                         return '닉네임을 입력해주세요.';
                       }
-                      if (value.trim().length < 2) {
+                      final nickname = value.trim();
+                      if (nickname.length < 2) {
                         return '닉네임은 2자 이상 입력해주세요.';
+                      }
+                      if (nickname.length > 12) {
+                        return '닉네임은 12자 이하로 입력해주세요.';
                       }
                       return null;
                     },
@@ -188,11 +194,14 @@ class _SignupPageState extends State<SignupPage> {
                         icon: Icon(
                           _obscurePw ? Icons.visibility_off : Icons.visibility,
                         ),
-                        onPressed: () {
-                          setState(() {
-                            _obscurePw = !_obscurePw;
-                          });
-                        },
+                        tooltip: _obscurePw ? '비밀번호 보이기' : '비밀번호 숨기기',
+                        onPressed: _isLoading
+                            ? null
+                            : () {
+                                setState(() {
+                                  _obscurePw = !_obscurePw;
+                                });
+                              },
                       ),
                     ),
                     validator: (value) {
@@ -219,11 +228,14 @@ class _SignupPageState extends State<SignupPage> {
                               ? Icons.visibility_off
                               : Icons.visibility,
                         ),
-                        onPressed: () {
-                          setState(() {
-                            _obscurePwConfirm = !_obscurePwConfirm;
-                          });
-                        },
+                        tooltip: _obscurePwConfirm ? '비밀번호 보이기' : '비밀번호 숨기기',
+                        onPressed: _isLoading
+                            ? null
+                            : () {
+                                setState(() {
+                                  _obscurePwConfirm = !_obscurePwConfirm;
+                                });
+                              },
                       ),
                     ),
                     validator: (value) {
@@ -265,9 +277,11 @@ class _SignupPageState extends State<SignupPage> {
                   const SizedBox(height: 16),
 
                   TextButton(
-                    onPressed: () {
-                      Navigator.pop(context);
-                    },
+                    onPressed: _isLoading
+                        ? null
+                        : () {
+                            Navigator.pop(context);
+                          },
                     child: const Text('이미 계정이 있나요? 로그인으로 돌아가기'),
                   ),
                 ],

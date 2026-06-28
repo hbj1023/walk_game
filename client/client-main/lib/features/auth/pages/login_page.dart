@@ -15,6 +15,7 @@ class _LoginPageState extends State<LoginPage> {
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _pwController = TextEditingController();
   bool _isLoading = false;
+  bool _obscurePassword = true;
 
   @override
   void dispose() {
@@ -24,13 +25,18 @@ class _LoginPageState extends State<LoginPage> {
   }
 
   Future<void> _login() async {
+    if (_isLoading) return;
+
     final email = _emailController.text.trim();
     final pw = _pwController.text.trim();
 
     if (email.isEmpty || pw.isEmpty) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('이메일과 비밀번호를 입력해주세요.')));
+      _showSnackBar('이메일과 비밀번호를 모두 입력해주세요.');
+      return;
+    }
+
+    if (!email.contains('@')) {
+      _showSnackBar('이메일 형식을 확인해주세요.');
       return;
     }
 
@@ -63,16 +69,12 @@ class _LoginPageState extends State<LoginPage> {
       if (!mounted) {
         return;
       }
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(e.message)));
+      _showSnackBar(e.message);
     } catch (_) {
       if (!mounted) {
         return;
       }
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('로그인 중 오류가 발생했습니다.')));
+      _showSnackBar('로그인 중 문제가 발생했습니다. 잠시 후 다시 시도해주세요.');
     } finally {
       if (mounted) {
         setState(() {
@@ -82,8 +84,17 @@ class _LoginPageState extends State<LoginPage> {
     }
   }
 
-  void _goToSignUp() {
-    Navigator.push(
+  void _showSnackBar(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context)
+      ..removeCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  Future<void> _goToSignUp() async {
+    if (_isLoading) return;
+
+    final signedUpEmail = await Navigator.push<String>(
       context,
       PageRouteBuilder(
         pageBuilder: (context, _, _) =>
@@ -98,6 +109,13 @@ class _LoginPageState extends State<LoginPage> {
         transitionDuration: const Duration(milliseconds: 300),
       ),
     );
+
+    if (!mounted) return;
+    if (signedUpEmail != null && signedUpEmail.isNotEmpty) {
+      _emailController.text = signedUpEmail;
+      _pwController.clear();
+      _showSnackBar('회원가입이 완료되었습니다. 방금 만든 계정으로 로그인해주세요.');
+    }
   }
 
   @override
@@ -157,7 +175,23 @@ class _LoginPageState extends State<LoginPage> {
                   controller: _pwController,
                   hintText: '비밀번호를 입력하세요',
                   icon: Icons.lock_outline,
-                  obscureText: true,
+                  obscureText: _obscurePassword,
+                  suffixIcon: IconButton(
+                    tooltip: _obscurePassword ? '비밀번호 보이기' : '비밀번호 숨기기',
+                    icon: Icon(
+                      _obscurePassword
+                          ? Icons.visibility_off
+                          : Icons.visibility,
+                      color: const Color(0xFF4F8FA8),
+                    ),
+                    onPressed: _isLoading
+                        ? null
+                        : () {
+                            setState(() {
+                              _obscurePassword = !_obscurePassword;
+                            });
+                          },
+                  ),
                 ),
 
                 const SizedBox(height: 18),
@@ -173,7 +207,7 @@ class _LoginPageState extends State<LoginPage> {
                 const SizedBox(height: 10),
 
                 TextButton(
-                  onPressed: _goToSignUp,
+                  onPressed: _isLoading ? null : _goToSignUp,
                   child: const Text(
                     '회원가입',
                     style: TextStyle(
@@ -209,12 +243,14 @@ class _InputField extends StatelessWidget {
   final String hintText;
   final IconData icon;
   final bool obscureText;
+  final Widget? suffixIcon;
 
   const _InputField({
     required this.controller,
     required this.hintText,
     required this.icon,
     required this.obscureText,
+    this.suffixIcon,
   });
 
   @override
@@ -235,6 +271,7 @@ class _InputField extends StatelessWidget {
           hintText: hintText,
           hintStyle: const TextStyle(color: Colors.grey, fontSize: 15),
           prefixIcon: Icon(icon, color: const Color(0xFF4F8FA8)),
+          suffixIcon: suffixIcon,
           contentPadding: const EdgeInsets.symmetric(vertical: 16),
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(18),

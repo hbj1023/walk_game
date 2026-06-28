@@ -30,6 +30,8 @@ class _HomePageState extends State<HomePage>
   double _bgAspectRatio = 2.0; // 이미지 로드 전 기본값
 
   bool _isDistanceAdding = false;
+  bool _profileLoading = true;
+  String? _profileError;
   bool _missionLoading = true;
   String? _missionError;
   List<UserMission> _missions = const [];
@@ -84,7 +86,9 @@ class _HomePageState extends State<HomePage>
 
   void _onGameStateChanged() {
     if (!mounted) return;
-    setState(() {});
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) setState(() {});
+    });
   }
 
   void _onStepTrackerChanged() {
@@ -93,16 +97,29 @@ class _HomePageState extends State<HomePage>
   }
 
   Future<void> _loadUserName() async {
+    if (mounted) {
+      setState(() {
+        _profileLoading = true;
+        _profileError = null;
+      });
+    }
     try {
       await AuthService.fetchMainMessage(); // 토큰 갱신 + name sync
       final name = await AuthService.getSavedName();
       if (mounted) {
-        setState(() => _userName = name ?? '모험가');
+        setState(() {
+          _userName = name ?? '모험가';
+          _profileLoading = false;
+        });
       }
-    } catch (_) {
+    } catch (e) {
       final name = await AuthService.getSavedName();
       if (mounted) {
-        setState(() => _userName = name ?? '모험가');
+        setState(() {
+          _userName = name ?? '모험가';
+          _profileError = e.toString();
+          _profileLoading = false;
+        });
       }
     }
   }
@@ -622,6 +639,10 @@ class _HomePageState extends State<HomePage>
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
+            if (_profileLoading || _profileError != null) ...[
+              _buildConnectionBanner(),
+              const SizedBox(height: 8),
+            ],
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -712,6 +733,57 @@ class _HomePageState extends State<HomePage>
     );
   }
 
+  Widget _buildConnectionBanner() {
+    final isError = _profileError != null;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+      decoration: BoxDecoration(
+        color: isError
+            ? const Color(0xFF7A1A1A).withValues(alpha: 0.82)
+            : Colors.black.withValues(alpha: 0.45),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: isError ? const Color(0xFFFF9A9A) : Colors.white24,
+        ),
+      ),
+      child: Row(
+        children: [
+          if (_profileLoading)
+            const SizedBox(
+              width: 16,
+              height: 16,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: Colors.white,
+              ),
+            )
+          else
+            const Icon(Icons.wifi_off_rounded, color: Colors.white, size: 16),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              _profileLoading
+                  ? '서버에서 캐릭터 정보를 불러오는 중입니다.'
+                  : '서버 정보를 새로 불러오지 못했습니다. 저장된 정보로 표시 중입니다.',
+              style: const TextStyle(color: Colors.white, fontSize: 11),
+            ),
+          ),
+          if (isError)
+            TextButton(
+              onPressed: _loadUserName,
+              style: TextButton.styleFrom(
+                foregroundColor: Colors.white,
+                visualDensity: VisualDensity.compact,
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+              ),
+              child: const Text('다시 시도'),
+            ),
+        ],
+      ),
+    );
+  }
+
   List<UserMission> _dailyMissions() {
     return _missions
         .where((mission) => mission.missionType != 'weekly')
@@ -776,6 +848,13 @@ class _HomePageState extends State<HomePage>
     );
   }
 
+  Widget _buildPageFadeTransition(Animation<double> opacity, Widget child) {
+    return ColoredBox(
+      color: const Color(0xFF100B08),
+      child: FadeTransition(opacity: opacity, child: child),
+    );
+  }
+
   Widget _buildBottomNav() {
     final items = [
       _NavItem(icon: 'assets/images/nav/nav_shop.png', label: '상점', index: 0),
@@ -808,7 +887,7 @@ class _HomePageState extends State<HomePage>
                           parent: animation,
                           curve: Curves.easeInOut,
                         );
-                        return FadeTransition(opacity: curved, child: child);
+                        return _buildPageFadeTransition(curved, child);
                       },
                       transitionDuration: const Duration(milliseconds: 300),
                     ),
@@ -823,7 +902,7 @@ class _HomePageState extends State<HomePage>
                           parent: animation,
                           curve: Curves.easeInOut,
                         );
-                        return FadeTransition(opacity: curved, child: child);
+                        return _buildPageFadeTransition(curved, child);
                       },
                       transitionDuration: const Duration(milliseconds: 300),
                     ),
@@ -838,7 +917,7 @@ class _HomePageState extends State<HomePage>
                           parent: animation,
                           curve: Curves.easeInOut,
                         );
-                        return FadeTransition(opacity: curved, child: child);
+                        return _buildPageFadeTransition(curved, child);
                       },
                       transitionDuration: const Duration(milliseconds: 300),
                     ),
@@ -857,7 +936,7 @@ class _HomePageState extends State<HomePage>
                           parent: animation,
                           curve: Curves.easeInOut,
                         );
-                        return FadeTransition(opacity: curved, child: child);
+                        return _buildPageFadeTransition(curved, child);
                       },
                       transitionDuration: const Duration(milliseconds: 300),
                     ),

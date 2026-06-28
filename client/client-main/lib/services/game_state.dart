@@ -15,11 +15,13 @@ class GameState extends ChangeNotifier {
   int get attackCountBalance => _attackCountBalance;
 
   void setCoins(int value) {
+    if (_coins == value) return;
     _coins = value;
     notifyListeners();
   }
 
   void setAttackCountBalance(int value) {
+    if (_attackCountBalance == value) return;
     _attackCountBalance = value;
     notifyListeners();
   }
