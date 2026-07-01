@@ -171,18 +171,6 @@ func startBossBattle(ctx context.Context, token string, userID string, req Norma
 		return NormalBattleResponse{}, err
 	}
 
-	ticketConsumed := false
-	hadPriorBossEntry, err := hasBattleHistory(ctx, token, character.ID, stage.ID, "boss")
-	if err != nil {
-		return NormalBattleResponse{}, err
-	}
-	if hadPriorBossEntry {
-		if err := consumeBossEntranceTicket(ctx, token, character.ID); err != nil {
-			return NormalBattleResponse{}, err
-		}
-		ticketConsumed = true
-	}
-
 	stageMonster, err := getFirstStageMonster(ctx, token, stage.ID)
 	if err != nil {
 		return NormalBattleResponse{}, err
@@ -240,7 +228,6 @@ func startBossBattle(ctx context.Context, token string, userID string, req Norma
 		Character:          character,
 		CharacterMaxHP:     characterMaxHP,
 		Monster:            monster,
-		TicketConsumed:     ticketConsumed,
 		AttackCountBalance: character.AttackCountBalance,
 	}, nil
 }
@@ -547,7 +534,18 @@ func attackBossBattle(ctx context.Context, token string, userID string, req Norm
 	expBalance := character.Exp
 	statExpBalance := character.StatExp
 	statExpReward := 0
+	ticketConsumed := false
 	if status == "win" {
+		progress, progressFound, err := getStageProgress(ctx, token, character.ID, battle.Stage)
+		if err != nil {
+			return NormalBattleResponse{}, err
+		}
+		if progressFound && progress.ClearCount > 0 {
+			if err := consumeBossEntranceTicket(ctx, token, character.ID); err != nil {
+				return NormalBattleResponse{}, err
+			}
+			ticketConsumed = true
+		}
 		coinBalance += rewardCoin
 		level, expBalance, statExpBalance, statExpReward = applyCharacterExpReward(level, expBalance, rewardExp, statExpBalance)
 	}
@@ -601,6 +599,7 @@ func attackBossBattle(ctx context.Context, token string, userID string, req Norm
 		RewardExp:              rewardExp,
 		StatExpReward:          statExpReward,
 		RewardItem:             rewardItem,
+		TicketConsumed:         ticketConsumed,
 		AttackCountBalance:     attackCountBalance,
 		MonsterAttackGaugeM:    round2(monsterAttackGaugeM),
 		MonsterAttackDistanceM: round2(monsterAttackDistanceM),
