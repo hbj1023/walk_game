@@ -1061,10 +1061,7 @@ func applyCharacterExpReward(level int, exp int, rewardExp int, statExp int) (in
 }
 
 func statExpRewardForLevel(level int) int {
-	if level < 2 {
-		level = 2
-	}
-	return level * 50
+	return 10
 }
 
 func randomCoin(min int, max int) int {

@@ -1283,7 +1283,7 @@ String _localizeApiMessage(String message) {
     'item template is not consumable' => '사용할 수 없는 아이템입니다.',
     'not enough coin balance' => '코인이 부족합니다.',
     'not enough exp balance' => 'EXP가 부족합니다.',
-    'not enough stat exp balance' => '성장 EXP가 부족합니다.',
+    'not enough stat exp balance' => '스탯 포인트가 부족합니다.',
     'raid is not active' => '진행 중인 레이드가 아닙니다.',
     'raid progress is already finished' => '이미 종료된 레이드입니다.',
     'raid is not waiting for invitations' => '초대 가능한 레이드 상태가 아닙니다.',

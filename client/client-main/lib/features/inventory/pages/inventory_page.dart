@@ -820,7 +820,7 @@ class _InventoryPageState extends State<InventoryPage> {
         border: Border.all(color: const Color(0xFF69D8FF), width: 1),
       ),
       child: Text(
-        'XP',
+        'SP',
         style: TextStyle(
           color: const Color(0xFFBFF4FF),
           fontSize: fontSize,

@@ -119,11 +119,7 @@ func getStatUpgradeCosts(ctx context.Context, token string, characterID string) 
 
 	costs := map[string]int{}
 	for _, statType := range []string{"hp", "attack", "defense", "agility"} {
-		setting, err := getStatBalanceSetting(ctx, token, statType)
-		if err != nil {
-			return nil, err
-		}
-		costs[statType] = calculateStatUpgradeCost(currentStatValue(stats, statType), setting)
+		costs[statType] = calculateStatUpgradePointCost(statType, upgradedStatValue(stats, statType))
 	}
 	return costs, nil
 }
@@ -143,13 +139,9 @@ func getStatUpgradeSummary(ctx context.Context, token string, characterID string
 	current := map[string]int{}
 	upgraded := map[string]int{}
 	for _, statType := range []string{"hp", "attack", "defense", "agility"} {
-		setting, err := getStatBalanceSetting(ctx, token, statType)
-		if err != nil {
-			return nil, err
-		}
 		current[statType] = currentStatValue(stats, statType)
 		upgraded[statType] = upgradedStatValue(stats, statType)
-		costs[statType] = calculateStatUpgradeCost(current[statType], setting)
+		costs[statType] = calculateStatUpgradePointCost(statType, upgraded[statType])
 	}
 
 	return map[string]any{
@@ -174,13 +166,9 @@ func upgradeCharacterStat(ctx context.Context, token string, characterID string,
 		return nil, err
 	}
 
-	setting, err := getStatBalanceSetting(ctx, token, statType)
-	if err != nil {
-		return nil, err
-	}
-
 	currentStat := currentStatValue(stats, statType)
-	cost := calculateStatUpgradeCost(currentStat, setting)
+	upgradedStat := upgradedStatValue(stats, statType)
+	cost := calculateStatUpgradePointCost(statType, upgradedStat)
 	if character.StatExp < cost {
 		return nil, statusError{status: http.StatusBadRequest, message: "not enough stat exp balance"}
 	}
@@ -291,6 +279,22 @@ func calculateStatUpgradeCost(currentStat int, setting statBalanceSettingRecord)
 		(float64(currentStat*currentStat) / setting.SquareDivisor) +
 		(float64(currentStat) * setting.LinearMultiplier)
 	return int(math.Floor(value))
+}
+
+func calculateStatUpgradePointCost(statType string, upgradedValue int) int {
+	if upgradedValue < 0 {
+		upgradedValue = 0
+	}
+	switch statType {
+	case "hp":
+		return 5 + upgradedValue/20
+	case "attack":
+		return 10 + upgradedValue*3
+	case "defense", "agility":
+		return 8 + upgradedValue*2
+	default:
+		return 10
+	}
 }
 
 func statUpgradeAmount(statType string) int {
