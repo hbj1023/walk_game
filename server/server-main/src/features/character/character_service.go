@@ -303,7 +303,10 @@ func (s *Service) AddExp(req AddExpRequest, authHeader string) (map[string]any, 
 
 // 장비를 착용한다. 같은 슬롯에 이미 장비가 있으면 먼저 제거한 뒤 새 장비를 착용한다.
 func statExpRewardForLevel(level int) int {
-	return 10
+	if level < 2 {
+		return 0
+	}
+	return 40 + ((level - 1) / 5 * 10)
 }
 
 func (s *Service) EquipItem(req EquipItemRequest, authHeader string) (map[string]any, error) {
