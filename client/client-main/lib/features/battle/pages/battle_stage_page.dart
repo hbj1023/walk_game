@@ -59,28 +59,54 @@ const _kStagePoints = <Offset>[
   Offset(0.53, 0.57),
   Offset(0.72, 0.76),
   Offset(0.87, 0.63),
+  Offset(0.12, 0.40),
+  Offset(0.34, 0.34),
+  Offset(0.54, 0.44),
+  Offset(0.73, 0.31),
+  Offset(0.88, 0.43),
 ];
 
 const _kMonsterNameFallbacks = <int, String>{
-  1: '그린 고블린',
-  2: '레드 고블린',
-  3: '퍼플 고블린',
-  4: '레인보우 고블린',
-  5: '보스 고블린',
+  1: '기본 고블린',
+  2: '창 고블린',
+  3: '궁수 고블린',
+  4: '폭탄 고블린',
+  5: '흉폭한 고블린',
+  6: '포자 버섯병사',
+  7: '가시 버섯병사',
+  8: '독버섯 주술사',
+  9: '서리 버섯병사',
+  10: '장로 포자왕',
 };
 
-const _kMonsterHpFallbacks = <int, int>{1: 350, 2: 420, 3: 520, 4: 650, 5: 820};
+const _kMonsterHpFallbacks = <int, int>{
+  1: 350,
+  2: 420,
+  3: 520,
+  4: 650,
+  5: 820,
+  6: 760,
+  7: 880,
+  8: 1020,
+  9: 1180,
+  10: 1700,
+};
 
 const _kBattlePreloadAssets = <String>[
   'assets/images/bg/stage1_battle_BG.png',
   'assets/images/profile_frame.png',
   'assets/images/icon/coin_icon.png',
   'assets/images/icon/friend_icon.png',
-  'assets/images/monsters/green_goblin.png',
-  'assets/images/monsters/red_goblin.png',
-  'assets/images/monsters/purple_goblin.png',
-  'assets/images/monsters/rain_goblin.png',
-  'assets/images/monsters/boss_goblin.png',
+  MonsterAssetService.basicGoblin,
+  MonsterAssetService.spearGoblin,
+  MonsterAssetService.archerGoblin,
+  MonsterAssetService.bomberGoblin,
+  MonsterAssetService.fierceGoblin,
+  MonsterAssetService.sporeShroom,
+  MonsterAssetService.thornShroom,
+  MonsterAssetService.toxicShroom,
+  MonsterAssetService.frostShroom,
+  MonsterAssetService.elderSporeKing,
   'assets/images/character/battle_back.png',
   'assets/images/nav/nav_shop.png',
   'assets/images/nav/nav_character.png',
@@ -145,7 +171,7 @@ class _BattleStagePageState extends State<BattleStagePage> {
 
     try {
       final stages = await BattleApiService.fetchNormalStages();
-      final mapped = _withBossStage(stages.map(_stageFromServer).toList())
+      final mapped = _withBossStages(stages.map(_stageFromServer).toList())
         ..sort((a, b) => a.stageNo.compareTo(b.stageNo));
       if (!mounted) return;
       setState(() {
@@ -156,12 +182,16 @@ class _BattleStagePageState extends State<BattleStagePage> {
     } on BattleApiException catch (e) {
       if (!mounted) return;
       setState(() {
+        _stages = const [];
+        _selectedIndex = 0;
         _stageError = e.message;
         _isStageLoading = false;
       });
     } catch (_) {
       if (!mounted) return;
       setState(() {
+        _stages = const [];
+        _selectedIndex = 0;
         _stageError = '스테이지 정보를 불러오지 못했습니다.';
         _isStageLoading = false;
       });
@@ -185,7 +215,7 @@ class _BattleStagePageState extends State<BattleStagePage> {
         : '스테이지 ${stage.stageNo}';
     return _StageData(
       stageNo: stage.stageNo,
-      id: '1-${stage.stageNo}',
+      id: _stageDisplayId(stage.stageNo),
       title: title,
       point: _stagePoint(stage.stageNo),
       isBoss: false,
@@ -194,45 +224,58 @@ class _BattleStagePageState extends State<BattleStagePage> {
       status: stage.status,
       clearCount: stage.clearCount,
       monsterCount: stage.monsterCount <= 0 ? 1 : stage.monsterCount,
-      monsterName: stage.monsterName.trim().isNotEmpty
-          ? stage.monsterName.trim()
-          : (_kMonsterNameFallbacks[stage.stageNo] ?? '몬스터'),
+      monsterName: MonsterAssetService.nameForStage(
+        stage.stageNo,
+        fallback: stage.monsterName.trim().isNotEmpty
+            ? stage.monsterName.trim()
+            : (_kMonsterNameFallbacks[stage.stageNo] ?? '몬스터'),
+      ),
       monsterHp: stage.monsterHp > 0
           ? stage.monsterHp
           : (_kMonsterHpFallbacks[stage.stageNo] ?? 1),
     );
   }
 
-  List<_StageData> _withBossStage(List<_StageData> normalStages) {
-    final hasBossStage = normalStages.any((stage) => stage.stageNo == 5);
-    if (hasBossStage) return normalStages;
-
-    _StageData? stage4;
-    for (final stage in normalStages) {
-      if (stage.stageNo == 4) {
-        stage4 = stage;
-        break;
-      }
-    }
-    final bossUnlocked = stage4?.cleared ?? false;
-
+  List<_StageData> _withBossStages(List<_StageData> normalStages) {
     return [
       ...normalStages,
-      _StageData(
-        stageNo: 5,
-        id: '1-5',
-        title: '고대 수문장 - 5',
-        point: _stagePoint(5),
-        isBoss: true,
-        unlocked: bossUnlocked,
-        cleared: false,
-        status: bossUnlocked ? 'unlocked' : 'locked',
-        clearCount: 0,
-        monsterCount: 1,
-        monsterName: _kMonsterNameFallbacks[5] ?? '보스 몬스터',
-        monsterHp: _kMonsterHpFallbacks[5] ?? 1,
-      ),
+      if (!normalStages.any((stage) => stage.stageNo == 5))
+        _bossStage(
+          stageNo: 5,
+          title: '고대 수문장 - 1-5',
+          previousStage: normalStages.where((stage) => stage.stageNo == 4),
+        ),
+      if (normalStages.any((stage) => stage.stageNo >= 6) &&
+          !normalStages.any((stage) => stage.stageNo == 10))
+        _bossStage(
+          stageNo: 10,
+          title: '그늘버섯 숲 - 2-5',
+          previousStage: normalStages.where((stage) => stage.stageNo == 9),
+        ),
     ];
+  }
+
+  _StageData _bossStage({
+    required int stageNo,
+    required String title,
+    required Iterable<_StageData> previousStage,
+  }) {
+    final previous = previousStage.isEmpty ? null : previousStage.first;
+    final unlocked = previous?.cleared ?? false;
+    return _StageData(
+      stageNo: stageNo,
+      id: _stageDisplayId(stageNo),
+      title: title,
+      point: _stagePoint(stageNo),
+      isBoss: true,
+      unlocked: unlocked,
+      cleared: false,
+      status: unlocked ? 'unlocked' : 'locked',
+      clearCount: 0,
+      monsterCount: 1,
+      monsterName: _kMonsterNameFallbacks[stageNo] ?? '보스 몬스터',
+      monsterHp: _kMonsterHpFallbacks[stageNo] ?? 1,
+    );
   }
 
   Offset _stagePoint(int stageNo) {
@@ -244,6 +287,11 @@ class _BattleStagePageState extends State<BattleStagePage> {
     final x = 0.12 + ((index % 5) * 0.19);
     final y = index.isEven ? 0.72 : 0.58;
     return Offset(x.clamp(0.10, 0.90).toDouble(), y);
+  }
+
+  String _stageDisplayId(int stageNo) {
+    if (stageNo <= 5) return '1-$stageNo';
+    return '2-${stageNo - 5}';
   }
 
   int get _unlockedCount => _stages.where((s) => s.unlocked).length;

@@ -180,7 +180,10 @@ class _BattlePageState extends State<BattlePage> with WidgetsBindingObserver {
   void _applyResult(NormalBattleResult result, {bool clearDamageText = false}) {
     _battleId = result.battle.id;
     _battleStatus = result.battle.status;
-    _monsterName = result.monster.name.isEmpty ? '몬스터' : result.monster.name;
+    _monsterName = MonsterAssetService.nameForStage(
+      widget.stageNo,
+      fallback: result.monster.name.isEmpty ? '몬스터' : result.monster.name,
+    );
     _monsterMaxHp = result.monster.hp > 0 ? result.monster.hp : 1;
     _monsterCurrentHp = result.battle.monsterCurrentHp;
     _playerCurrentHp = result.battle.characterCurrentHp;
@@ -711,7 +714,9 @@ class _BattlePageState extends State<BattlePage> with WidgetsBindingObserver {
             isWin
                 ? (statExpReward > 0
                       ? '레벨업으로 인해 SP ${_fmt(statExpReward)}를 얻었습니다.'
-                      : (hasEquipment ? '장비가 인벤토리에 지급되었습니다.' : '코인이 보유량에 반영되었습니다.'))
+                      : (hasEquipment
+                            ? '장비가 인벤토리에 지급되었습니다.'
+                            : '코인이 보유량에 반영되었습니다.'))
                 : '패배 시 보상은 지급되지 않습니다.',
             textAlign: TextAlign.center,
             style: TextStyle(

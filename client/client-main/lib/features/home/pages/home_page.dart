@@ -114,6 +114,16 @@ class _HomePageState extends State<HomePage>
         });
       }
     } catch (e) {
+      final token = await AuthService.getSavedToken();
+      if (token == null || token.isEmpty) {
+        if (!mounted) return;
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(builder: (_) => const LoginPage()),
+          (route) => false,
+        );
+        return;
+      }
       final name = await AuthService.getSavedName();
       if (mounted) {
         setState(() {

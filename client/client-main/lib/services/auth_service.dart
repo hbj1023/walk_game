@@ -66,6 +66,9 @@ class AuthService {
       timeoutMessage: '로그인 서버 응답 시간이 초과되었습니다. 잠시 후 다시 시도해주세요.',
     );
     final body = await _decodeBody(response, fallbackMessage: '로그인에 실패했습니다.');
+    if (response.statusCode == 401) {
+      await logout();
+    }
     if (response.statusCode != 200) {
       throw AuthException(_extractErrorMessage(body, '로그인에 실패했습니다.'));
     }

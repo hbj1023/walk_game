@@ -25,13 +25,18 @@ class _SplashPageState extends State<SplashPage> {
     _timer = Timer(const Duration(milliseconds: 1600), () async {
       final prefs = await SharedPreferences.getInstance();
       final hasSeenIntro = prefs.getBool('hasSeenIntro') ?? false;
-      final token = await AuthService.getSavedToken();
+      var token = await AuthService.getSavedToken();
       if (token != null && token.isNotEmpty) {
         try {
+          await AuthService.fetchMainMessage().timeout(
+            const Duration(seconds: 3),
+          );
           await BattleApiService.leaveStoredUnfinishedNormalBattle().timeout(
             const Duration(seconds: 3),
           );
         } catch (_) {
+          await AuthService.logout();
+          token = null;
           // 강제 종료된 전투 정리는 다음 실행 때 다시 시도합니다.
         }
       }
