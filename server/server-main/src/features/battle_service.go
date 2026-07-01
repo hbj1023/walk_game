@@ -317,6 +317,7 @@ func attackNormalBattle(ctx context.Context, token string, userID string, req No
 		if err != nil {
 			return NormalBattleResponse{}, err
 		}
+		rewardCoin = normalBattleCoinReward(rewardCoin, stage.StageNo, progress, progressFound, character.Level)
 		rewardExp = normalBattleExpReward(stage.StageNo, false, progress, progressFound, character.Level)
 		monsterAttackGaugeM = 0
 	} else if monsterAttackGaugeM >= monsterAttackDistanceM {
@@ -495,6 +496,7 @@ func attackBossBattle(ctx context.Context, token string, userID string, req Norm
 		if err != nil {
 			return NormalBattleResponse{}, err
 		}
+		rewardCoin = normalBattleCoinReward(rewardCoin, stage.StageNo, progress, progressFound, character.Level)
 		rewardExp = normalBattleExpReward(stage.StageNo, true, progress, progressFound, character.Level)
 		monsterAttackGaugeM = 0
 	} else if monsterAttackGaugeM >= monsterAttackDistanceM {
@@ -1086,6 +1088,30 @@ func normalBattleExpReward(stageNo int, isBoss bool, progress stageProgressRecor
 		repeatPercent = 20
 	}
 	return ceilDiv(base*repeatPercent, 100)
+}
+
+func normalBattleCoinReward(baseCoin int, stageNo int, progress stageProgressRecord, progressFound bool, characterLevel int) int {
+	if baseCoin <= 0 {
+		return 0
+	}
+	if stageNo < 1 {
+		stageNo = 1
+	}
+	if characterLevel < 1 {
+		characterLevel = 1
+	}
+	if !progressFound || progress.ClearCount <= 0 {
+		return baseCoin
+	}
+
+	repeatPercent := 35
+	if levelGap := characterLevel - stageNo; levelGap >= 3 {
+		repeatPercent -= (levelGap - 2) * 5
+	}
+	if repeatPercent < 15 {
+		repeatPercent = 15
+	}
+	return ceilDiv(baseCoin*repeatPercent, 100)
 }
 
 func ceilDiv(numerator int, denominator int) int {

@@ -36,3 +36,28 @@ func TestNormalBattleExpRewardLowStageFarmingFallsOff(t *testing.T) {
 		t.Fatalf("high level stage 1 repeat exp = %d, want 7", got)
 	}
 }
+
+func TestNormalBattleCoinRewardFirstClear(t *testing.T) {
+	got := normalBattleCoinReward(100, 3, stageProgressRecord{}, false, 3)
+	if got != 100 {
+		t.Fatalf("first clear coin = %d, want 100", got)
+	}
+}
+
+func TestNormalBattleCoinRewardRepeatClear(t *testing.T) {
+	progress := stageProgressRecord{ClearCount: 1}
+
+	got := normalBattleCoinReward(100, 3, progress, true, 3)
+	if got != 35 {
+		t.Fatalf("repeat clear coin = %d, want 35", got)
+	}
+}
+
+func TestNormalBattleCoinRewardLowStageFarmingFallsOff(t *testing.T) {
+	progress := stageProgressRecord{ClearCount: 1}
+
+	got := normalBattleCoinReward(100, 1, progress, true, 10)
+	if got != 15 {
+		t.Fatalf("high level stage 1 repeat coin = %d, want 15", got)
+	}
+}
