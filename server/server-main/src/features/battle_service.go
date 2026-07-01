@@ -903,7 +903,27 @@ func clearBossStage(ctx context.Context, token string, characterID string, stage
 	if err != nil {
 		return err
 	}
-	return clearNormalStage(ctx, token, characterID, stage, clearedAt)
+	if err := clearNormalStage(ctx, token, characterID, stage, clearedAt); err != nil {
+		return err
+	}
+	return unlockNextNormalStageAfterBoss(ctx, token, characterID, stage.StageNo)
+}
+
+func unlockNextNormalStageAfterBoss(ctx context.Context, token string, characterID string, bossStageNo int) error {
+	nextStage, err := getNormalStageByNo(ctx, token, bossStageNo+1)
+	if err != nil {
+		var statusErr statusError
+		if errors.As(err, &statusErr) && statusErr.status == http.StatusNotFound {
+			return nil
+		}
+		return err
+	}
+
+	nextProgress, nextFound, err := getStageProgress(ctx, token, characterID, nextStage.ID)
+	if err != nil {
+		return err
+	}
+	return unlockNormalStage(ctx, token, characterID, nextStage.ID, nextProgress, nextFound)
 }
 
 func grantRandomBossEquipmentReward(ctx context.Context, token string, characterID string) (any, error) {

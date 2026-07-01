@@ -77,7 +77,7 @@ func ensureNormalStageUnlocked(ctx context.Context, token string, characterID st
 		return unlockNormalStage(ctx, token, characterID, stage.ID, progress, found)
 	}
 
-	previousStage, err := getNormalStageByNo(ctx, token, stage.StageNo-1)
+	previousStage, err := previousStageForUnlock(ctx, token, stage.StageNo)
 	if err != nil {
 		return err
 	}
@@ -90,6 +90,20 @@ func ensureNormalStageUnlocked(ctx context.Context, token string, characterID st
 	}
 
 	return unlockNormalStage(ctx, token, characterID, stage.ID, progress, found)
+}
+
+func previousStageForUnlock(ctx context.Context, token string, stageNo int) (stageRecord, error) {
+	previousStageNo := stageNo - 1
+	previousStage, err := getNormalStageByNo(ctx, token, previousStageNo)
+	if err == nil {
+		return previousStage, nil
+	}
+
+	var statusErr statusError
+	if !errors.As(err, &statusErr) || statusErr.status != http.StatusNotFound {
+		return stageRecord{}, err
+	}
+	return getBossStageByNo(ctx, token, previousStageNo)
 }
 
 func clearNormalStageAndUnlockNext(ctx context.Context, token string, characterID string, stageID string, clearedAt string) error {
