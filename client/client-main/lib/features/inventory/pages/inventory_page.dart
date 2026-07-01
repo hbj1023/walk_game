@@ -117,6 +117,8 @@ class _InventoryPageState extends State<InventoryPage> {
       ..showSnackBar(SnackBar(content: Text(message)));
   }
 
+  int get _statPointBalance => _statSummary?.statExp ?? _gs.statExp;
+
   List<OwnedInventoryItem> get _filteredItems {
     return switch (_inventoryFilter) {
       1 => _items.where((item) => item.itemTemplate.isEquipment).toList(),
@@ -288,8 +290,8 @@ class _InventoryPageState extends State<InventoryPage> {
   Future<void> _upgradeStat(String key) async {
     if (_isActionLoading) return;
     final cost = _statSummary?.costs[key] ?? 0;
-    if (_gs.statExp < cost) {
-      _showMessage('EXP가 부족합니다. 전투로 더 모아주세요.');
+    if (_statPointBalance < cost) {
+      _showMessage('SP가 부족합니다. 레벨업으로 SP를 모아주세요.');
       return;
     }
 
@@ -298,7 +300,7 @@ class _InventoryPageState extends State<InventoryPage> {
       final summary = await GameApiService.upgradeStat(key);
       if (!mounted) return;
       setState(() => _statSummary = summary);
-      _showMessage('${_statLabel[key]} 강화 완료! -$cost EXP');
+      _showMessage('${_statLabel[key]} 강화 완료! -$cost SP');
     } catch (e) {
       if (mounted) _showMessage(e.toString());
     } finally {
@@ -838,12 +840,12 @@ class _InventoryPageState extends State<InventoryPage> {
           _buildExpBadge(width: 28, height: 22, fontSize: 10),
           const SizedBox(width: 6),
           const Text(
-            '보유 EXP',
+            '보유 SP',
             style: TextStyle(color: kTextLight, fontSize: 14),
           ),
           const Spacer(),
           Text(
-            '${_gs.statExp}',
+            '$_statPointBalance',
             style: const TextStyle(
               color: Color(0xFFBFF4FF),
               fontSize: 20,
@@ -862,7 +864,7 @@ class _InventoryPageState extends State<InventoryPage> {
     final cur = summary?.currentStats[key] ?? 0;
     final next = cur + (key == 'hp' ? 10 : 1);
     final cost = summary?.costs[key] ?? 0;
-    final canUp = !_isActionLoading && cost > 0 && _gs.statExp >= cost;
+    final canUp = !_isActionLoading && cost > 0 && _statPointBalance >= cost;
 
     return GestureDetector(
       onTap: () => setState(() => _selectedStatKey = key),

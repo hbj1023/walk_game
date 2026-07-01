@@ -709,7 +709,9 @@ class _BattlePageState extends State<BattlePage> with WidgetsBindingObserver {
           const SizedBox(height: 6),
           Text(
             isWin
-                ? (hasEquipment ? '장비가 인벤토리에 지급되었습니다.' : '코인이 보유량에 반영되었습니다.')
+                ? (statExpReward > 0
+                      ? '레벨업으로 인해 SP ${_fmt(statExpReward)}를 얻었습니다.'
+                      : (hasEquipment ? '장비가 인벤토리에 지급되었습니다.' : '코인이 보유량에 반영되었습니다.'))
                 : '패배 시 보상은 지급되지 않습니다.',
             textAlign: TextAlign.center,
             style: TextStyle(
