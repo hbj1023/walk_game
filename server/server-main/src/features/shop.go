@@ -342,22 +342,42 @@ func purchaseShopItem(ctx context.Context, token string, shopID string, characte
 	}
 
 	if shopItem.StockLimit > 0 {
-		totalPurchased, err := sumPurchaseLogQuantity(ctx, token, fmt.Sprintf("shop_item=%q", shopItemID))
-		if err != nil {
-			return nil, err
-		}
-		if totalPurchased+float64(quantity) > shopItem.StockLimit {
-			return nil, statusError{status: http.StatusBadRequest, message: "stock limit exceeded"}
+		if itemTemplate.ItemType == "equipment" {
+			ownedCount, err := countActiveOwnedEquipmentByTemplate(ctx, token, characterID, itemTemplate.ID)
+			if err != nil {
+				return nil, err
+			}
+			if float64(ownedCount+quantity) > shopItem.StockLimit {
+				return nil, statusError{status: http.StatusBadRequest, message: "stock limit exceeded"}
+			}
+		} else {
+			totalPurchased, err := sumPurchaseLogQuantity(ctx, token, fmt.Sprintf("shop_item=%q", shopItemID))
+			if err != nil {
+				return nil, err
+			}
+			if totalPurchased+float64(quantity) > shopItem.StockLimit {
+				return nil, statusError{status: http.StatusBadRequest, message: "stock limit exceeded"}
+			}
 		}
 	}
 
 	if shopItem.PurchaseLimitPerUser > 0 {
-		userPurchased, err := sumPurchaseLogQuantity(ctx, token, fmt.Sprintf("shop_item=%q && character=%q", shopItemID, characterID))
-		if err != nil {
-			return nil, err
-		}
-		if userPurchased+float64(quantity) > shopItem.PurchaseLimitPerUser {
-			return nil, statusError{status: http.StatusBadRequest, message: "purchase limit per user exceeded"}
+		if itemTemplate.ItemType == "equipment" {
+			ownedCount, err := countActiveOwnedEquipmentByTemplate(ctx, token, characterID, itemTemplate.ID)
+			if err != nil {
+				return nil, err
+			}
+			if float64(ownedCount+quantity) > shopItem.PurchaseLimitPerUser {
+				return nil, statusError{status: http.StatusBadRequest, message: "purchase limit per user exceeded"}
+			}
+		} else {
+			userPurchased, err := sumPurchaseLogQuantity(ctx, token, fmt.Sprintf("shop_item=%q && character=%q", shopItemID, characterID))
+			if err != nil {
+				return nil, err
+			}
+			if userPurchased+float64(quantity) > shopItem.PurchaseLimitPerUser {
+				return nil, statusError{status: http.StatusBadRequest, message: "purchase limit per user exceeded"}
+			}
 		}
 	}
 
@@ -1027,6 +1047,31 @@ func sumPurchaseLogQuantity(ctx context.Context, token string, filter string) (f
 			return total, nil
 		}
 	}
+}
+
+func countActiveOwnedEquipmentByTemplate(ctx context.Context, token string, characterID string, itemTemplateID string) (int, error) {
+	query := url.Values{}
+	query.Set("filter", fmt.Sprintf(
+		"character=%q && item_template=%q && status!=\"sold\" && status!=\"deleted\"",
+		characterID,
+		itemTemplateID,
+	))
+	query.Set("perPage", "1")
+
+	resp, err := pocketBaseRequest(ctx, http.MethodGet, pocketBaseCollectionURL(ownedEquipmentsCollection)+"?"+query.Encode(), token, nil)
+	if err != nil {
+		return 0, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return 0, mapPocketBaseError(resp, "failed to count owned equipments")
+	}
+
+	var list pocketBaseListResponse[ownedEquipmentRecord]
+	if err := json.NewDecoder(resp.Body).Decode(&list); err != nil {
+		return 0, errors.New("failed to parse owned equipments response")
+	}
+	return list.TotalItems, nil
 }
 
 func addCharacterConsumableQuantity(ctx context.Context, token string, characterID string, itemTemplateID string, quantity int) (map[string]any, error) {

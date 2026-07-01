@@ -1282,6 +1282,8 @@ String _localizeApiMessage(String message) {
     'not enough consumable quantity' => '소모품 수량이 부족합니다.',
     'item template is not consumable' => '사용할 수 없는 아이템입니다.',
     'not enough coin balance' => '코인이 부족합니다.',
+    'stock limit exceeded' => '현재 구매할 수 있는 수량을 초과했습니다.',
+    'purchase limit per user exceeded' => '구매 가능 횟수를 초과했습니다.',
     'not enough exp balance' => 'EXP가 부족합니다.',
     'not enough stat exp balance' => '스탯 포인트가 부족합니다.',
     'raid is not active' => '진행 중인 레이드가 아닙니다.',
