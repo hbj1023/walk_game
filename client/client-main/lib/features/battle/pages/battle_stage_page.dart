@@ -454,17 +454,25 @@ class _BattleStagePageState extends State<BattleStagePage> {
             ),
             SafeArea(
               child: SingleChildScrollView(
-                padding: const EdgeInsets.only(bottom: 132),
+                padding: const EdgeInsets.only(bottom: 178),
                 child: Column(
                   children: [
                     _buildTopHud(),
                     _buildTitle(),
                     _buildStagePanel(mapHeight),
                     _buildMonsterPanel(),
-                    _buildStartButton(),
-                    const SizedBox(height: 28),
+                    const SizedBox(height: 12),
                   ],
                 ),
+              ),
+            ),
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 96,
+              child: SafeArea(
+                top: false,
+                child: _buildStartButton(),
               ),
             ),
             if (_isStarting) Positioned.fill(child: _buildLoadingOverlay()),
