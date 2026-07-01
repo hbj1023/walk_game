@@ -23,4 +23,4 @@ VOLUME ["/pb/pb_data"]
 EXPOSE 8090
 USER pocketbase
 
-CMD ["pocketbase", "serve", "--http", "0.0.0.0:8090", "--dir", "/pb/pb_data"]
+CMD ["pocketbase", "serve", "--http", "0.0.0.0:8090", "--dir", "/pb/pb_data", "--migrationsDir", "/pb/pb_migrations"]
