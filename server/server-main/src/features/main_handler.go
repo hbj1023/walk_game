@@ -33,6 +33,9 @@ func mainHandler(w http.ResponseWriter, r *http.Request) {
 		"character_id":         gameCharacter.ID,
 		"character_created":    characterCreated,
 		"character_exists":     true,
+		"level":                gameCharacter.Level,
+		"exp":                  gameCharacter.Exp,
+		"stat_exp":             gameCharacter.StatExp,
 		"coin_balance":         gameCharacter.CoinBalance,
 		"attack_count_balance": gameCharacter.AttackCountBalance,
 	})

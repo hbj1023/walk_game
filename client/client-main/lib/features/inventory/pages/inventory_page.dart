@@ -7,6 +7,8 @@ import 'package:capstone_app/features/battle/pages/battle_stage_page.dart';
 import 'package:capstone_app/features/home/pages/home_page.dart';
 import 'package:capstone_app/features/raid/pages/raid_list_page.dart';
 import 'package:capstone_app/features/shop/pages/shop_page.dart';
+import 'package:capstone_app/widgets/player_level_badge.dart';
+import 'package:capstone_app/widgets/pixel_bottom_nav.dart';
 
 const kBgColor = Color(0xFF110A05);
 const kPanelColor = Color(0xFF271610);
@@ -286,8 +288,8 @@ class _InventoryPageState extends State<InventoryPage> {
   Future<void> _upgradeStat(String key) async {
     if (_isActionLoading) return;
     final cost = _statSummary?.costs[key] ?? 0;
-    if (_gs.coins < cost) {
-      _showMessage('코인이 부족합니다. 전투로 더 모아주세요.');
+    if (_gs.statExp < cost) {
+      _showMessage('EXP가 부족합니다. 전투로 더 모아주세요.');
       return;
     }
 
@@ -296,7 +298,7 @@ class _InventoryPageState extends State<InventoryPage> {
       final summary = await GameApiService.upgradeStat(key);
       if (!mounted) return;
       setState(() => _statSummary = summary);
-      _showMessage('${_statLabel[key]} 강화 완료! -$cost 코인');
+      _showMessage('${_statLabel[key]} 강화 완료! -$cost EXP');
     } catch (e) {
       if (mounted) _showMessage(e.toString());
     } finally {
@@ -356,7 +358,7 @@ class _InventoryPageState extends State<InventoryPage> {
           Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              _buildProfileFrame(),
+              _buildPlayerProfileBlock(),
               const SizedBox(width: 8),
               Text(
                 _userName,
@@ -365,7 +367,11 @@ class _InventoryPageState extends State<InventoryPage> {
                   fontSize: 14,
                   fontWeight: FontWeight.bold,
                   shadows: [
-                    Shadow(color: Colors.black, blurRadius: 6, offset: Offset(1, 1)),
+                    Shadow(
+                      color: Colors.black,
+                      blurRadius: 6,
+                      offset: Offset(1, 1),
+                    ),
                   ],
                 ),
               ),
@@ -378,6 +384,7 @@ class _InventoryPageState extends State<InventoryPage> {
     );
   }
 
+  // ignore: unused_element
   Widget _buildProfileFrame() {
     return Stack(
       alignment: Alignment.center,
@@ -397,6 +404,14 @@ class _InventoryPageState extends State<InventoryPage> {
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildPlayerProfileBlock() {
+    return PlayerProfileWithLevel(
+      level: _gs.level,
+      exp: _gs.exp,
+      expToNext: _gs.expToNextLevel,
     );
   }
 
@@ -790,26 +805,47 @@ class _InventoryPageState extends State<InventoryPage> {
     );
   }
 
+  Widget _buildExpBadge({
+    required double width,
+    required double height,
+    required double fontSize,
+  }) {
+    return Container(
+      width: width,
+      height: height,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: const Color(0xFF173F54),
+        borderRadius: BorderRadius.circular(5),
+        border: Border.all(color: const Color(0xFF69D8FF), width: 1),
+      ),
+      child: Text(
+        'XP',
+        style: TextStyle(
+          color: const Color(0xFFBFF4FF),
+          fontSize: fontSize,
+          fontWeight: FontWeight.w900,
+        ),
+      ),
+    );
+  }
+
   Widget _buildCurrencyRow() {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       child: Row(
         children: [
-          Image.asset(
-            'assets/images/icon/coin_icon.png',
-            width: 18,
-            height: 18,
-          ),
+          _buildExpBadge(width: 28, height: 22, fontSize: 10),
           const SizedBox(width: 6),
           const Text(
-            '보유 재화',
+            '보유 EXP',
             style: TextStyle(color: kTextLight, fontSize: 14),
           ),
           const Spacer(),
           Text(
-            '${_gs.coins}',
+            '${_gs.statExp}',
             style: const TextStyle(
-              color: kGold,
+              color: Color(0xFFBFF4FF),
               fontSize: 20,
               fontWeight: FontWeight.bold,
             ),
@@ -824,9 +860,9 @@ class _InventoryPageState extends State<InventoryPage> {
   Widget _buildStatRow(String key) {
     final summary = _statSummary;
     final cur = summary?.currentStats[key] ?? 0;
-    final next = cur + 1;
+    final next = cur + (key == 'hp' ? 10 : 1);
     final cost = summary?.costs[key] ?? 0;
-    final canUp = !_isActionLoading && cost > 0 && _gs.coins >= cost;
+    final canUp = !_isActionLoading && cost > 0 && _gs.statExp >= cost;
 
     return GestureDetector(
       onTap: () => setState(() => _selectedStatKey = key),
@@ -890,16 +926,12 @@ class _InventoryPageState extends State<InventoryPage> {
                 ],
               ),
             ),
-            Image.asset(
-              'assets/images/icon/coin_icon.png',
-              width: 16,
-              height: 16,
-            ),
+            _buildExpBadge(width: 24, height: 18, fontSize: 9),
             const SizedBox(width: 4),
             Text(
               '$cost',
               style: TextStyle(
-                color: canUp ? kGold : kTextGray,
+                color: canUp ? const Color(0xFFBFF4FF) : kTextGray,
                 fontSize: 12,
                 fontWeight: FontWeight.bold,
               ),
@@ -963,71 +995,37 @@ class _InventoryPageState extends State<InventoryPage> {
 
   Widget _buildBottomNav() {
     final items = [
-      _NavItem(icon: 'assets/images/nav/nav_shop.png', label: '상점', index: 0),
-      _NavItem(
+      PixelBottomNavItem(
+        icon: 'assets/images/nav/nav_shop.png',
+        label: '상점',
+        index: 0,
+      ),
+      PixelBottomNavItem(
         icon: 'assets/images/nav/nav_character.png',
         label: '캐릭터',
         index: 1,
       ),
-      _NavItem(icon: 'assets/images/nav/nav_home.png', label: '홈', index: 2),
-      _NavItem(icon: 'assets/images/nav/nav_battle.png', label: '전투', index: 3),
-      _NavItem(icon: 'assets/images/nav/nav_raid.png', label: '레이드', index: 4),
+      PixelBottomNavItem(
+        icon: 'assets/images/nav/nav_home.png',
+        label: '홈',
+        index: 2,
+      ),
+      PixelBottomNavItem(
+        icon: 'assets/images/nav/nav_battle.png',
+        label: '전투',
+        index: 3,
+      ),
+      PixelBottomNavItem(
+        icon: 'assets/images/nav/nav_raid.png',
+        label: '레이드',
+        index: 4,
+      ),
     ];
 
-    return Container(
-      color: Colors.transparent,
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.end,
-        children: items.map((item) {
-          const currentIndex = 1;
-          final isSelected = currentIndex == item.index;
-          return Expanded(
-            child: GestureDetector(
-              onTap: () => _navigateBottom(item.index),
-              child: Container(
-                padding: const EdgeInsets.symmetric(vertical: 10),
-                decoration: BoxDecoration(
-                  color: isSelected
-                      ? const Color(0xFF2E2E2E)
-                      : const Color(0xFF232323),
-                  borderRadius: const BorderRadius.vertical(
-                    top: Radius.circular(28),
-                  ),
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    isSelected
-                        ? Image.asset(item.icon, width: 36, height: 36)
-                        : ColorFiltered(
-                            colorFilter: const ColorFilter.matrix([
-                              0.3, 0, 0, 0, 0,
-                              0, 0.3, 0, 0, 0,
-                              0, 0, 0.3, 0, 0,
-                              0, 0, 0, 1, 0,
-                            ]),
-                            child: Image.asset(item.icon, width: 36, height: 36),
-                          ),
-                    const SizedBox(height: 6),
-                    Text(
-                      item.label,
-                      style: TextStyle(
-                        color: isSelected
-                            ? const Color(0xFFF0C040)
-                            : Colors.white38,
-                        fontSize: 11,
-                        fontWeight: isSelected
-                            ? FontWeight.bold
-                            : FontWeight.normal,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          );
-        }).toList(),
-      ),
+    return PixelBottomNav(
+      items: items,
+      currentIndex: 1,
+      onTap: (item) async => _navigateBottom(item.index),
     );
   }
 
@@ -1063,15 +1061,4 @@ class _InventoryPageState extends State<InventoryPage> {
       ),
     );
   }
-}
-
-class _NavItem {
-  final String icon;
-  final String label;
-  final int index;
-  const _NavItem({
-    required this.icon,
-    required this.label,
-    required this.index,
-  });
 }

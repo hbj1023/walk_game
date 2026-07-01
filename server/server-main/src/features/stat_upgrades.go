@@ -129,6 +129,11 @@ func getStatUpgradeCosts(ctx context.Context, token string, characterID string) 
 }
 
 func getStatUpgradeSummary(ctx context.Context, token string, characterID string) (map[string]any, error) {
+	character, err := getBattleCharacterByID(ctx, token, characterID)
+	if err != nil {
+		return nil, err
+	}
+
 	stats, err := getBattleCharacterStats(ctx, token, characterID)
 	if err != nil {
 		return nil, err
@@ -152,6 +157,9 @@ func getStatUpgradeSummary(ctx context.Context, token string, characterID string
 		"current_stats":   current,
 		"upgraded_stats":  upgraded,
 		"character_stats": stats,
+		"exp":             character.Exp,
+		"stat_exp":        character.StatExp,
+		"resource_type":   "stat_exp",
 	}, nil
 }
 
@@ -173,8 +181,8 @@ func upgradeCharacterStat(ctx context.Context, token string, characterID string,
 
 	currentStat := currentStatValue(stats, statType)
 	cost := calculateStatUpgradeCost(currentStat, setting)
-	if character.CoinBalance < cost {
-		return nil, statusError{status: http.StatusBadRequest, message: "not enough coin balance"}
+	if character.StatExp < cost {
+		return nil, statusError{status: http.StatusBadRequest, message: "not enough stat exp balance"}
 	}
 
 	beforeMaxHP := 0
@@ -184,12 +192,12 @@ func upgradeCharacterStat(ctx context.Context, token string, characterID string,
 			return nil, err
 		}
 	}
-	afterCoin := character.CoinBalance - cost
+	afterStatExp := character.StatExp - cost
 	upgradeAmount := statUpgradeAmount(statType)
 	updatedStatValue := upgradedStatValue(stats, statType) + upgradeAmount
 
 	updatedCharacter, err := patchBattleCharacter(ctx, token, characterID, map[string]any{
-		"coin_balance": afterCoin,
+		"stat_exp": afterStatExp,
 	})
 	if err != nil {
 		return nil, err
@@ -214,18 +222,21 @@ func upgradeCharacterStat(ctx context.Context, token string, characterID string,
 		hpDelta = delta
 	}
 
-	logRecord, err := createStatUpgradeLog(ctx, token, characterID, statType, currentStat, currentStat+upgradeAmount, cost, afterCoin)
+	logRecord, err := createStatUpgradeLog(ctx, token, characterID, statType, currentStat, currentStat+upgradeAmount, cost, afterStatExp)
 	if err != nil {
 		return nil, err
 	}
 
-	if err := createStatUpgradeResourceTransaction(ctx, token, characterID, logRecord["id"], cost, afterCoin, fmt.Sprintf("%s stat upgrade", statType)); err != nil {
+	if err := createStatUpgradeResourceTransaction(ctx, token, characterID, logRecord["id"], cost, afterStatExp, fmt.Sprintf("%s stat upgrade", statType)); err != nil {
 		return nil, err
 	}
 
 	return map[string]any{
 		"statType":          statType,
-		"usedCoin":          cost,
+		"usedExp":           cost,
+		"usedCoin":          0,
+		"exp":               updatedCharacter.Exp,
+		"stat_exp":          updatedCharacter.StatExp,
 		"coin_balance":      updatedCharacter.CoinBalance,
 		"upgraded_stat_key": upgradedStatField(statType),
 		"upgraded_stat":     updatedStatValue,
@@ -366,12 +377,12 @@ func createStatUpgradeLog(ctx context.Context, token string, characterID string,
 	return record, nil
 }
 
-func createStatUpgradeResourceTransaction(ctx context.Context, token string, characterID string, sourceID any, costCoin int, balanceAfter int, reason string) error {
+func createStatUpgradeResourceTransaction(ctx context.Context, token string, characterID string, sourceID any, costExp int, balanceAfter int, reason string) error {
 	payload := map[string]any{
 		"character":        characterID,
-		"resource_type":    "coin",
+		"resource_type":    "stat_exp",
 		"transaction_type": "use",
-		"amount":           -costCoin,
+		"amount":           -costExp,
 		"balance_after":    balanceAfter,
 		"source_type":      "stat_upgrade",
 		"reason":           reason,

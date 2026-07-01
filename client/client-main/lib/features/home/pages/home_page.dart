@@ -10,6 +10,8 @@ import 'package:capstone_app/features/inventory/pages/inventory_page.dart';
 import 'package:capstone_app/features/auth/pages/login_page.dart';
 import 'package:capstone_app/features/raid/pages/raid_list_page.dart';
 import 'package:capstone_app/features/shop/pages/shop_page.dart';
+import 'package:capstone_app/widgets/player_level_badge.dart';
+import 'package:capstone_app/widgets/pixel_bottom_nav.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -29,7 +31,6 @@ class _HomePageState extends State<HomePage>
   late AnimationController _bgController;
   double _bgAspectRatio = 2.0; // 이미지 로드 전 기본값
 
-  bool _isDistanceAdding = false;
   bool _profileLoading = true;
   String? _profileError;
   bool _missionLoading = true;
@@ -166,65 +167,6 @@ class _HomePageState extends State<HomePage>
     }
   }
 
-  Future<void> _openDistanceAddDialog() async {
-    final controller = TextEditingController(text: '100');
-    final distanceM = await showDialog<int>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('이동거리 추가'),
-        content: TextField(
-          controller: controller,
-          keyboardType: TextInputType.number,
-          decoration: const InputDecoration(
-            labelText: '이동 거리(m)',
-            helperText: '입력한 이동거리를 서버에 누적 반영합니다.',
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext),
-            child: const Text('취소'),
-          ),
-          TextButton(
-            onPressed: () {
-              final value = int.tryParse(controller.text.trim());
-              Navigator.pop(dialogContext, value);
-            },
-            child: const Text('추가'),
-          ),
-        ],
-      ),
-    );
-    controller.dispose();
-    if (distanceM == null || distanceM <= 0) return;
-
-    setState(() => _isDistanceAdding = true);
-    try {
-      final result = await GameApiService.addDistanceDelta(
-        distanceM: distanceM,
-      );
-      await _loadMissions();
-      if (!mounted) return;
-      ScaffoldMessenger.of(context)
-        ..removeCurrentSnackBar()
-        ..showSnackBar(
-          SnackBar(
-            content: Text(
-              '이동거리 ${result.deltaDistanceM}m가 추가되었습니다. 공격 횟수 ${result.attackCountBalance}회',
-            ),
-          ),
-        );
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context)
-          ..removeCurrentSnackBar()
-          ..showSnackBar(SnackBar(content: Text(e.toString())));
-      }
-    } finally {
-      if (mounted) setState(() => _isDistanceAdding = false);
-    }
-  }
-
   void _showSnackBar(String message) {
     ScaffoldMessenger.of(context)
       ..removeCurrentSnackBar()
@@ -304,7 +246,7 @@ class _HomePageState extends State<HomePage>
           Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              _buildProfileFrame(),
+              _buildPlayerProfileBlock(),
               const SizedBox(width: 8),
               _buildFloatingName(),
             ],
@@ -331,6 +273,7 @@ class _HomePageState extends State<HomePage>
     );
   }
 
+  // ignore: unused_element
   Widget _buildProfileFrame() {
     return Stack(
       alignment: Alignment.center,
@@ -353,17 +296,56 @@ class _HomePageState extends State<HomePage>
     );
   }
 
+  Widget _buildPlayerProfileBlock() {
+    return PlayerProfileWithLevel(
+      level: _gs.level,
+      exp: _gs.exp,
+      expToNext: _gs.expToNextLevel,
+    );
+  }
+
   Widget _buildFloatingName() {
-    return Text(
-      _userName,
-      style: const TextStyle(
-        color: Colors.white,
-        fontSize: 14,
-        fontWeight: FontWeight.bold,
-        shadows: [
-          Shadow(color: Colors.black, blurRadius: 6, offset: Offset(1, 1)),
-        ],
-      ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          _userName,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 14,
+            fontWeight: FontWeight.bold,
+            shadows: [
+              Shadow(color: Colors.black, blurRadius: 6, offset: Offset(1, 1)),
+            ],
+          ),
+        ),
+        const SizedBox(height: 3),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+          decoration: BoxDecoration(
+            color: Colors.black.withValues(alpha: 0.62),
+            borderRadius: BorderRadius.circular(5),
+            border: Border.all(color: const Color(0xFF6B3A1F), width: 1),
+          ),
+          child: Text(
+            'LV.${_gs.level}  XP ${_gs.exp}/${_gs.expToNextLevel}',
+            style: const TextStyle(
+              color: Color(0xFFBFF4FF),
+              fontSize: 10,
+              fontWeight: FontWeight.w900,
+              height: 1,
+              shadows: [
+                Shadow(
+                  color: Colors.black,
+                  blurRadius: 3,
+                  offset: Offset(1, 1),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
     );
   }
 
@@ -627,107 +609,150 @@ class _HomePageState extends State<HomePage>
         .length;
     final nextMission = _nextDailyMission(dailyMissions);
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 24),
+    return FractionallySizedBox(
+      widthFactor: 0.86,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        padding: const EdgeInsets.all(3),
         decoration: BoxDecoration(
-          color: Colors.black.withValues(alpha: 0.72),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: const Color(0xFF6B3A1F), width: 2),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (_profileLoading || _profileError != null) ...[
-              _buildConnectionBanner(),
-              const SizedBox(height: 8),
-            ],
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  '일일 퀘스트',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                Text(
-                  '${(progress * 100).toInt()}%',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(6),
-              child: LinearProgressIndicator(
-                value: progress,
-                minHeight: 12,
-                backgroundColor: Colors.grey.shade800,
-                valueColor: const AlwaysStoppedAnimation<Color>(
-                  Color(0xFF4DA6FF),
-                ),
-              ),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              _dailyQuestSummaryText(
-                dailyMissions: dailyMissions,
-                completedCount: completedCount,
-                nextMission: nextMission,
-              ),
-              style: const TextStyle(color: Colors.white70, fontSize: 12),
-            ),
-            const SizedBox(height: 8),
-            Align(
-              alignment: Alignment.centerLeft,
-              child: Text(
-                '공격 횟수: ${_gs.attackCountBalance}',
-                style: const TextStyle(color: Colors.white54, fontSize: 11),
-              ),
-            ),
-            const SizedBox(height: 4),
-            Align(
-              alignment: Alignment.centerLeft,
-              child: Text(
-                _stepTracker.statusLabel,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(color: Colors.white54, fontSize: 11),
-              ),
-            ),
-            const SizedBox(height: 8),
-            Wrap(
-              spacing: 8,
-              runSpacing: 6,
-              alignment: WrapAlignment.end,
-              children: [
-                _buildProgressActionButton(
-                  label: _stepTracker.isTracking
-                      ? '걸음 추적 중지'
-                      : (_stepTracker.isStarting ? '준비 중...' : '걸음 추적 시작'),
-                  onTap: (_stepTracker.isStarting || _stepTracker.isSyncing)
-                      ? null
-                      : _stepTracker.toggle,
-                  color: _stepTracker.isTracking
-                      ? const Color(0xFFFF6B6B)
-                      : const Color(0xFF4DA6FF),
-                ),
-                _buildProgressActionButton(
-                  label: _isDistanceAdding ? '추가 중...' : '이동거리 추가',
-                  onTap: _isDistanceAdding ? null : _openDistanceAddDialog,
-                  color: const Color(0xFF8F6BFF),
-                ),
-              ],
+          color: const Color(0xFF080403).withValues(alpha: 0.94),
+          border: Border.all(color: const Color(0xFF000000), width: 3),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.6),
+              offset: const Offset(0, 5),
+              blurRadius: 0,
             ),
           ],
+        ),
+        child: Container(
+          padding: const EdgeInsets.fromLTRB(8, 7, 8, 8),
+          decoration: BoxDecoration(
+            color: const Color(0xFF202638).withValues(alpha: 0.96),
+            border: Border.all(color: const Color(0xFFE2B24A), width: 2),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (_profileLoading || _profileError != null) ...[
+                _buildConnectionBanner(),
+                const SizedBox(height: 8),
+              ],
+              Container(
+                height: 24,
+                padding: const EdgeInsets.symmetric(horizontal: 7),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF111521),
+                  border: Border.all(color: const Color(0xFF090A0F), width: 2),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 7,
+                      height: 7,
+                      color: const Color(0xFFFFD15B),
+                    ),
+                    const SizedBox(width: 6),
+                    const Expanded(
+                      child: Text(
+                        '일일 퀘스트',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: Color(0xFFFFE19A),
+                          fontSize: 12,
+                          fontWeight: FontWeight.w900,
+                          shadows: [
+                            Shadow(
+                              offset: Offset(1, 1),
+                              color: Color(0xFF000000),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    Text(
+                      '${(progress * 100).toInt()}%',
+                      style: const TextStyle(
+                        color: Color(0xFFFFFFFF),
+                        fontSize: 11,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 7),
+              _PixelProgressBar(value: progress),
+              const SizedBox(height: 7),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  _dailyQuestSummaryText(
+                    dailyMissions: dailyMissions,
+                    completedCount: completedCount,
+                    nextMission: nextMission,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Color(0xFFE4DEC7),
+                    fontSize: 10,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 6),
+              Row(
+                children: [
+                  Expanded(
+                    child: Container(
+                      height: 23,
+                      padding: const EdgeInsets.symmetric(horizontal: 7),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF111521),
+                        border: Border.all(
+                          color: const Color(0xFF3A4962),
+                          width: 2,
+                        ),
+                      ),
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        '공격 횟수 ${_gs.attackCountBalance}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: Color(0xFFC7D6E6),
+                          fontSize: 10,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  Container(
+                    height: 23,
+                    padding: const EdgeInsets.symmetric(horizontal: 7),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF07090E),
+                      border: Border.all(
+                        color: const Color(0xFF6B5130),
+                        width: 2,
+                      ),
+                    ),
+                    alignment: Alignment.center,
+                    child: Text(
+                      _missionLoading ? 'LOAD' : 'READY',
+                      style: const TextStyle(
+                        color: Color(0xFFFFD15B),
+                        fontSize: 9,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -822,32 +847,6 @@ class _HomePageState extends State<HomePage>
     return '완료 $completedCount/${dailyMissions.length} · ${nextMission.title} ${nextMission.progressValue.toInt()}/${nextMission.targetValue.toInt()}${nextMission.unit}';
   }
 
-  Widget _buildProgressActionButton({
-    required String label,
-    required VoidCallback? onTap,
-    required Color color,
-  }) {
-    final enabled = onTap != null;
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-        decoration: BoxDecoration(
-          color: color.withValues(alpha: enabled ? 0.18 : 0.08),
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: enabled ? color : Colors.white24),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            color: enabled ? Colors.white : Colors.white38,
-            fontSize: 11,
-          ),
-        ),
-      ),
-    );
-  }
-
   Widget _buildPageFadeTransition(Animation<double> opacity, Widget child) {
     return ColoredBox(
       color: const Color(0xFF100B08),
@@ -857,157 +856,148 @@ class _HomePageState extends State<HomePage>
 
   Widget _buildBottomNav() {
     final items = [
-      _NavItem(icon: 'assets/images/nav/nav_shop.png', label: '상점', index: 0),
-      _NavItem(
+      PixelBottomNavItem(
+        icon: 'assets/images/nav/nav_shop.png',
+        label: '상점',
+        index: 0,
+      ),
+      PixelBottomNavItem(
         icon: 'assets/images/nav/nav_character.png',
         label: '캐릭터',
         index: 1,
       ),
-      _NavItem(icon: 'assets/images/nav/nav_home.png', label: '홈', index: 2),
-      _NavItem(icon: 'assets/images/nav/nav_battle.png', label: '전투', index: 3),
-      _NavItem(icon: 'assets/images/nav/nav_raid.png', label: '레이드', index: 4),
+      PixelBottomNavItem(
+        icon: 'assets/images/nav/nav_home.png',
+        label: '홈',
+        index: 2,
+      ),
+      PixelBottomNavItem(
+        icon: 'assets/images/nav/nav_battle.png',
+        label: '전투',
+        index: 3,
+      ),
+      PixelBottomNavItem(
+        icon: 'assets/images/nav/nav_raid.png',
+        label: '레이드',
+        index: 4,
+      ),
     ];
 
-    return Container(
-      color: Colors.transparent,
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.end,
-        children: items.map((item) {
-          final isSelected = _currentNavIndex == item.index;
-          return Expanded(
-            child: GestureDetector(
-              onTap: () async {
-                if (item.index == 0) {
-                  Navigator.push(
-                    context,
-                    PageRouteBuilder(
-                      pageBuilder: (context, _, _) => const ShopPage(),
-                      transitionsBuilder: (context, animation, _, child) {
-                        final curved = CurvedAnimation(
-                          parent: animation,
-                          curve: Curves.easeInOut,
-                        );
-                        return _buildPageFadeTransition(curved, child);
-                      },
-                      transitionDuration: const Duration(milliseconds: 300),
-                    ),
-                  ).then((_) => setState(() => _currentNavIndex = 2));
-                } else if (item.index == 1) {
-                  Navigator.push(
-                    context,
-                    PageRouteBuilder(
-                      pageBuilder: (context, _, _) => const InventoryPage(),
-                      transitionsBuilder: (context, animation, _, child) {
-                        final curved = CurvedAnimation(
-                          parent: animation,
-                          curve: Curves.easeInOut,
-                        );
-                        return _buildPageFadeTransition(curved, child);
-                      },
-                      transitionDuration: const Duration(milliseconds: 300),
-                    ),
-                  ).then((_) => setState(() => _currentNavIndex = 2));
-                } else if (item.index == 4) {
-                  Navigator.push(
-                    context,
-                    PageRouteBuilder(
-                      pageBuilder: (context, _, _) => const RaidListPage(),
-                      transitionsBuilder: (context, animation, _, child) {
-                        final curved = CurvedAnimation(
-                          parent: animation,
-                          curve: Curves.easeInOut,
-                        );
-                        return _buildPageFadeTransition(curved, child);
-                      },
-                      transitionDuration: const Duration(milliseconds: 300),
-                    ),
-                  ).then((_) => setState(() => _currentNavIndex = 2));
-                } else if (item.index == 3) {
-                  if (_stepTracker.isTracking) {
-                    await _stepTracker.stop();
-                    if (!mounted) return;
-                  }
-                  Navigator.push(
-                    context,
-                    PageRouteBuilder(
-                      pageBuilder: (context, _, _) => const BattleStagePage(),
-                      transitionsBuilder: (context, animation, _, child) {
-                        final curved = CurvedAnimation(
-                          parent: animation,
-                          curve: Curves.easeInOut,
-                        );
-                        return _buildPageFadeTransition(curved, child);
-                      },
-                      transitionDuration: const Duration(milliseconds: 300),
-                    ),
-                  ).then((_) => setState(() => _currentNavIndex = 2));
-                } else {
-                  setState(() => _currentNavIndex = item.index);
-                }
+    return PixelBottomNav(
+      items: items,
+      currentIndex: _currentNavIndex,
+      onTap: (item) async {
+        if (item.index == 0) {
+          Navigator.push(
+            context,
+            PageRouteBuilder(
+              pageBuilder: (context, _, _) => const ShopPage(),
+              transitionsBuilder: (context, animation, _, child) {
+                final curved = CurvedAnimation(
+                  parent: animation,
+                  curve: Curves.easeInOut,
+                );
+                return _buildPageFadeTransition(curved, child);
               },
+              transitionDuration: const Duration(milliseconds: 300),
+            ),
+          ).then((_) => setState(() => _currentNavIndex = 2));
+        } else if (item.index == 1) {
+          Navigator.push(
+            context,
+            PageRouteBuilder(
+              pageBuilder: (context, _, _) => const InventoryPage(),
+              transitionsBuilder: (context, animation, _, child) {
+                final curved = CurvedAnimation(
+                  parent: animation,
+                  curve: Curves.easeInOut,
+                );
+                return _buildPageFadeTransition(curved, child);
+              },
+              transitionDuration: const Duration(milliseconds: 300),
+            ),
+          ).then((_) => setState(() => _currentNavIndex = 2));
+        } else if (item.index == 4) {
+          Navigator.push(
+            context,
+            PageRouteBuilder(
+              pageBuilder: (context, _, _) => const RaidListPage(),
+              transitionsBuilder: (context, animation, _, child) {
+                final curved = CurvedAnimation(
+                  parent: animation,
+                  curve: Curves.easeInOut,
+                );
+                return _buildPageFadeTransition(curved, child);
+              },
+              transitionDuration: const Duration(milliseconds: 300),
+            ),
+          ).then((_) => setState(() => _currentNavIndex = 2));
+        } else if (item.index == 3) {
+          if (_stepTracker.isTracking) {
+            await _stepTracker.stop();
+            if (!mounted) return;
+          }
+          Navigator.push(
+            context,
+            PageRouteBuilder(
+              pageBuilder: (context, _, _) => const BattleStagePage(),
+              transitionsBuilder: (context, animation, _, child) {
+                final curved = CurvedAnimation(
+                  parent: animation,
+                  curve: Curves.easeInOut,
+                );
+                return _buildPageFadeTransition(curved, child);
+              },
+              transitionDuration: const Duration(milliseconds: 300),
+            ),
+          ).then((_) => setState(() => _currentNavIndex = 2));
+        } else {
+          setState(() => _currentNavIndex = item.index);
+        }
+      },
+    );
+  }
+}
+
+class _PixelProgressBar extends StatelessWidget {
+  final double value;
+
+  const _PixelProgressBar({required this.value});
+
+  @override
+  Widget build(BuildContext context) {
+    final activeSegments = (value.clamp(0.0, 1.0) * 12).round();
+
+    return Container(
+      height: 16,
+      padding: const EdgeInsets.all(2),
+      decoration: BoxDecoration(
+        color: const Color(0xFF05070B),
+        border: Border.all(color: const Color(0xFF000000), width: 2),
+      ),
+      child: Row(
+        children: List.generate(12, (index) {
+          final isActive = index < activeSegments;
+          return Expanded(
+            child: Padding(
+              padding: EdgeInsets.only(right: index == 11 ? 0 : 2),
               child: Container(
-                padding: const EdgeInsets.symmetric(vertical: 10),
-                decoration: BoxDecoration(
-                  color: isSelected
-                      ? const Color(0xFF2E2E2E)
-                      : const Color(0xFF232323),
-                  borderRadius: const BorderRadius.vertical(
-                    top: Radius.circular(28),
-                  ),
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    isSelected
-                        ? Image.asset(item.icon, width: 36, height: 36)
-                        : ColorFiltered(
-                            colorFilter: const ColorFilter.matrix([
-                              0.3,
-                              0,
-                              0,
-                              0,
-                              0,
-                              0,
-                              0.3,
-                              0,
-                              0,
-                              0,
-                              0,
-                              0,
-                              0.3,
-                              0,
-                              0,
-                              0,
-                              0,
-                              0,
-                              1,
-                              0,
-                            ]),
-                            child: Image.asset(
-                              item.icon,
-                              width: 36,
-                              height: 36,
-                            ),
-                          ),
-                    const SizedBox(height: 6),
-                    Text(
-                      item.label,
-                      style: TextStyle(
-                        color: isSelected
-                            ? const Color(0xFFF0C040)
-                            : Colors.white38,
-                        fontSize: 11,
-                        fontWeight: isSelected
-                            ? FontWeight.bold
-                            : FontWeight.normal,
-                      ),
-                    ),
-                  ],
-                ),
+                color: isActive
+                    ? const Color(0xFF4DA6FF)
+                    : const Color(0xFF202634),
+                child: isActive
+                    ? Align(
+                        alignment: Alignment.topCenter,
+                        child: Container(
+                          height: 3,
+                          color: const Color(0xFF9AD7FF),
+                        ),
+                      )
+                    : null,
               ),
             ),
           );
-        }).toList(),
+        }),
       ),
     );
   }
@@ -1383,17 +1373,6 @@ class _SimpleTabMessage extends StatelessWidget {
       ),
     );
   }
-}
-
-class _NavItem {
-  final String icon;
-  final String label;
-  final int index;
-  const _NavItem({
-    required this.icon,
-    required this.label,
-    required this.index,
-  });
 }
 
 class WalkingCharacter extends StatefulWidget {

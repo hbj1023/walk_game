@@ -19,12 +19,18 @@ class BattleApiException implements Exception {
 class NormalBattleCharacter {
   final String id;
   final int currentHp;
+  final int level;
+  final int exp;
+  final int statExp;
   final int coinBalance;
   final int attackCountBalance;
 
   const NormalBattleCharacter({
     required this.id,
     required this.currentHp,
+    required this.level,
+    required this.exp,
+    required this.statExp,
     required this.coinBalance,
     required this.attackCountBalance,
   });
@@ -33,6 +39,9 @@ class NormalBattleCharacter {
     return NormalBattleCharacter(
       id: (json['id'] ?? '') as String,
       currentHp: _asInt(json['current_hp']),
+      level: _asInt(json['level']),
+      exp: _asInt(json['exp']),
+      statExp: _asInt(json['stat_exp']),
       coinBalance: _asInt(json['coin_balance']),
       attackCountBalance: _asInt(json['attack_count_balance']),
     );
@@ -115,6 +124,7 @@ class NormalBattleResult {
   final int monsterDamage;
   final bool monsterAttacked;
   final int rewardCoin;
+  final int rewardExp;
   final int attackCountBalance;
   final double monsterAttackGaugeM;
   final double monsterAttackDistanceM;
@@ -129,6 +139,7 @@ class NormalBattleResult {
     required this.monsterDamage,
     required this.monsterAttacked,
     required this.rewardCoin,
+    required this.rewardExp,
     required this.attackCountBalance,
     required this.monsterAttackGaugeM,
     required this.monsterAttackDistanceM,
@@ -145,6 +156,7 @@ class NormalBattleResult {
       monsterDamage: _asInt(json['monster_damage']),
       monsterAttacked: (json['monster_attacked'] ?? false) as bool,
       rewardCoin: _asInt(json['reward_coin']),
+      rewardExp: _asInt(json['reward_exp']),
       attackCountBalance: _asInt(json['attack_count_balance']),
       monsterAttackGaugeM: _asDouble(json['monster_attack_gauge_m']),
       monsterAttackDistanceM: _asDouble(json['monster_attack_distance_m']),

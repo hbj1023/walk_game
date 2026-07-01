@@ -1,4 +1,4 @@
-import 'dart:math' as math;
+﻿import 'dart:math' as math;
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
@@ -12,6 +12,8 @@ import 'package:capstone_app/features/home/pages/home_page.dart';
 import 'package:capstone_app/features/inventory/pages/inventory_page.dart';
 import 'package:capstone_app/features/raid/pages/raid_list_page.dart';
 import 'package:capstone_app/features/shop/pages/shop_page.dart';
+import 'package:capstone_app/widgets/player_level_badge.dart';
+import 'package:capstone_app/widgets/pixel_bottom_nav.dart';
 
 const _kPanelBg = Color(0xCC0B0B0B);
 const _kPanelBorder = Color(0xFF6B3A1F);
@@ -288,6 +290,9 @@ class _BattleStagePageState extends State<BattleStagePage> {
               stageNo: selectedStage.stageNo,
             );
       _gs.setCoins(result.character.coinBalance);
+      _gs.setLevel(result.character.level);
+      _gs.setExp(result.character.exp);
+      _gs.setStatExp(result.character.statExp);
 
       if (!mounted) return;
       Navigator.push(
@@ -369,7 +374,7 @@ class _BattleStagePageState extends State<BattleStagePage> {
             ),
             SafeArea(
               child: SingleChildScrollView(
-                padding: const EdgeInsets.only(bottom: 96),
+                padding: const EdgeInsets.only(bottom: 132),
                 child: Column(
                   children: [
                     _buildTopHud(),
@@ -377,6 +382,7 @@ class _BattleStagePageState extends State<BattleStagePage> {
                     _buildStagePanel(mapHeight),
                     _buildMonsterPanel(),
                     _buildStartButton(),
+                    const SizedBox(height: 28),
                   ],
                 ),
               ),
@@ -490,25 +496,7 @@ class _BattleStagePageState extends State<BattleStagePage> {
           Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              Stack(
-                alignment: Alignment.center,
-                children: [
-                  Image.asset(
-                    'assets/images/profile_frame.png',
-                    width: 56,
-                    height: 56,
-                    fit: BoxFit.contain,
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.all(10),
-                    child: Icon(
-                      Icons.person,
-                      size: 24,
-                      color: Colors.white.withValues(alpha: 0.6),
-                    ),
-                  ),
-                ],
-              ),
+              _buildPlayerProfileBlock(),
               const SizedBox(width: 8),
               Text(
                 _userName,
@@ -568,6 +556,14 @@ class _BattleStagePageState extends State<BattleStagePage> {
     );
   }
 
+  Widget _buildPlayerProfileBlock() {
+    return PlayerProfileWithLevel(
+      level: _gs.level,
+      exp: _gs.exp,
+      expToNext: _gs.expToNextLevel,
+    );
+  }
+
   Widget _buildTitle() {
     return Padding(
       padding: const EdgeInsets.fromLTRB(12, 10, 12, 8),
@@ -609,11 +605,10 @@ class _BattleStagePageState extends State<BattleStagePage> {
   }
 
   Widget _buildStagePanel(double mapHeight) {
-    final selectedStage = _selectedStage;
     return Padding(
       padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
       child: Container(
-        padding: const EdgeInsets.all(8),
+        padding: const EdgeInsets.fromLTRB(10, 10, 10, 8),
         decoration: BoxDecoration(
           color: _kPanelBg,
           borderRadius: BorderRadius.circular(12),
@@ -624,34 +619,79 @@ class _BattleStagePageState extends State<BattleStagePage> {
             Row(
               children: [
                 Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 7,
-                  ),
+                  width: 34,
+                  height: 34,
                   decoration: BoxDecoration(
-                    color: const Color(0xFF7A2A1D),
+                    color: Colors.black.withValues(alpha: 0.5),
                     borderRadius: BorderRadius.circular(8),
-                    border: Border.all(
-                      color: const Color(0xFF51160F),
-                      width: 1.5,
-                    ),
+                    border: Border.all(color: _kPanelBorder, width: 1.5),
                   ),
-                  child: Text(
-                    selectedStage == null
-                        ? '스테이지 정보'
-                        : '${selectedStage.id} ${selectedStage.title}',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 13,
-                      fontWeight: FontWeight.bold,
+                  child: const Icon(
+                    Icons.chevron_left,
+                    color: Colors.white70,
+                    size: 22,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 9,
+                    ),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF7A2A1D),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: const Color(0xFF51160F),
+                        width: 1.5,
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.35),
+                          blurRadius: 0,
+                          offset: const Offset(0, 3),
+                        ),
+                      ],
+                    ),
+                    child: const Text(
+                      '1장 숲의 길',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: _kGold,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w900,
+                        shadows: [
+                          Shadow(
+                            color: Colors.black,
+                            blurRadius: 3,
+                            offset: Offset(1, 1),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ),
-                const Spacer(),
+                const SizedBox(width: 8),
+                Container(
+                  width: 34,
+                  height: 34,
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.5),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: _kPanelBorder, width: 1.5),
+                  ),
+                  child: const Icon(
+                    Icons.chevron_right,
+                    color: Colors.white70,
+                    size: 22,
+                  ),
+                ),
+                const SizedBox(width: 8),
                 Container(
                   padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 7,
+                    horizontal: 8,
+                    vertical: 8,
                   ),
                   decoration: BoxDecoration(
                     color: Colors.black.withValues(alpha: 0.55),
@@ -962,14 +1002,70 @@ class _BattleStagePageState extends State<BattleStagePage> {
         ),
         child: Column(
           children: [
-            const Text(
-              '✦ 몬스터 정보 ✦',
-              style: TextStyle(
-                color: _kGold,
-                fontSize: 22,
-                fontWeight: FontWeight.bold,
+            if (selectedStage == null)
+              const Text(
+                '✦ 스테이지 정보 ✦',
+                style: TextStyle(
+                  color: _kGold,
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
+                ),
+              )
+            else
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 7,
+                    ),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF7A2A1D),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: const Color(0xFF51160F),
+                        width: 1.5,
+                      ),
+                    ),
+                    child: Text(
+                      selectedStage.id,
+                      style: const TextStyle(
+                        color: _kGold,
+                        fontSize: 22,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          selectedStage.title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 18,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                        Text(
+                          selectedStage.unlocked ? '도전 가능한 스테이지' : '잠긴 스테이지',
+                          style: TextStyle(
+                            color: selectedStage.unlocked
+                                ? const Color(0xFF64E66D)
+                                : Colors.white60,
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
-            ),
             const SizedBox(height: 10),
             if (selectedStage == null)
               Padding(
@@ -1143,106 +1239,54 @@ class _BattleStagePageState extends State<BattleStagePage> {
 
   Widget _buildBottomNav() {
     final items = [
-      _NavItem(icon: 'assets/images/nav/nav_shop.png', label: '상점', index: 0),
-      _NavItem(
+      PixelBottomNavItem(
+        icon: 'assets/images/nav/nav_shop.png',
+        label: '상점',
+        index: 0,
+      ),
+      PixelBottomNavItem(
         icon: 'assets/images/nav/nav_character.png',
         label: '캐릭터',
         index: 1,
       ),
-      _NavItem(icon: 'assets/images/nav/nav_home.png', label: '홈', index: 2),
-      _NavItem(icon: 'assets/images/nav/nav_battle.png', label: '전투', index: 3),
-      _NavItem(icon: 'assets/images/nav/nav_raid.png', label: '레이드', index: 4),
+      PixelBottomNavItem(
+        icon: 'assets/images/nav/nav_home.png',
+        label: '홈',
+        index: 2,
+      ),
+      PixelBottomNavItem(
+        icon: 'assets/images/nav/nav_battle.png',
+        label: '전투',
+        index: 3,
+      ),
+      PixelBottomNavItem(
+        icon: 'assets/images/nav/nav_raid.png',
+        label: '레이드',
+        index: 4,
+      ),
     ];
 
-    return Container(
-      color: Colors.transparent,
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.end,
-        children: items.map((item) {
-          const currentIndex = 3;
-          final isSelected = currentIndex == item.index;
-          return Expanded(
-            child: GestureDetector(
-              onTap: () {
-                switch (item.index) {
-                  case 0:
-                    _pushReplacement(const ShopPage());
-                    break;
-                  case 1:
-                    _pushReplacement(const InventoryPage());
-                    break;
-                  case 2:
-                    _pushReplacement(const HomePage());
-                    break;
-                  case 3:
-                    break;
-                  case 4:
-                    _pushReplacement(const RaidListPage());
-                    break;
-                }
-              },
-              child: Container(
-                padding: const EdgeInsets.symmetric(vertical: 10),
-                decoration: BoxDecoration(
-                  color: isSelected
-                      ? const Color(0xFF2E2E2E)
-                      : const Color(0xFF232323),
-                  borderRadius: const BorderRadius.vertical(
-                    top: Radius.circular(28),
-                  ),
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    isSelected
-                        ? Image.asset(item.icon, width: 36, height: 36)
-                        : ColorFiltered(
-                            colorFilter: const ColorFilter.matrix([
-                              0.3,
-                              0,
-                              0,
-                              0,
-                              0,
-                              0,
-                              0.3,
-                              0,
-                              0,
-                              0,
-                              0,
-                              0,
-                              0.3,
-                              0,
-                              0,
-                              0,
-                              0,
-                              0,
-                              1,
-                              0,
-                            ]),
-                            child: Image.asset(
-                              item.icon,
-                              width: 36,
-                              height: 36,
-                            ),
-                          ),
-                    const SizedBox(height: 6),
-                    Text(
-                      item.label,
-                      style: TextStyle(
-                        color: isSelected ? _kGold : Colors.white38,
-                        fontSize: 11,
-                        fontWeight: isSelected
-                            ? FontWeight.bold
-                            : FontWeight.normal,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          );
-        }).toList(),
-      ),
+    return PixelBottomNav(
+      items: items,
+      currentIndex: 3,
+      onTap: (item) async {
+        switch (item.index) {
+          case 0:
+            _pushReplacement(const ShopPage());
+            break;
+          case 1:
+            _pushReplacement(const InventoryPage());
+            break;
+          case 2:
+            _pushReplacement(const HomePage());
+            break;
+          case 3:
+            break;
+          case 4:
+            _pushReplacement(const RaidListPage());
+            break;
+        }
+      },
     );
   }
 
@@ -1322,15 +1366,4 @@ class _StagePathPainter extends CustomPainter {
   bool shouldRepaint(covariant _StagePathPainter oldDelegate) {
     return oldDelegate.stages != stages;
   }
-}
-
-class _NavItem {
-  final String icon;
-  final String label;
-  final int index;
-  const _NavItem({
-    required this.icon,
-    required this.label,
-    required this.index,
-  });
 }

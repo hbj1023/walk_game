@@ -82,6 +82,15 @@ class AuthService {
     if (body.containsKey('coin_balance')) {
       GameState.instance.setCoins(_asInt(body['coin_balance']));
     }
+    if (body.containsKey('level')) {
+      GameState.instance.setLevel(_asInt(body['level']));
+    }
+    if (body.containsKey('exp')) {
+      GameState.instance.setExp(_asInt(body['exp']));
+    }
+    if (body.containsKey('stat_exp')) {
+      GameState.instance.setStatExp(_asInt(body['stat_exp']));
+    }
     if (body.containsKey('attack_count_balance')) {
       GameState.instance.setAttackCountBalance(
         _asInt(body['attack_count_balance']),
@@ -166,6 +175,15 @@ class AuthService {
 
     if (body.containsKey('coin_balance')) {
       GameState.instance.setCoins(_asInt(body['coin_balance']));
+    }
+    if (body.containsKey('level')) {
+      GameState.instance.setLevel(_asInt(body['level']));
+    }
+    if (body.containsKey('exp')) {
+      GameState.instance.setExp(_asInt(body['exp']));
+    }
+    if (body.containsKey('stat_exp')) {
+      GameState.instance.setStatExp(_asInt(body['stat_exp']));
     }
     if (body.containsKey('attack_count_balance')) {
       GameState.instance.setAttackCountBalance(

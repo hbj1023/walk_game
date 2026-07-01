@@ -11,6 +11,7 @@ import (
 const (
 	defaultCharacterLevel              = 1
 	defaultCharacterExp                = 0
+	defaultCharacterStatExp            = 0
 	defaultCharacterHP                 = 100
 	defaultCharacterCoinBalance        = 0
 	defaultCharacterAttackCountBalance = 0
@@ -81,6 +82,7 @@ func createDefaultCharacter(ctx context.Context, token string, user pocketBaseUs
 		"gender":               defaultCharacterGender,
 		"level":                defaultCharacterLevel,
 		"exp":                  defaultCharacterExp,
+		"stat_exp":             defaultCharacterStatExp,
 		"current_hp":           defaultCharacterHP,
 		"coin_balance":         defaultCharacterCoinBalance,
 		"attack_count_balance": defaultCharacterAttackCountBalance,

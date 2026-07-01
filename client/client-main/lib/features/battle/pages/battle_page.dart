@@ -12,6 +12,7 @@ import 'package:capstone_app/features/home/pages/home_page.dart';
 import 'package:capstone_app/features/inventory/pages/inventory_page.dart';
 import 'package:capstone_app/features/raid/pages/raid_list_page.dart';
 import 'package:capstone_app/features/shop/pages/shop_page.dart';
+import 'package:capstone_app/widgets/player_level_badge.dart';
 
 const _kPanelBorder = Color(0xFF6B3A1F);
 const _kGold = Color(0xFFF0C040);
@@ -67,6 +68,7 @@ class _BattlePageState extends State<BattlePage> with WidgetsBindingObserver {
   int _lastPlayerDamage = 0;
   int _lastMonsterDamage = 0;
   int _rewardCoin = 0;
+  int _rewardExp = 0;
   int _attackCountUsed = 0;
   int _totalDamageDealt = 0;
   int _totalDamageTaken = 0;
@@ -185,6 +187,7 @@ class _BattlePageState extends State<BattlePage> with WidgetsBindingObserver {
     _monsterAttackGaugeM = result.monsterAttackGaugeM;
     _monsterAttackDistanceM = result.monsterAttackDistanceM;
     _rewardCoin = result.rewardCoin;
+    _rewardExp = result.rewardExp;
     _rewardEquipment = result.rewardEquipment;
     _attackCountUsed = result.battle.attackCountUsed;
     _totalDamageDealt = result.battle.totalDamageDealt;
@@ -192,6 +195,9 @@ class _BattlePageState extends State<BattlePage> with WidgetsBindingObserver {
     _lastPlayerDamage = clearDamageText ? 0 : result.playerDamage;
     _lastMonsterDamage = clearDamageText ? 0 : result.monsterDamage;
     _gs.setCoins(result.character.coinBalance);
+    _gs.setLevel(result.character.level);
+    _gs.setExp(result.character.exp);
+    _gs.setStatExp(result.character.statExp);
   }
 
   void _syncActiveBattleMarker() {
@@ -543,6 +549,7 @@ class _BattlePageState extends State<BattlePage> with WidgetsBindingObserver {
     final title = isWin ? '승리!' : '패배';
     final subtitle = isWin ? '스테이지 클리어' : '도전 실패';
     final rewardCoin = isWin ? _rewardCoin : 0;
+    final rewardExp = isWin ? _rewardExp : 0;
     showDialog<void>(
       context: context,
       barrierDismissible: false,
@@ -616,6 +623,7 @@ class _BattlePageState extends State<BattlePage> with WidgetsBindingObserver {
                   isWin: isWin,
                   accent: accent,
                   rewardCoin: rewardCoin,
+                  rewardExp: rewardExp,
                   rewardEquipment: _isBossBattle ? _rewardEquipment : null,
                 ),
                 const SizedBox(height: 12),
@@ -659,6 +667,7 @@ class _BattlePageState extends State<BattlePage> with WidgetsBindingObserver {
     required bool isWin,
     required Color accent,
     required int rewardCoin,
+    required int rewardExp,
     BattleRewardEquipment? rewardEquipment,
   }) {
     final hasEquipment = isWin && rewardEquipment != null;
@@ -686,6 +695,8 @@ class _BattlePageState extends State<BattlePage> with WidgetsBindingObserver {
             const SizedBox(height: 10),
           ],
           _buildCoinRewardRow(isWin: isWin, rewardCoin: rewardCoin),
+          const SizedBox(height: 8),
+          _buildExpRewardRow(isWin: isWin, rewardExp: rewardExp),
           const SizedBox(height: 6),
           Text(
             isWin
@@ -786,6 +797,44 @@ class _BattlePageState extends State<BattlePage> with WidgetsBindingObserver {
           style: const TextStyle(
             color: Colors.white,
             fontSize: 26,
+            fontWeight: FontWeight.w900,
+            shadows: [
+              Shadow(color: Colors.black, blurRadius: 5, offset: Offset(1, 1)),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildExpRewardRow({required bool isWin, required int rewardExp}) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Container(
+          width: 30,
+          height: 30,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: const Color(0xFF173F54),
+            borderRadius: BorderRadius.circular(6),
+            border: Border.all(color: const Color(0xFF69D8FF), width: 1.5),
+          ),
+          child: const Text(
+            'XP',
+            style: TextStyle(
+              color: Color(0xFFBFF4FF),
+              fontSize: 11,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Text(
+          isWin ? '+${_fmt(rewardExp)}' : '0',
+          style: const TextStyle(
+            color: Color(0xFFBFF4FF),
+            fontSize: 22,
             fontWeight: FontWeight.w900,
             shadows: [
               Shadow(color: Colors.black, blurRadius: 5, offset: Offset(1, 1)),
@@ -923,25 +972,7 @@ class _BattlePageState extends State<BattlePage> with WidgetsBindingObserver {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Stack(
-            alignment: Alignment.center,
-            children: [
-              Image.asset(
-                'assets/images/profile_frame.png',
-                width: 56,
-                height: 56,
-                fit: BoxFit.contain,
-              ),
-              Padding(
-                padding: const EdgeInsets.all(10),
-                child: Icon(
-                  Icons.person,
-                  size: 24,
-                  color: Colors.white.withValues(alpha: 0.6),
-                ),
-              ),
-            ],
-          ),
+          _buildPlayerProfileBlock(),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
@@ -1000,6 +1031,14 @@ class _BattlePageState extends State<BattlePage> with WidgetsBindingObserver {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildPlayerProfileBlock() {
+    return PlayerProfileWithLevel(
+      level: _gs.level,
+      exp: _gs.exp,
+      expToNext: _gs.expToNextLevel,
     );
   }
 

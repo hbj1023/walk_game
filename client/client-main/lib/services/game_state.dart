@@ -9,9 +9,16 @@ class GameState extends ChangeNotifier {
   static final GameState instance = GameState._();
 
   int _coins = 9999;
+  int _level = 1;
+  int _exp = 0;
+  int _statExp = 0;
   int _attackCountBalance = 0;
 
   int get coins => _coins;
+  int get level => _level;
+  int get exp => _exp;
+  int get statExp => _statExp;
+  int get expToNextLevel => (_level < 1 ? 1 : _level) * 100;
   int get attackCountBalance => _attackCountBalance;
 
   void setCoins(int value) {
@@ -26,6 +33,27 @@ class GameState extends ChangeNotifier {
     notifyListeners();
   }
 
+  void setLevel(int value) {
+    final next = value < 1 ? 1 : value;
+    if (_level == next) return;
+    _level = next;
+    notifyListeners();
+  }
+
+  void setExp(int value) {
+    final next = value < 0 ? 0 : value;
+    if (_exp == next) return;
+    _exp = next;
+    notifyListeners();
+  }
+
+  void setStatExp(int value) {
+    final next = value < 0 ? 0 : value;
+    if (_statExp == next) return;
+    _statExp = next;
+    notifyListeners();
+  }
+
   // 코인 차감 — 잔액 부족 시 false 반환
   bool spendCoins(int amount) {
     if (_coins < amount) return false;
@@ -36,6 +64,30 @@ class GameState extends ChangeNotifier {
 
   void addCoins(int amount) {
     _coins += amount;
+    notifyListeners();
+  }
+
+  bool spendExp(int amount) {
+    if (_exp < amount) return false;
+    _exp -= amount;
+    notifyListeners();
+    return true;
+  }
+
+  void addExp(int amount) {
+    _exp += amount;
+    notifyListeners();
+  }
+
+  bool spendStatExp(int amount) {
+    if (_statExp < amount) return false;
+    _statExp -= amount;
+    notifyListeners();
+    return true;
+  }
+
+  void addStatExp(int amount) {
+    _statExp += amount;
     notifyListeners();
   }
 }

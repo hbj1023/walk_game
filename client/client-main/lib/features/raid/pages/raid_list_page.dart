@@ -7,9 +7,12 @@ import 'package:capstone_app/services/game_api_service.dart';
 import 'package:capstone_app/services/game_state.dart';
 import 'package:capstone_app/features/social/widgets/friend_sheet.dart';
 import 'package:capstone_app/features/battle/pages/battle_stage_page.dart';
+import 'package:capstone_app/features/home/pages/home_page.dart';
 import 'package:capstone_app/features/inventory/pages/inventory_page.dart';
 import 'package:capstone_app/features/raid/pages/raid_lobby_page.dart';
 import 'package:capstone_app/features/shop/pages/shop_page.dart';
+import 'package:capstone_app/widgets/player_level_badge.dart';
+import 'package:capstone_app/widgets/pixel_bottom_nav.dart';
 
 // ─── 색상 상수 ────────────────────────────────────────────────────────────────
 
@@ -315,25 +318,7 @@ class _RaidListPageState extends State<RaidListPage> {
           Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              Stack(
-                alignment: Alignment.center,
-                children: [
-                  Image.asset(
-                    'assets/images/profile_frame.png',
-                    width: 56,
-                    height: 56,
-                    fit: BoxFit.contain,
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.all(10),
-                    child: Icon(
-                      Icons.person,
-                      size: 24,
-                      color: Colors.white.withValues(alpha: 0.6),
-                    ),
-                  ),
-                ],
-              ),
+              _buildPlayerProfileBlock(),
               const SizedBox(width: 8),
               Text(
                 _userName,
@@ -416,6 +401,14 @@ class _RaidListPageState extends State<RaidListPage> {
   }
 
   // ─── 타이틀 ───────────────────────────────────────────────────────────────
+
+  Widget _buildPlayerProfileBlock() {
+    return PlayerProfileWithLevel(
+      level: _gs.level,
+      exp: _gs.exp,
+      expToNext: _gs.expToNextLevel,
+    );
+  }
 
   Widget _buildTitle() {
     return Padding(
@@ -901,160 +894,76 @@ class _RaidListPageState extends State<RaidListPage> {
   // ─── 하단 네비게이션바 ────────────────────────────────────────────────────
 
   Widget _buildBottomNav() {
-    final items = [
-      _NavItem(icon: 'assets/images/nav/nav_shop.png', label: '상점', index: 0),
-      _NavItem(
+    const items = [
+      PixelBottomNavItem(
+        icon: 'assets/images/nav/nav_shop.png',
+        label: '상점',
+        index: 0,
+      ),
+      PixelBottomNavItem(
         icon: 'assets/images/nav/nav_character.png',
         label: '캐릭터',
         index: 1,
       ),
-      _NavItem(icon: 'assets/images/nav/nav_home.png', label: '홈', index: 2),
-      _NavItem(icon: 'assets/images/nav/nav_battle.png', label: '전투', index: 3),
-      _NavItem(icon: 'assets/images/nav/nav_raid.png', label: '레이드', index: 4),
+      PixelBottomNavItem(
+        icon: 'assets/images/nav/nav_home.png',
+        label: '홈',
+        index: 2,
+      ),
+      PixelBottomNavItem(
+        icon: 'assets/images/nav/nav_battle.png',
+        label: '전투',
+        index: 3,
+      ),
+      PixelBottomNavItem(
+        icon: 'assets/images/nav/nav_raid.png',
+        label: '레이드',
+        index: 4,
+      ),
     ];
 
-    return Container(
-      color: Colors.transparent,
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.end,
-        children: items.map((item) {
-          const currentIndex = 4; // 현재 페이지 = 레이드
-          final isSelected = currentIndex == item.index;
-          return Expanded(
-            child: GestureDetector(
-              onTap: () {
-                switch (item.index) {
-                  case 0:
-                    Navigator.pushReplacement(
-                      context,
-                      PageRouteBuilder(
-                        pageBuilder: (context, _, _) => const ShopPage(),
-                        transitionsBuilder: (context, animation, _, child) {
-                          final curved = CurvedAnimation(
-                            parent: animation,
-                            curve: Curves.easeInOut,
-                          );
-                          return FadeTransition(opacity: curved, child: child);
-                        },
-                        transitionDuration: const Duration(milliseconds: 300),
-                      ),
-                    );
-                  case 1:
-                    Navigator.pushReplacement(
-                      context,
-                      PageRouteBuilder(
-                        pageBuilder: (context, _, _) => const InventoryPage(),
-                        transitionsBuilder: (context, animation, _, child) {
-                          final curved = CurvedAnimation(
-                            parent: animation,
-                            curve: Curves.easeInOut,
-                          );
-                          return FadeTransition(opacity: curved, child: child);
-                        },
-                        transitionDuration: const Duration(milliseconds: 300),
-                      ),
-                    );
-                  case 2:
-                    Navigator.of(context).popUntil((route) => route.isFirst);
-                  case 3:
-                    Navigator.pushReplacement(
-                      context,
-                      PageRouteBuilder(
-                        pageBuilder: (context, _, _) => const BattleStagePage(),
-                        transitionsBuilder: (context, animation, _, child) {
-                          final curved = CurvedAnimation(
-                            parent: animation,
-                            curve: Curves.easeInOut,
-                          );
-                          return FadeTransition(opacity: curved, child: child);
-                        },
-                        transitionDuration: const Duration(milliseconds: 300),
-                      ),
-                    );
-                    break;
-                  case 4:
-                    // 현재 페이지 — 아무 동작 없음
-                    break;
-                }
-              },
-              child: Container(
-                padding: const EdgeInsets.symmetric(vertical: 10),
-                decoration: BoxDecoration(
-                  color: isSelected
-                      ? const Color(0xFF2E2E2E)
-                      : const Color(0xFF232323),
-                  borderRadius: const BorderRadius.vertical(
-                    top: Radius.circular(28),
-                  ),
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    isSelected
-                        ? Image.asset(item.icon, width: 36, height: 36)
-                        : ColorFiltered(
-                            colorFilter: const ColorFilter.matrix([
-                              0.3,
-                              0,
-                              0,
-                              0,
-                              0,
-                              0,
-                              0.3,
-                              0,
-                              0,
-                              0,
-                              0,
-                              0,
-                              0.3,
-                              0,
-                              0,
-                              0,
-                              0,
-                              0,
-                              1,
-                              0,
-                            ]),
-                            child: Image.asset(
-                              item.icon,
-                              width: 36,
-                              height: 36,
-                            ),
-                          ),
-                    const SizedBox(height: 6),
-                    Text(
-                      item.label,
-                      style: TextStyle(
-                        color: isSelected ? _kGold : Colors.white38,
-                        fontSize: 11,
-                        fontWeight: isSelected
-                            ? FontWeight.bold
-                            : FontWeight.normal,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
+    return PixelBottomNav(
+      items: items,
+      currentIndex: 4,
+      onTap: (item) async => _navigateBottom(item.index),
+    );
+  }
+
+  void _navigateBottom(int index) {
+    Widget? page;
+    switch (index) {
+      case 0:
+        page = const ShopPage();
+        break;
+      case 1:
+        page = const InventoryPage();
+        break;
+      case 2:
+        page = const HomePage();
+        break;
+      case 3:
+        page = const BattleStagePage();
+        break;
+      case 4:
+        return;
+    }
+    if (page == null) return;
+    Navigator.pushReplacement(
+      context,
+      PageRouteBuilder(
+        pageBuilder: (context, _, _) => page!,
+        transitionsBuilder: (context, animation, _, child) {
+          final curved = CurvedAnimation(
+            parent: animation,
+            curve: Curves.easeInOut,
           );
-        }).toList(),
+          return FadeTransition(opacity: curved, child: child);
+        },
+        transitionDuration: const Duration(milliseconds: 300),
       ),
     );
   }
 }
-
-class _NavItem {
-  final String icon;
-  final String label;
-  final int index;
-  const _NavItem({
-    required this.icon,
-    required this.label,
-    required this.index,
-  });
-}
-
-// ─── 파티 구성 바텀시트 ───────────────────────────────────────────────────────
 
 class _PartySheet extends StatefulWidget {
   final RaidBoss boss;

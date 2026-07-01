@@ -316,11 +316,17 @@ func attackNormalBattle(ctx context.Context, token string, userID string, req No
 
 	status := "in_progress"
 	rewardCoin := 0
+	rewardExp := 0
 	totalDamageTaken := battle.TotalDamageTaken
 
 	if monsterCurrentHP <= 0 {
 		status = "win"
 		rewardCoin = randomCoin(monster.RewardCoinMin, monster.RewardCoinMax)
+		stage, err := getStageByID(ctx, token, battle.Stage)
+		if err != nil {
+			return NormalBattleResponse{}, err
+		}
+		rewardExp = normalBattleExpReward(stage.StageNo, false)
 		monsterAttackGaugeM = 0
 	} else if monsterAttackGaugeM >= monsterAttackDistanceM {
 		monsterAttacked = true
@@ -355,8 +361,13 @@ func attackNormalBattle(ctx context.Context, token string, userID string, req No
 
 	attackCountBalance := character.AttackCountBalance - 1
 	coinBalance := character.CoinBalance
+	level := character.Level
+	expBalance := character.Exp
+	statExpBalance := character.StatExp
+	statExpReward := 0
 	if status == "win" {
 		coinBalance += rewardCoin
+		level, expBalance, statExpBalance, statExpReward = applyCharacterExpReward(level, expBalance, rewardExp, statExpBalance)
 	}
 	characterPersistHP := characterCurrentHP
 	if status == "win" || status == "lose" || characterPersistHP <= 0 {
@@ -365,7 +376,10 @@ func attackNormalBattle(ctx context.Context, token string, userID string, req No
 
 	updatedCharacter, err := patchBattleCharacter(ctx, token, character.ID, map[string]any{
 		"attack_count_balance": attackCountBalance,
+		"level":                level,
 		"coin_balance":         coinBalance,
+		"exp":                  expBalance,
+		"stat_exp":             statExpBalance,
 		"current_hp":           characterPersistHP,
 	})
 	if err != nil {
@@ -386,7 +400,7 @@ func attackNormalBattle(ctx context.Context, token string, userID string, req No
 		}
 	}
 
-	recordNormalBattleLogs(ctx, token, character.ID, battle.ID, status, rewardCoin, attackCountBalance, coinBalance)
+	recordNormalBattleLogs(ctx, token, character.ID, battle.ID, status, rewardCoin, rewardExp, statExpReward, attackCountBalance, coinBalance, expBalance, statExpBalance)
 
 	return NormalBattleResponse{
 		Battle:                 updatedBattle,
@@ -397,6 +411,7 @@ func attackNormalBattle(ctx context.Context, token string, userID string, req No
 		MonsterDamage:          monsterDamage,
 		MonsterAttacked:        monsterAttacked,
 		RewardCoin:             rewardCoin,
+		RewardExp:              rewardExp,
 		AttackCountBalance:     attackCountBalance,
 		MonsterAttackGaugeM:    round2(monsterAttackGaugeM),
 		MonsterAttackDistanceM: round2(monsterAttackDistanceM),
@@ -474,11 +489,17 @@ func attackBossBattle(ctx context.Context, token string, userID string, req Norm
 
 	status := "in_progress"
 	rewardCoin := 0
+	rewardExp := 0
 	totalDamageTaken := battle.TotalDamageTaken
 
 	if monsterCurrentHP <= 0 {
 		status = "win"
 		rewardCoin = randomCoin(monster.RewardCoinMin, monster.RewardCoinMax)
+		stage, err := getStageByID(ctx, token, battle.Stage)
+		if err != nil {
+			return NormalBattleResponse{}, err
+		}
+		rewardExp = normalBattleExpReward(stage.StageNo, true)
 		monsterAttackGaugeM = 0
 	} else if monsterAttackGaugeM >= monsterAttackDistanceM {
 		monsterAttacked = true
@@ -513,8 +534,13 @@ func attackBossBattle(ctx context.Context, token string, userID string, req Norm
 
 	attackCountBalance := character.AttackCountBalance - 1
 	coinBalance := character.CoinBalance
+	level := character.Level
+	expBalance := character.Exp
+	statExpBalance := character.StatExp
+	statExpReward := 0
 	if status == "win" {
 		coinBalance += rewardCoin
+		level, expBalance, statExpBalance, statExpReward = applyCharacterExpReward(level, expBalance, rewardExp, statExpBalance)
 	}
 	characterPersistHP := characterCurrentHP
 	if status == "win" || status == "lose" || characterPersistHP <= 0 {
@@ -523,7 +549,10 @@ func attackBossBattle(ctx context.Context, token string, userID string, req Norm
 
 	updatedCharacter, err := patchBattleCharacter(ctx, token, character.ID, map[string]any{
 		"attack_count_balance": attackCountBalance,
+		"level":                level,
 		"coin_balance":         coinBalance,
+		"exp":                  expBalance,
+		"stat_exp":             statExpBalance,
 		"current_hp":           characterPersistHP,
 	})
 	if err != nil {
@@ -549,7 +578,7 @@ func attackBossBattle(ctx context.Context, token string, userID string, req Norm
 		}
 	}
 
-	recordNormalBattleLogs(ctx, token, character.ID, battle.ID, status, rewardCoin, attackCountBalance, coinBalance)
+	recordNormalBattleLogs(ctx, token, character.ID, battle.ID, status, rewardCoin, rewardExp, statExpReward, attackCountBalance, coinBalance, expBalance, statExpBalance)
 
 	return NormalBattleResponse{
 		Battle:                 updatedBattle,
@@ -560,6 +589,7 @@ func attackBossBattle(ctx context.Context, token string, userID string, req Norm
 		MonsterDamage:          monsterDamage,
 		MonsterAttacked:        monsterAttacked,
 		RewardCoin:             rewardCoin,
+		RewardExp:              rewardExp,
 		RewardItem:             rewardItem,
 		AttackCountBalance:     attackCountBalance,
 		MonsterAttackGaugeM:    round2(monsterAttackGaugeM),
@@ -970,8 +1000,12 @@ func recordNormalBattleLogs(
 	battleID string,
 	status string,
 	rewardCoin int,
+	rewardExp int,
+	statExpReward int,
 	attackCountBalance int,
 	coinBalance int,
+	expBalance int,
+	statExpBalance int,
 ) {
 	if err := createBattleResourceTransaction(ctx, token, characterID, battleID, "attack_count", "use", -1, attackCountBalance, "normal battle attack"); err != nil {
 		log.Printf("failed to create normal battle attack_count transaction: %v", err)
@@ -987,6 +1021,50 @@ func recordNormalBattleLogs(
 	if err := createBattleResourceTransaction(ctx, token, characterID, battleID, "coin", "reward", rewardCoin, coinBalance, "normal battle reward"); err != nil {
 		log.Printf("failed to create normal battle coin transaction: %v", err)
 	}
+	if rewardExp > 0 {
+		if err := createBattleResourceTransaction(ctx, token, characterID, battleID, "exp", "reward", rewardExp, expBalance, "normal battle exp reward"); err != nil {
+			log.Printf("failed to create normal battle exp transaction: %v", err)
+		}
+	}
+	if statExpReward > 0 {
+		if err := createBattleResourceTransaction(ctx, token, characterID, battleID, "stat_exp", "reward", statExpReward, statExpBalance, "level up stat exp reward"); err != nil {
+			log.Printf("failed to create level up stat_exp transaction: %v", err)
+		}
+	}
+}
+
+func normalBattleExpReward(stageNo int, isBoss bool) int {
+	if stageNo < 1 {
+		stageNo = 1
+	}
+	if isBoss {
+		return 40 + stageNo*10
+	}
+	return 10 + stageNo*5
+}
+
+func applyCharacterExpReward(level int, exp int, rewardExp int, statExp int) (int, int, int, int) {
+	if level < 1 {
+		level = 1
+	}
+	if rewardExp <= 0 {
+		return level, exp, statExp, 0
+	}
+	exp += rewardExp
+	statExpReward := 0
+	for exp >= level*100 {
+		exp -= level * 100
+		level++
+		statExpReward += statExpRewardForLevel(level)
+	}
+	return level, exp, statExp + statExpReward, statExpReward
+}
+
+func statExpRewardForLevel(level int) int {
+	if level < 2 {
+		level = 2
+	}
+	return level * 50
 }
 
 func randomCoin(min int, max int) int {

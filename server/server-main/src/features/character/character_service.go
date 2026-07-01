@@ -167,6 +167,7 @@ func (s *Service) CreateCharacter(req CharacterCreateRequest, authHeader string)
 		"gender":               defaultText(req.Gender, "other"),
 		"level":                1,
 		"exp":                  0,
+		"stat_exp":             0,
 		"current_hp":           100,
 		"coin_balance":         0,
 		"attack_count_balance": 0,
@@ -268,6 +269,7 @@ func (s *Service) AddExp(req AddExpRequest, authHeader string) (map[string]any, 
 
 	level := toInt(character["level"])
 	exp := toInt(character["exp"])
+	statExp := toInt(character["stat_exp"])
 
 	exp += req.Exp
 
@@ -275,11 +277,13 @@ func (s *Service) AddExp(req AddExpRequest, authHeader string) (map[string]any, 
 	for exp >= level*100 {
 		exp -= level * 100
 		level++
+		statExp += statExpRewardForLevel(level)
 	}
 
 	body := map[string]any{
-		"level": level,
-		"exp":   exp,
+		"level":    level,
+		"exp":      exp,
+		"stat_exp": statExp,
 	}
 
 	data, err := s.pbRequest(
@@ -298,6 +302,13 @@ func (s *Service) AddExp(req AddExpRequest, authHeader string) (map[string]any, 
 }
 
 // 장비를 착용한다. 같은 슬롯에 이미 장비가 있으면 먼저 제거한 뒤 새 장비를 착용한다.
+func statExpRewardForLevel(level int) int {
+	if level < 2 {
+		level = 2
+	}
+	return level * 50
+}
+
 func (s *Service) EquipItem(req EquipItemRequest, authHeader string) (map[string]any, error) {
 	ownedEquipment, err := s.GetOwnedEquipmentByID(req.ItemID, authHeader)
 	if err != nil {

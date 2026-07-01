@@ -207,11 +207,17 @@ class StatUpgradeSummary {
   final Map<String, int> currentStats;
   final Map<String, int> costs;
   final Map<String, int> upgradedStats;
+  final int exp;
+  final int statExp;
+  final String resourceType;
 
   const StatUpgradeSummary({
     required this.currentStats,
     required this.costs,
     required this.upgradedStats,
+    required this.exp,
+    required this.statExp,
+    required this.resourceType,
   });
 
   factory StatUpgradeSummary.fromJson(Map<String, dynamic> json) {
@@ -219,6 +225,13 @@ class StatUpgradeSummary {
       currentStats: _intMap(_asMap(json['current_stats'])),
       costs: _intMap(_asMap(json['costs'])),
       upgradedStats: _intMap(_asMap(json['upgraded_stats'])),
+      exp: _asInt(json['exp']),
+      statExp: json.containsKey('stat_exp')
+          ? _asInt(json['stat_exp'])
+          : _asInt(json['exp']),
+      resourceType: _asString(json['resource_type']).isEmpty
+          ? 'stat_exp'
+          : _asString(json['resource_type']),
     );
   }
 }
@@ -890,7 +903,10 @@ class GameApiService {
   static Future<StatUpgradeSummary> fetchStatUpgradeSummary() async {
     final characterId = await requireCharacterId();
     final response = await _get('/api/stat-upgrades/costs/$characterId');
-    return StatUpgradeSummary.fromJson(_asMap(response['data']));
+    final summary = StatUpgradeSummary.fromJson(_asMap(response['data']));
+    GameState.instance.setExp(summary.exp);
+    GameState.instance.setStatExp(summary.statExp);
+    return summary;
   }
 
   static Future<StatUpgradeSummary> upgradeStat(String statType) async {
@@ -902,6 +918,12 @@ class GameApiService {
     final data = _asMap(response['data']);
     if (data.containsKey('coin_balance')) {
       GameState.instance.setCoins(_asInt(data['coin_balance']));
+    }
+    if (data.containsKey('exp')) {
+      GameState.instance.setExp(_asInt(data['exp']));
+    }
+    if (data.containsKey('stat_exp')) {
+      GameState.instance.setStatExp(_asInt(data['stat_exp']));
     }
     return fetchStatUpgradeSummary();
   }
@@ -1260,6 +1282,8 @@ String _localizeApiMessage(String message) {
     'not enough consumable quantity' => '소모품 수량이 부족합니다.',
     'item template is not consumable' => '사용할 수 없는 아이템입니다.',
     'not enough coin balance' => '코인이 부족합니다.',
+    'not enough exp balance' => 'EXP가 부족합니다.',
+    'not enough stat exp balance' => '성장 EXP가 부족합니다.',
     'raid is not active' => '진행 중인 레이드가 아닙니다.',
     'raid progress is already finished' => '이미 종료된 레이드입니다.',
     'raid is not waiting for invitations' => '초대 가능한 레이드 상태가 아닙니다.',

@@ -31,7 +31,13 @@ migrate((app) => {
   ]
 
   for (const update of updates) {
-    const monster = app.findRecordById("monsters", update.id)
+    let monster
+    try {
+      monster = app.findRecordById("monsters", update.id)
+    } catch (_) {
+      continue
+    }
+
     if (monster.get("monster_type") !== "normal") {
       continue
     }
@@ -51,7 +57,13 @@ migrate((app) => {
   ]
 
   for (const id of ids) {
-    const monster = app.findRecordById("monsters", id)
+    let monster
+    try {
+      monster = app.findRecordById("monsters", id)
+    } catch (_) {
+      continue
+    }
+
     if (monster.get("monster_type") !== "normal") {
       continue
     }

@@ -23,6 +23,7 @@ type NormalBattleResponse struct {
 	MonsterDamage          int             `json:"monster_damage"`
 	MonsterAttacked        bool            `json:"monster_attacked"`
 	RewardCoin             int             `json:"reward_coin"`
+	RewardExp              int             `json:"reward_exp"`
 	RewardItem             any             `json:"reward_item,omitempty"`
 	TicketConsumed         bool            `json:"ticket_consumed,omitempty"`
 	AttackCountBalance     int             `json:"attack_count_balance"`
@@ -35,6 +36,9 @@ type CharacterRecord struct {
 	User               string `json:"user"`
 	Name               string `json:"name"`
 	CurrentHP          int    `json:"current_hp"`
+	Level              int    `json:"level"`
+	Exp                int    `json:"exp"`
+	StatExp            int    `json:"stat_exp"`
 	CoinBalance        int    `json:"coin_balance"`
 	AttackCountBalance int    `json:"attack_count_balance"`
 }

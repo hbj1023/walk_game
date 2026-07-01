@@ -19,6 +19,7 @@ migrate((app) => {
       { name: "gender", type: "text", max: 20 },
       { name: "level", type: "number", onlyInt: true },
       { name: "exp", type: "number", onlyInt: true },
+      { name: "stat_exp", type: "number", onlyInt: true },
       { name: "current_hp", type: "number", onlyInt: true },
       { name: "coin_balance", type: "number", onlyInt: true },
       { name: "attack_count_balance", type: "number", onlyInt: true },

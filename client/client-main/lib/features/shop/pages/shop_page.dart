@@ -7,6 +7,8 @@ import 'package:capstone_app/features/battle/pages/battle_stage_page.dart';
 import 'package:capstone_app/features/home/pages/home_page.dart';
 import 'package:capstone_app/features/inventory/pages/inventory_page.dart';
 import 'package:capstone_app/features/raid/pages/raid_list_page.dart';
+import 'package:capstone_app/widgets/player_level_badge.dart';
+import 'package:capstone_app/widgets/pixel_bottom_nav.dart';
 
 const _kBgColor = Color(0xFF1A1008);
 const _kPanelColor = Color(0xFF2A1A0E);
@@ -221,7 +223,7 @@ class _ShopPageState extends State<ShopPage> {
           Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              _buildProfileFrame(),
+              _buildPlayerProfileBlock(),
               const SizedBox(width: 8),
               Text(
                 _userName,
@@ -230,7 +232,11 @@ class _ShopPageState extends State<ShopPage> {
                   fontSize: 14,
                   fontWeight: FontWeight.bold,
                   shadows: [
-                    Shadow(color: Colors.black, blurRadius: 6, offset: Offset(1, 1)),
+                    Shadow(
+                      color: Colors.black,
+                      blurRadius: 6,
+                      offset: Offset(1, 1),
+                    ),
                   ],
                 ),
               ),
@@ -243,6 +249,7 @@ class _ShopPageState extends State<ShopPage> {
     );
   }
 
+  // ignore: unused_element
   Widget _buildProfileFrame() {
     return Stack(
       alignment: Alignment.center,
@@ -262,6 +269,14 @@ class _ShopPageState extends State<ShopPage> {
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildPlayerProfileBlock() {
+    return PlayerProfileWithLevel(
+      level: _gs.level,
+      exp: _gs.exp,
+      expToNext: _gs.expToNextLevel,
     );
   }
 
@@ -541,62 +556,38 @@ class _ShopPageState extends State<ShopPage> {
   }
 
   Widget _buildBottomNav() {
-    const navItems = [
-      ('assets/images/nav/nav_shop.png', '상점'),
-      ('assets/images/nav/nav_character.png', '캐릭터'),
-      ('assets/images/nav/nav_home.png', '홈'),
-      ('assets/images/nav/nav_battle.png', '전투'),
-      ('assets/images/nav/nav_raid.png', '레이드'),
-    ];
-    return Container(
-      color: Colors.transparent,
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.end,
-        children: List.generate(navItems.length, (i) {
-          final active = i == 0;
-          return Expanded(
-            child: GestureDetector(
-              onTap: () => _navigateBottom(i),
-              child: Container(
-                padding: const EdgeInsets.symmetric(vertical: 10),
-                decoration: BoxDecoration(
-                  color: active
-                      ? const Color(0xFF2E2E2E)
-                      : const Color(0xFF232323),
-                  borderRadius: const BorderRadius.vertical(
-                    top: Radius.circular(28),
-                  ),
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    active
-                        ? Image.asset(navItems[i].$1, width: 36, height: 36)
-                        : ColorFiltered(
-                            colorFilter: const ColorFilter.matrix([
-                              0.3, 0, 0, 0, 0,
-                              0, 0.3, 0, 0, 0,
-                              0, 0, 0.3, 0, 0,
-                              0, 0, 0, 1, 0,
-                            ]),
-                            child: Image.asset(navItems[i].$1, width: 36, height: 36),
-                          ),
-                    const SizedBox(height: 6),
-                    Text(
-                      navItems[i].$2,
-                      style: TextStyle(
-                        color: active ? const Color(0xFFF0C040) : Colors.white38,
-                        fontSize: 11,
-                        fontWeight: active ? FontWeight.bold : FontWeight.normal,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          );
-        }),
+    const items = [
+      PixelBottomNavItem(
+        icon: 'assets/images/nav/nav_shop.png',
+        label: '상점',
+        index: 0,
       ),
+      PixelBottomNavItem(
+        icon: 'assets/images/nav/nav_character.png',
+        label: '캐릭터',
+        index: 1,
+      ),
+      PixelBottomNavItem(
+        icon: 'assets/images/nav/nav_home.png',
+        label: '홈',
+        index: 2,
+      ),
+      PixelBottomNavItem(
+        icon: 'assets/images/nav/nav_battle.png',
+        label: '전투',
+        index: 3,
+      ),
+      PixelBottomNavItem(
+        icon: 'assets/images/nav/nav_raid.png',
+        label: '레이드',
+        index: 4,
+      ),
+    ];
+
+    return PixelBottomNav(
+      items: items,
+      currentIndex: 0,
+      onTap: (item) async => _navigateBottom(item.index),
     );
   }
 
