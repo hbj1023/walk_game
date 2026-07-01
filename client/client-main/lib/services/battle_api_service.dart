@@ -251,6 +251,7 @@ class NormalStageInfo {
   final String id;
   final int stageNo;
   final String title;
+  final String stageType;
   final String status;
   final bool isUnlocked;
   final bool isCleared;
@@ -264,6 +265,7 @@ class NormalStageInfo {
     required this.id,
     required this.stageNo,
     required this.title,
+    required this.stageType,
     required this.status,
     required this.isUnlocked,
     required this.isCleared,
@@ -279,6 +281,7 @@ class NormalStageInfo {
       id: (json['id'] ?? '') as String,
       stageNo: _asInt(json['stage_no']),
       title: (json['title'] ?? '') as String,
+      stageType: (json['stage_type'] ?? '') as String,
       status: (json['status'] ?? '') as String,
       isUnlocked: (json['is_unlocked'] ?? false) as bool,
       isCleared: (json['is_cleared'] ?? false) as bool,

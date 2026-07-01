@@ -55,7 +55,15 @@ func listNormalStageProgress(ctx context.Context, token string, userID string) (
 	for _, stage := range stages {
 		progress, found := progressByStageID[stage.ID]
 		stageResponse := buildNormalStageResponse(stage, progress, found)
-		if monster, err := firstNormalStageMonsterSummary(ctx, token, stage.ID); err == nil {
+		if stage.StageType == "boss" && !found {
+			if unlocked, err := isBossStageUnlockedForList(ctx, token, progressByStageID, stage.StageNo); err != nil {
+				return NormalStageListResponse{}, err
+			} else if unlocked {
+				stageResponse.Status = "unlocked"
+				stageResponse.IsUnlocked = true
+			}
+		}
+		if monster, err := firstStageMonsterSummary(ctx, token, stage.ID); err == nil {
 			stageResponse.MonsterID = monster.ID
 			stageResponse.MonsterName = monster.Name
 			stageResponse.MonsterHP = monster.HP
@@ -63,6 +71,15 @@ func listNormalStageProgress(ctx context.Context, token string, userID string) (
 		response.Stages = append(response.Stages, stageResponse)
 	}
 	return response, nil
+}
+
+func isBossStageUnlockedForList(ctx context.Context, token string, progressByStageID map[string]stageProgressRecord, bossStageNo int) (bool, error) {
+	previousStage, err := getNormalStageByNo(ctx, token, bossStageNo-1)
+	if err != nil {
+		return false, err
+	}
+	previousProgress, found := progressByStageID[previousStage.ID]
+	return isStageCleared(previousProgress, found), nil
 }
 
 func ensureNormalStageUnlocked(ctx context.Context, token string, characterID string, stage stageRecord) error {
@@ -179,6 +196,14 @@ func isStageCleared(progress stageProgressRecord, found bool) bool {
 
 func firstNormalStageMonsterSummary(ctx context.Context, token string, stageID string) (monsterRecord, error) {
 	stageMonster, err := getFirstNormalStageMonster(ctx, token, stageID)
+	if err != nil {
+		return monsterRecord{}, err
+	}
+	return getMonsterByID(ctx, token, stageMonster.Monster)
+}
+
+func firstStageMonsterSummary(ctx context.Context, token string, stageID string) (monsterRecord, error) {
+	stageMonster, err := getFirstStageMonster(ctx, token, stageID)
 	if err != nil {
 		return monsterRecord{}, err
 	}

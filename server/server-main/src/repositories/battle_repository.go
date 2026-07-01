@@ -136,7 +136,7 @@ func GetBossStageByNo(ctx context.Context, token string, stageNo int) (models.St
 }
 
 func ListNormalStages(ctx context.Context, token string) ([]models.StageRecord, error) {
-	filter := url.QueryEscape(fmt.Sprintf("stage_type=%q && is_active=true", "normal"))
+	filter := url.QueryEscape(`(stage_type="normal" || stage_type="boss") && is_active=true`)
 	endpoint := pocketBaseCollectionURL("stages") + "?filter=" + filter + "&sort=stage_no&perPage=100"
 	resp, err := pocketBaseRequest(ctx, http.MethodGet, endpoint, token, nil)
 	if err != nil {

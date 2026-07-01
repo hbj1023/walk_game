@@ -230,7 +230,7 @@ class _BattleStagePageState extends State<BattleStagePage> {
       id: _stageDisplayId(stage.stageNo),
       title: title,
       point: _stagePoint(stage.stageNo),
-      isBoss: false,
+      isBoss: stage.stageType == 'boss',
       unlocked: stage.isUnlocked,
       cleared: stage.isCleared,
       status: stage.status,
