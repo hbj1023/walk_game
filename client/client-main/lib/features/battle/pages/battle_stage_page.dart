@@ -1,4 +1,4 @@
-﻿import 'dart:math' as math;
+import 'dart:math' as math;
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
@@ -59,12 +59,9 @@ const _kStagePoints = <Offset>[
   Offset(0.53, 0.57),
   Offset(0.72, 0.76),
   Offset(0.87, 0.63),
-  Offset(0.12, 0.40),
-  Offset(0.34, 0.34),
-  Offset(0.54, 0.44),
-  Offset(0.73, 0.31),
-  Offset(0.88, 0.43),
 ];
+
+const _kChapterTitles = <int, String>{1: '1장 숲의 길', 2: '2장 그늘버섯 숲'};
 
 const _kMonsterNameFallbacks = <int, String>{
   1: '기본 고블린',
@@ -125,24 +122,39 @@ class BattleStagePage extends StatefulWidget {
 class _BattleStagePageState extends State<BattleStagePage> {
   final _gs = GameState.instance;
   int _selectedIndex = 0;
+  int _currentChapter = 1;
   String _userName = '...';
   bool _isStarting = false;
   bool _isStageLoading = true;
   double _loadingProgress = 0;
   bool _isWaitingServer = false;
   String? _stageError;
-  List<_StageData> _stages = const [];
+  List<_StageData> _allStages = const [];
+
+  List<_StageData> get _visibleStages => _allStages
+      .where((stage) => _chapterForStage(stage.stageNo) == _currentChapter)
+      .toList(growable: false);
+
+  int get _maxChapter {
+    final maxStage = _allStages.fold<int>(
+      0,
+      (maxStage, stage) => math.max(maxStage, stage.stageNo),
+    );
+    return math.max(2, _chapterForStage(maxStage));
+  }
 
   int get _safeSelectedIndex {
-    if (_stages.isEmpty) return 0;
+    final stages = _visibleStages;
+    if (stages.isEmpty) return 0;
     if (_selectedIndex < 0) return 0;
-    if (_selectedIndex >= _stages.length) return _stages.length - 1;
+    if (_selectedIndex >= stages.length) return stages.length - 1;
     return _selectedIndex;
   }
 
   _StageData? get _selectedStage {
-    if (_stages.isEmpty) return null;
-    return _stages[_safeSelectedIndex];
+    final stages = _visibleStages;
+    if (stages.isEmpty) return null;
+    return stages[_safeSelectedIndex];
   }
 
   @override
@@ -175,14 +187,14 @@ class _BattleStagePageState extends State<BattleStagePage> {
         ..sort((a, b) => a.stageNo.compareTo(b.stageNo));
       if (!mounted) return;
       setState(() {
-        _stages = mapped;
-        _selectedIndex = _initialSelectedIndex(mapped);
+        _allStages = mapped;
+        _selectedIndex = _initialSelectedIndex(_visibleStages);
         _isStageLoading = false;
       });
     } on BattleApiException catch (e) {
       if (!mounted) return;
       setState(() {
-        _stages = const [];
+        _allStages = const [];
         _selectedIndex = 0;
         _stageError = e.message;
         _isStageLoading = false;
@@ -190,7 +202,7 @@ class _BattleStagePageState extends State<BattleStagePage> {
     } catch (_) {
       if (!mounted) return;
       setState(() {
-        _stages = const [];
+        _allStages = const [];
         _selectedIndex = 0;
         _stageError = '스테이지 정보를 불러오지 못했습니다.';
         _isStageLoading = false;
@@ -279,26 +291,46 @@ class _BattleStagePageState extends State<BattleStagePage> {
   }
 
   Offset _stagePoint(int stageNo) {
-    if (stageNo >= 1 && stageNo <= _kStagePoints.length) {
-      return _kStagePoints[stageNo - 1];
+    final chapterStageNo = _stageNoInChapter(stageNo);
+    if (chapterStageNo >= 1 && chapterStageNo <= _kStagePoints.length) {
+      return _kStagePoints[chapterStageNo - 1];
     }
 
-    final index = stageNo - 1;
+    final index = chapterStageNo - 1;
     final x = 0.12 + ((index % 5) * 0.19);
     final y = index.isEven ? 0.72 : 0.58;
     return Offset(x.clamp(0.10, 0.90).toDouble(), y);
   }
 
-  String _stageDisplayId(int stageNo) {
-    if (stageNo <= 5) return '1-$stageNo';
-    return '2-${stageNo - 5}';
+  int _chapterForStage(int stageNo) {
+    if (stageNo <= 0) return 1;
+    return ((stageNo - 1) ~/ 5) + 1;
   }
 
-  int get _unlockedCount => _stages.where((s) => s.unlocked).length;
+  int _stageNoInChapter(int stageNo) {
+    if (stageNo <= 0) return 1;
+    return ((stageNo - 1) % 5) + 1;
+  }
+
+  String _stageDisplayId(int stageNo) {
+    return '${_chapterForStage(stageNo)}-${_stageNoInChapter(stageNo)}';
+  }
+
+  int get _clearedCount => _visibleStages.where((s) => s.cleared).length;
+
+  void _changeChapter(int delta) {
+    final nextChapter = (_currentChapter + delta).clamp(1, _maxChapter);
+    if (nextChapter == _currentChapter) return;
+    setState(() {
+      _currentChapter = nextChapter;
+      _selectedIndex = _initialSelectedIndex(_visibleStages);
+    });
+  }
 
   void _selectStage(int index) {
-    if (index < 0 || index >= _stages.length) return;
-    final stage = _stages[index];
+    final stages = _visibleStages;
+    if (index < 0 || index >= stages.length) return;
+    final stage = stages[index];
     if (!stage.unlocked) {
       ScaffoldMessenger.of(
         context,
@@ -653,6 +685,12 @@ class _BattleStagePageState extends State<BattleStagePage> {
   }
 
   Widget _buildStagePanel(double mapHeight) {
+    final stages = _visibleStages;
+    final canGoPrevious = _currentChapter > 1;
+    final canGoNext = _currentChapter < _maxChapter;
+    final chapterTitle =
+        _kChapterTitles[_currentChapter] ?? '$_currentChapter장 모험 지역';
+
     return Padding(
       padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
       child: Container(
@@ -666,19 +704,10 @@ class _BattleStagePageState extends State<BattleStagePage> {
           children: [
             Row(
               children: [
-                Container(
-                  width: 34,
-                  height: 34,
-                  decoration: BoxDecoration(
-                    color: Colors.black.withValues(alpha: 0.5),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: _kPanelBorder, width: 1.5),
-                  ),
-                  child: const Icon(
-                    Icons.chevron_left,
-                    color: Colors.white70,
-                    size: 22,
-                  ),
+                _buildChapterArrow(
+                  icon: Icons.chevron_left,
+                  enabled: canGoPrevious,
+                  onTap: () => _changeChapter(-1),
                 ),
                 const SizedBox(width: 8),
                 Expanded(
@@ -702,10 +731,10 @@ class _BattleStagePageState extends State<BattleStagePage> {
                         ),
                       ],
                     ),
-                    child: const Text(
-                      '1장 숲의 길',
+                    child: Text(
+                      chapterTitle,
                       textAlign: TextAlign.center,
-                      style: TextStyle(
+                      style: const TextStyle(
                         color: _kGold,
                         fontSize: 16,
                         fontWeight: FontWeight.w900,
@@ -721,19 +750,10 @@ class _BattleStagePageState extends State<BattleStagePage> {
                   ),
                 ),
                 const SizedBox(width: 8),
-                Container(
-                  width: 34,
-                  height: 34,
-                  decoration: BoxDecoration(
-                    color: Colors.black.withValues(alpha: 0.5),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: _kPanelBorder, width: 1.5),
-                  ),
-                  child: const Icon(
-                    Icons.chevron_right,
-                    color: Colors.white70,
-                    size: 22,
-                  ),
+                _buildChapterArrow(
+                  icon: Icons.chevron_right,
+                  enabled: canGoNext,
+                  onTap: () => _changeChapter(1),
                 ),
                 const SizedBox(width: 8),
                 Container(
@@ -751,7 +771,7 @@ class _BattleStagePageState extends State<BattleStagePage> {
                       const Icon(Icons.star, color: _kGold, size: 14),
                       const SizedBox(width: 6),
                       Text(
-                        '$_unlockedCount/${_stages.length}',
+                        '$_clearedCount/${stages.length}',
                         style: const TextStyle(
                           color: Colors.white,
                           fontSize: 12,
@@ -801,7 +821,7 @@ class _BattleStagePageState extends State<BattleStagePage> {
                           )
                         else if (_stageError != null)
                           Positioned.fill(child: _buildStageError())
-                        else if (_stages.isEmpty)
+                        else if (stages.isEmpty)
                           Positioned.fill(
                             child: _buildStageEmpty('표시할 스테이지가 없습니다.'),
                           )
@@ -810,11 +830,11 @@ class _BattleStagePageState extends State<BattleStagePage> {
                             child: Transform.translate(
                               offset: const Offset(0, _kStageMapContentOffsetY),
                               child: CustomPaint(
-                                painter: _StagePathPainter(stages: _stages),
+                                painter: _StagePathPainter(stages: stages),
                               ),
                             ),
                           ),
-                          for (int i = 0; i < _stages.length; i++)
+                          for (int i = 0; i < stages.length; i++)
                             _buildStageNode(i, constraints),
                         ],
                       ],
@@ -829,12 +849,40 @@ class _BattleStagePageState extends State<BattleStagePage> {
     );
   }
 
+  Widget _buildChapterArrow({
+    required IconData icon,
+    required bool enabled,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: enabled ? onTap : null,
+      child: Container(
+        width: 34,
+        height: 34,
+        decoration: BoxDecoration(
+          color: Colors.black.withValues(alpha: enabled ? 0.56 : 0.32),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: enabled ? _kPanelBorder : Colors.black45,
+            width: 1.5,
+          ),
+        ),
+        child: Icon(
+          icon,
+          color: enabled ? Colors.white : Colors.white30,
+          size: 22,
+        ),
+      ),
+    );
+  }
+
   Widget _buildStageNode(int index, BoxConstraints constraints) {
     const iconSize = 78.0;
-    final stage = _stages[index];
+    final stages = _visibleStages;
+    final stage = stages[index];
     final isSelected = _safeSelectedIndex == index;
     final left = (stage.point.dx * constraints.maxWidth) - (iconSize / 2);
-    final extraOffsetY = stage.stageNo == 2 ? -30.0 : 0.0;
+    final extraOffsetY = _stageNoInChapter(stage.stageNo) == 2 ? -30.0 : 0.0;
     final top =
         (stage.point.dy * constraints.maxHeight) -
         (iconSize / 2) +
@@ -1264,18 +1312,24 @@ class _BattleStagePageState extends State<BattleStagePage> {
                 height: 28,
               ),
               const SizedBox(width: 10),
-              Text(
-                _isStageLoading
-                    ? '스테이지 불러오는 중...'
-                    : (_stageError != null
-                          ? '스테이지 불러오기 실패'
-                          : (locked
-                                ? '잠금 해제 필요'
-                                : (_isStarting ? '전투 준비 중...' : '전투 시작'))),
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 30,
-                  fontWeight: FontWeight.bold,
+              Flexible(
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text(
+                    _isStageLoading
+                        ? '스테이지 불러오는 중...'
+                        : (_stageError != null
+                              ? '스테이지 불러오기 실패'
+                              : (locked
+                                    ? '잠금 해제 필요'
+                                    : (_isStarting ? '전투 준비 중...' : '전투 시작'))),
+                    maxLines: 1,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 30,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
                 ),
               ),
             ],
