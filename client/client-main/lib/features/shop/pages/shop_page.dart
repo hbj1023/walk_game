@@ -128,7 +128,7 @@ class _ShopPageState extends State<ShopPage> {
   Future<void> _purchase(ShopItem item) async {
     if (_selectedShop == null || _isBuying) return;
     if (_gs.coins < item.priceCoin) {
-      _showMessage('코인이 부족합니다. 전투로 더 모아주세요.');
+      _showMessage('코인이 부족합니다. 전투와 보상으로 코인을 더 모아주세요.');
       return;
     }
 
@@ -137,7 +137,7 @@ class _ShopPageState extends State<ShopPage> {
       builder: (context) => AlertDialog(
         title: Text(item.itemTemplate.name),
         content: Text(
-          '${item.itemTemplate.statSummary}\n${item.priceCoin} 코인으로 구매하시겠습니까?',
+          '${item.itemTemplate.statSummary}\n가격 ${item.priceCoin} 코인\n구매 후 인벤토리에서 장착할 수 있습니다.',
         ),
         actions: [
           TextButton(
@@ -174,7 +174,7 @@ class _ShopPageState extends State<ShopPage> {
             .where((id) => id.isNotEmpty)
             .toSet();
       });
-      _showMessage('${item.itemTemplate.name} 구매 완료');
+      _showMessage('${item.itemTemplate.name} 구매 완료. 남은 코인: ${_gs.coins}');
     } catch (e) {
       if (mounted) _showMessage(e.toString());
     } finally {
