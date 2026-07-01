@@ -326,7 +326,11 @@ func attackNormalBattle(ctx context.Context, token string, userID string, req No
 		if err != nil {
 			return NormalBattleResponse{}, err
 		}
-		rewardExp = normalBattleExpReward(stage.StageNo, false)
+		progress, progressFound, err := getStageProgress(ctx, token, character.ID, battle.Stage)
+		if err != nil {
+			return NormalBattleResponse{}, err
+		}
+		rewardExp = normalBattleExpReward(stage.StageNo, false, progress, progressFound, character.Level)
 		monsterAttackGaugeM = 0
 	} else if monsterAttackGaugeM >= monsterAttackDistanceM {
 		monsterAttacked = true
@@ -500,7 +504,11 @@ func attackBossBattle(ctx context.Context, token string, userID string, req Norm
 		if err != nil {
 			return NormalBattleResponse{}, err
 		}
-		rewardExp = normalBattleExpReward(stage.StageNo, true)
+		progress, progressFound, err := getStageProgress(ctx, token, character.ID, battle.Stage)
+		if err != nil {
+			return NormalBattleResponse{}, err
+		}
+		rewardExp = normalBattleExpReward(stage.StageNo, true, progress, progressFound, character.Level)
 		monsterAttackGaugeM = 0
 	} else if monsterAttackGaugeM >= monsterAttackDistanceM {
 		monsterAttacked = true
@@ -1035,14 +1043,40 @@ func recordNormalBattleLogs(
 	}
 }
 
-func normalBattleExpReward(stageNo int, isBoss bool) int {
+func normalBattleExpReward(stageNo int, isBoss bool, progress stageProgressRecord, progressFound bool, characterLevel int) int {
 	if stageNo < 1 {
 		stageNo = 1
 	}
-	if isBoss {
-		return 40 + stageNo*10
+	if characterLevel < 1 {
+		characterLevel = 1
 	}
-	return 10 + stageNo*5
+	base := ceilDiv(stageNo*100, 3)
+	if isBoss {
+		base = ceilDiv(stageNo*100, 2)
+	}
+
+	if !progressFound || progress.ClearCount <= 0 {
+		return ceilDiv(base*3, 2)
+	}
+
+	repeatPercent := 60
+	if levelGap := characterLevel - stageNo; levelGap >= 3 {
+		repeatPercent -= (levelGap - 2) * 10
+	}
+	if repeatPercent < 20 {
+		repeatPercent = 20
+	}
+	return ceilDiv(base*repeatPercent, 100)
+}
+
+func ceilDiv(numerator int, denominator int) int {
+	if denominator <= 0 {
+		return 0
+	}
+	if numerator <= 0 {
+		return 0
+	}
+	return (numerator + denominator - 1) / denominator
 }
 
 func applyCharacterExpReward(level int, exp int, rewardExp int, statExp int) (int, int, int, int) {
