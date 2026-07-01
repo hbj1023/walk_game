@@ -24,6 +24,7 @@ type NormalBattleResponse struct {
 	MonsterAttacked        bool            `json:"monster_attacked"`
 	RewardCoin             int             `json:"reward_coin"`
 	RewardExp              int             `json:"reward_exp"`
+	StatExpReward          int             `json:"stat_exp_reward"`
 	RewardItem             any             `json:"reward_item,omitempty"`
 	TicketConsumed         bool            `json:"ticket_consumed,omitempty"`
 	AttackCountBalance     int             `json:"attack_count_balance"`
