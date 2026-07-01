@@ -48,8 +48,8 @@ func TestNormalBattleCoinRewardRepeatClear(t *testing.T) {
 	progress := stageProgressRecord{ClearCount: 1}
 
 	got := normalBattleCoinReward(100, 3, progress, true, 3)
-	if got != 35 {
-		t.Fatalf("repeat clear coin = %d, want 35", got)
+	if got != 50 {
+		t.Fatalf("repeat clear coin = %d, want 50", got)
 	}
 }
 

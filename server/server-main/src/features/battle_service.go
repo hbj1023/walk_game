@@ -1104,7 +1104,7 @@ func normalBattleCoinReward(baseCoin int, stageNo int, progress stageProgressRec
 		return baseCoin
 	}
 
-	repeatPercent := 35
+	repeatPercent := 50
 	if levelGap := characterLevel - stageNo; levelGap >= 3 {
 		repeatPercent -= (levelGap - 2) * 5
 	}
