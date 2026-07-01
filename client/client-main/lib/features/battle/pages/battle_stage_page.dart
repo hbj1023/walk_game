@@ -77,11 +77,11 @@ const _kMonsterNameFallbacks = <int, String>{
 };
 
 const _kMonsterHpFallbacks = <int, int>{
-  1: 350,
-  2: 420,
-  3: 520,
-  4: 650,
-  5: 820,
+  1: 75,
+  2: 115,
+  3: 145,
+  4: 185,
+  5: 320,
   6: 760,
   7: 880,
   8: 1020,
