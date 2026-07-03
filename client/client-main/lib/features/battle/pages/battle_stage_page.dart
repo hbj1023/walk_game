@@ -54,13 +54,22 @@ class _StageData {
   });
 }
 
-const _kStagePoints = <Offset>[
-  Offset(0.118, 0.64),
-  Offset(0.3, 0.62),
-  Offset(0.5, 0.37),
-  Offset(0.7, 0.48),
-  Offset(0.89, 0.33),
-];
+const _kChapterStagePoints = <int, List<Offset>>{
+  1: [
+    Offset(0.118, 0.64),
+    Offset(0.3, 0.62),
+    Offset(0.5, 0.37),
+    Offset(0.7, 0.48),
+    Offset(0.89, 0.33),
+  ],
+  2: [
+    Offset(0.118, 0.64),
+    Offset(0.3, 0.62),
+    Offset(0.5, 0.37),
+    Offset(0.7, 0.48),
+    Offset(0.89, 0.33),
+  ],
+};
 
 const _kChapterTitles = <int, String>{1: '1장 숲의 길', 2: '2장 그늘버섯 숲'};
 
@@ -292,9 +301,13 @@ class _BattleStagePageState extends State<BattleStagePage> {
   }
 
   Offset _stagePoint(int stageNo) {
+    final chapter = _chapterForStage(stageNo);
     final chapterStageNo = _stageNoInChapter(stageNo);
-    if (chapterStageNo >= 1 && chapterStageNo <= _kStagePoints.length) {
-      return _kStagePoints[chapterStageNo - 1];
+    final chapterPoints = _kChapterStagePoints[chapter];
+    if (chapterPoints != null &&
+        chapterStageNo >= 1 &&
+        chapterStageNo <= chapterPoints.length) {
+      return chapterPoints[chapterStageNo - 1];
     }
 
     final index = chapterStageNo - 1;
