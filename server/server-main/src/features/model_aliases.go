@@ -57,6 +57,7 @@ type statBalanceSettingRecord = models.StatBalanceSettingRecord
 type statBlock = models.StatBlock
 type equippedStatItem = models.EquippedStatItem
 type equippedStatRecord = models.EquippedStatRecord
+type equipmentSetBonusRecord = models.EquipmentSetBonusRecord
 type pocketBaseUser = models.PocketBaseUser
 type pocketBaseAuthResponse = models.PocketBaseAuthResponse
 type pocketBaseErrorResponse = models.PocketBaseErrorResponse

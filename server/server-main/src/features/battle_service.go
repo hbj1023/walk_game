@@ -266,10 +266,11 @@ func attackNormalBattle(ctx context.Context, token string, userID string, req No
 	if err != nil {
 		return NormalBattleResponse{}, err
 	}
-	characterMaxHP, err := getBattleCharacterMaxHP(ctx, token, character.ID, stats)
+	statContext, err := getBattleStatContext(ctx, token, character.ID, stats)
 	if err != nil {
 		return NormalBattleResponse{}, err
 	}
+	characterMaxHP := statContext.Stats.HP
 	monster, err := getMonsterByID(ctx, token, battle.Monster)
 	if err != nil {
 		return NormalBattleResponse{}, err
@@ -284,15 +285,18 @@ func attackNormalBattle(ctx context.Context, token string, userID string, req No
 		return NormalBattleResponse{}, statusError{status: http.StatusBadRequest, message: "battle is already finished"}
 	}
 
-	playerDamage := formulas.CalculateDamage(stats.Attack(), monster.Defense)
+	playerDamage := formulas.CalculateDamage(statContext.Stats.Attack, monster.Defense)
+	playerDamage = adjustedPlayerDamage(playerDamage, battle.BattleType, statContext.Effects)
 	monsterCurrentHP := battle.MonsterCurrentHP - playerDamage
 	if monsterCurrentHP < 0 {
 		monsterCurrentHP = 0
 	}
 
-	attackDistanceM := formulas.CalculateAttackDistance(stats.Agility())
+	attackDistanceM := formulas.CalculateAttackDistance(statContext.Stats.Agility)
+	attackDistanceM = adjustedAttackDistance(attackDistanceM, statContext.Effects)
 	monsterAttackDistanceM := formulas.CalculateMonsterAttackDistance()
-	monsterAttackGaugeM := battle.MonsterAttackGaugeM + attackDistanceM
+	monsterGaugeGainM := adjustedMonsterGaugeGain(attackDistanceM, statContext.Effects)
+	monsterAttackGaugeM := battle.MonsterAttackGaugeM + monsterGaugeGainM
 
 	monsterDamage := 0
 	monsterAttacked := false
@@ -322,7 +326,8 @@ func attackNormalBattle(ctx context.Context, token string, userID string, req No
 		monsterAttackGaugeM = 0
 	} else if monsterAttackGaugeM >= monsterAttackDistanceM {
 		monsterAttacked = true
-		monsterDamage = formulas.CalculateDamage(monster.Attack, stats.Defense())
+		monsterDamage = formulas.CalculateDamage(monster.Attack, statContext.Stats.Defense)
+		monsterDamage = adjustedMonsterDamage(monsterDamage, statContext.Effects)
 		characterCurrentHP -= monsterDamage
 		if characterCurrentHP < 0 {
 			characterCurrentHP = 0
@@ -445,10 +450,11 @@ func attackBossBattle(ctx context.Context, token string, userID string, req Norm
 	if err != nil {
 		return NormalBattleResponse{}, err
 	}
-	characterMaxHP, err := getBattleCharacterMaxHP(ctx, token, character.ID, stats)
+	statContext, err := getBattleStatContext(ctx, token, character.ID, stats)
 	if err != nil {
 		return NormalBattleResponse{}, err
 	}
+	characterMaxHP := statContext.Stats.HP
 	monster, err := getMonsterByID(ctx, token, battle.Monster)
 	if err != nil {
 		return NormalBattleResponse{}, err
@@ -463,15 +469,18 @@ func attackBossBattle(ctx context.Context, token string, userID string, req Norm
 		return NormalBattleResponse{}, statusError{status: http.StatusBadRequest, message: "battle is already finished"}
 	}
 
-	playerDamage := formulas.CalculateDamage(stats.Attack(), monster.Defense)
+	playerDamage := formulas.CalculateDamage(statContext.Stats.Attack, monster.Defense)
+	playerDamage = adjustedPlayerDamage(playerDamage, battle.BattleType, statContext.Effects)
 	monsterCurrentHP := battle.MonsterCurrentHP - playerDamage
 	if monsterCurrentHP < 0 {
 		monsterCurrentHP = 0
 	}
 
-	attackDistanceM := formulas.CalculateAttackDistance(stats.Agility())
+	attackDistanceM := formulas.CalculateAttackDistance(statContext.Stats.Agility)
+	attackDistanceM = adjustedAttackDistance(attackDistanceM, statContext.Effects)
 	monsterAttackDistanceM := formulas.CalculateMonsterAttackDistance()
-	monsterAttackGaugeM := battle.MonsterAttackGaugeM + attackDistanceM
+	monsterGaugeGainM := adjustedMonsterGaugeGain(attackDistanceM, statContext.Effects)
+	monsterAttackGaugeM := battle.MonsterAttackGaugeM + monsterGaugeGainM
 
 	monsterDamage := 0
 	monsterAttacked := false
@@ -501,7 +510,8 @@ func attackBossBattle(ctx context.Context, token string, userID string, req Norm
 		monsterAttackGaugeM = 0
 	} else if monsterAttackGaugeM >= monsterAttackDistanceM {
 		monsterAttacked = true
-		monsterDamage = formulas.CalculateDamage(monster.Attack, stats.Defense())
+		monsterDamage = formulas.CalculateDamage(monster.Attack, statContext.Stats.Defense)
+		monsterDamage = adjustedMonsterDamage(monsterDamage, statContext.Effects)
 		characterCurrentHP -= monsterDamage
 		if characterCurrentHP < 0 {
 			characterCurrentHP = 0
@@ -581,7 +591,7 @@ func attackBossBattle(ctx context.Context, token string, userID string, req Norm
 		if err := syncUserBattleClearMissions(ctx, token, userID, now); err != nil {
 			log.Printf("failed to sync boss stage clear missions: %v", err)
 		}
-		rewardItem, err = grantRandomBossEquipmentReward(ctx, token, character.ID)
+		rewardItem, err = grantRandomBossEquipmentReward(ctx, token, character.ID, battle.Stage)
 		if err != nil {
 			return NormalBattleResponse{}, err
 		}
@@ -821,11 +831,11 @@ func buildCurrentNormalBattleResponse(
 }
 
 func getBattleCharacterMaxHP(ctx context.Context, token string, characterID string, stats battleCharacterStatsRecord) (int, error) {
-	equipmentStats, _, err := getEquippedStats(ctx, token, characterID)
+	statContext, err := getBattleStatContext(ctx, token, characterID, stats)
 	if err != nil {
 		return 0, err
 	}
-	return stats.HP() + equipmentStats.HP, nil
+	return statContext.Stats.HP, nil
 }
 
 func recoverBattleCharacterHP(ctx context.Context, token string, character battleCharacterRecord, hp int) (battleCharacterRecord, error) {
@@ -928,15 +938,19 @@ func unlockNextNormalStageAfterBoss(ctx context.Context, token string, character
 	return unlockNormalStage(ctx, token, characterID, nextStage.ID, nextProgress, nextFound)
 }
 
-func grantRandomBossEquipmentReward(ctx context.Context, token string, characterID string) (any, error) {
+func grantRandomBossEquipmentReward(ctx context.Context, token string, characterID string, stageID string) (any, error) {
+	stage, err := getStageByID(ctx, token, stageID)
+	if err != nil {
+		return nil, err
+	}
 	rng := rand.New(rand.NewSource(time.Now().UnixNano()))
 	rarity := randomBossRewardRarity(rng)
-	templates, err := listBossRewardTemplates(ctx, token, rarity)
+	templates, err := listBossRewardTemplates(ctx, token, rarity, stage.StageNo)
 	if err != nil {
 		return nil, err
 	}
 	if len(templates) == 0 {
-		templates, err = listBossRewardTemplates(ctx, token, "")
+		templates, err = listBossRewardTemplates(ctx, token, "", stage.StageNo)
 		if err != nil {
 			return nil, err
 		}
@@ -985,8 +999,13 @@ func findItemTemplateByName(ctx context.Context, token string, name string) (ite
 	return list.Items[0], nil
 }
 
-func listBossRewardTemplates(ctx context.Context, token string, rarity string) ([]itemTemplateRecord, error) {
+func listBossRewardTemplates(ctx context.Context, token string, rarity string, stageNo int) ([]itemTemplateRecord, error) {
 	filterValue := fmt.Sprintf("item_type=%q && is_active=true", "equipment")
+	if stageNo >= 10 {
+		filterValue += " && set_key!=\"\""
+	} else {
+		filterValue += " && set_key=\"\""
+	}
 	if rarity != "" {
 		filterValue += fmt.Sprintf(" && rarity=%q", rarity)
 	} else {

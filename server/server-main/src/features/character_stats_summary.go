@@ -75,15 +75,21 @@ func getCharacterStatsSummary(ctx context.Context, token string, characterID str
 		return nil, err
 	}
 
-	finalStats := addStatBlocks(baseStats, upgradeStats, equipmentStats)
+	statContext, err := buildBattleStatContext(ctx, token, stats, equipmentStats, equippedItems)
+	if err != nil {
+		return nil, err
+	}
 	return map[string]any{
-		"character_id":    characterID,
-		"base_stats":      baseStats,
-		"upgrade_stats":   upgradeStats,
-		"equipment_stats": equipmentStats,
-		"final_stats":     finalStats,
-		"equipped_items":  equippedItems,
-		"character_stats": stats,
+		"character_id":       characterID,
+		"base_stats":         baseStats,
+		"upgrade_stats":      upgradeStats,
+		"equipment_stats":    equipmentStats,
+		"set_bonus_stats":    statContext.SetBonusStats,
+		"set_effects":        statContext.Effects,
+		"active_set_bonuses": statContext.ActiveBonuses,
+		"final_stats":        statContext.Stats,
+		"equipped_items":     equippedItems,
+		"character_stats":    stats,
 	}, nil
 }
 
@@ -106,12 +112,14 @@ func getEquippedStats(ctx context.Context, token string, characterID string) (st
 		}
 		total = addStatBlocks(total, itemStats)
 		items = append(items, equippedStatItem{
-			EquipmentID: owned.ID,
-			TemplateID:  owned.ItemTemplate,
-			Name:        template.Name,
-			Slot:        template.EquipmentSlot,
-			Rarity:      template.Rarity,
-			Stats:       itemStats,
+			EquipmentID:  owned.ID,
+			TemplateID:   owned.ItemTemplate,
+			Name:         template.Name,
+			Slot:         template.EquipmentSlot,
+			Rarity:       template.Rarity,
+			SetKey:       template.SetKey,
+			SetPieceType: template.SetPieceType,
+			Stats:        itemStats,
 		})
 	}
 	return total, items, nil

@@ -23,12 +23,25 @@ type StatBlock struct {
 }
 
 type EquippedStatItem struct {
-	EquipmentID string    `json:"equipment_id"`
-	TemplateID  string    `json:"template_id"`
-	Name        string    `json:"name"`
-	Slot        string    `json:"slot"`
-	Rarity      string    `json:"rarity"`
-	Stats       StatBlock `json:"stats"`
+	EquipmentID  string    `json:"equipment_id"`
+	TemplateID   string    `json:"template_id"`
+	Name         string    `json:"name"`
+	Slot         string    `json:"slot"`
+	Rarity       string    `json:"rarity"`
+	SetKey       string    `json:"set_key"`
+	SetPieceType string    `json:"set_piece_type"`
+	Stats        StatBlock `json:"stats"`
+}
+
+type EquipmentSetBonusRecord struct {
+	ID            string  `json:"id"`
+	SetKey        string  `json:"set_key"`
+	SetName       string  `json:"set_name"`
+	RequiredCount int     `json:"required_count"`
+	BonusType     string  `json:"bonus_type"`
+	BonusValue    float64 `json:"bonus_value"`
+	Description   string  `json:"description"`
+	IsActive      bool    `json:"is_active"`
 }
 
 type EquippedStatRecord struct {

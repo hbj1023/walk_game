@@ -421,11 +421,11 @@ func getCharacterFinalHP(ctx context.Context, token string, characterID string) 
 	if err != nil {
 		return 0, err
 	}
-	equipmentStats, _, err := getEquippedStats(ctx, token, characterID)
+	statContext, err := getBattleStatContext(ctx, token, characterID, stats)
 	if err != nil {
 		return 0, err
 	}
-	return stats.BaseHP + stats.UpgradedHP + equipmentStats.HP, nil
+	return statContext.Stats.HP, nil
 }
 
 func calculateRecoveredHP(currentHP int, recoverAmount int, maxHP int) int {
