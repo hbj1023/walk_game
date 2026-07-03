@@ -803,11 +803,13 @@ class _BattleStagePageState extends State<BattleStagePage> {
                 child: LayoutBuilder(
                   builder: (context, constraints) {
                     final mapRatio = constraints.maxWidth / mapHeight;
-                    final mapAsset = mapRatio > 6
-                        ? 'assets/images/bg/stage1_forest_path_ui_strip.png'
-                        : (mapRatio > 2.15
-                              ? 'assets/images/bg/stage1_forest_path_strip_map.png'
-                              : 'assets/images/bg/stage1_forest_path_map.png');
+                    final mapAsset = _currentChapter == 2
+                        ? 'assets/images/bg/stage2_shadow_mushroom_forest_map.png'
+                        : (mapRatio > 6
+                              ? 'assets/images/bg/stage1_forest_path_ui_strip.png'
+                              : (mapRatio > 2.15
+                                    ? 'assets/images/bg/stage1_forest_path_strip_map.png'
+                                    : 'assets/images/bg/stage1_forest_path_map.png'));
                     return Stack(
                       children: [
                         Positioned.fill(
