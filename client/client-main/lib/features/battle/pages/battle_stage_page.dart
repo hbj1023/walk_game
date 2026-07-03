@@ -55,11 +55,11 @@ class _StageData {
 }
 
 const _kStagePoints = <Offset>[
-  Offset(0.12, 0.74),
-  Offset(0.34, 0.79),
-  Offset(0.53, 0.57),
-  Offset(0.72, 0.76),
-  Offset(0.87, 0.63),
+  Offset(0.118, 0.64),
+  Offset(0.3, 0.62),
+  Offset(0.5, 0.37),
+  Offset(0.7, 0.48),
+  Offset(0.89, 0.33),
 ];
 
 const _kChapterTitles = <int, String>{1: '1장 숲의 길', 2: '2장 그늘버섯 숲'};
@@ -802,16 +802,18 @@ class _BattleStagePageState extends State<BattleStagePage> {
                 borderRadius: BorderRadius.circular(10),
                 child: LayoutBuilder(
                   builder: (context, constraints) {
-                    final isWideStrip = constraints.maxWidth / mapHeight > 6;
-                    final mapAsset = isWideStrip
+                    final mapRatio = constraints.maxWidth / mapHeight;
+                    final mapAsset = mapRatio > 6
                         ? 'assets/images/bg/stage1_forest_path_ui_strip.png'
-                        : 'assets/images/bg/stage1_forest_path_strip_map.png';
+                        : (mapRatio > 2.15
+                              ? 'assets/images/bg/stage1_forest_path_strip_map.png'
+                              : 'assets/images/bg/stage1_forest_path_map.png');
                     return Stack(
                       children: [
                         Positioned.fill(
                           child: Image.asset(
                             mapAsset,
-                            fit: isWideStrip ? BoxFit.fill : BoxFit.cover,
+                            fit: BoxFit.fill,
                             alignment: const Alignment(0, 1.4),
                           ),
                         ),
