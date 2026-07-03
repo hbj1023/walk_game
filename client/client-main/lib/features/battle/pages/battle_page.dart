@@ -12,6 +12,7 @@ import 'package:capstone_app/features/home/pages/home_page.dart';
 import 'package:capstone_app/features/inventory/pages/inventory_page.dart';
 import 'package:capstone_app/features/raid/pages/raid_list_page.dart';
 import 'package:capstone_app/features/shop/pages/shop_page.dart';
+import 'package:capstone_app/widgets/game_feedback.dart';
 import 'package:capstone_app/widgets/player_level_badge.dart';
 
 const _kPanelBorder = Color(0xFF6B3A1F);
@@ -126,6 +127,7 @@ class _BattlePageState extends State<BattlePage> with WidgetsBindingObserver {
         strideM: request.strideM,
         gpsDistanceM: request.gpsDistanceM,
         abnormalReason: request.abnormalReason,
+        syncType: request.syncType,
       ),
       onSyncSuccess: _handleBattleStepSyncSuccess,
       additionalStatusParts: () =>
@@ -254,12 +256,20 @@ class _BattlePageState extends State<BattlePage> with WidgetsBindingObserver {
     await _performAttack(showMissingSnack: true);
   }
 
+  void _showBattleToast(
+    String message, {
+    GameToastType type = GameToastType.info,
+  }) {
+    showGameToast(context, message, type: type);
+  }
+
   Future<bool> _performAttack({required bool showMissingSnack}) async {
     if (_isAttacking || _isUsingConsumable || _battleEnded) return false;
     if (_attackCountBalance < 1) {
       if (showMissingSnack) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('공격권이 부족합니다. 걸음 수를 동기화해주세요.')),
+        _showBattleToast(
+          '공격권이 부족합니다. 걸음 수를 동기화해주세요.',
+          type: GameToastType.warning,
         );
       }
       return false;
@@ -288,15 +298,14 @@ class _BattlePageState extends State<BattlePage> with WidgetsBindingObserver {
     } on BattleApiException catch (e) {
       if (!mounted) return false;
       if (showMissingSnack) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(e.message)));
+        _showBattleToast(e.message, type: GameToastType.error);
       }
     } catch (_) {
       if (!mounted) return false;
       if (showMissingSnack) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('공격 요청에 실패했습니다. 잠시 후 다시 시도해주세요.')),
+        _showBattleToast(
+          '공격 요청에 실패했습니다. 잠시 후 다시 시도해주세요.',
+          type: GameToastType.error,
         );
       }
     } finally {
@@ -416,9 +425,7 @@ class _BattlePageState extends State<BattlePage> with WidgetsBindingObserver {
     final selected = _selectedConsumable;
     if (_battleEnded || _isAttacking || _isUsingConsumable) return;
     if (selected == null) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('사용할 물약이 없습니다.')));
+      _showBattleToast('사용할 물약이 없습니다.', type: GameToastType.warning);
       return;
     }
 
@@ -459,21 +466,16 @@ class _BattlePageState extends State<BattlePage> with WidgetsBindingObserver {
       final healText = result.recoveredHp > 0
           ? 'HP +${result.recoveredHp}'
           : '${selected.itemTemplate.name} 사용';
-      ScaffoldMessenger.of(context)
-        ..removeCurrentSnackBar()
-        ..showSnackBar(SnackBar(content: Text(healText)));
+      _showBattleToast(healText, type: GameToastType.success);
     } on GameApiException catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context)
-        ..removeCurrentSnackBar()
-        ..showSnackBar(SnackBar(content: Text(e.message)));
+      _showBattleToast(e.message, type: GameToastType.error);
     } catch (_) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context)
-        ..removeCurrentSnackBar()
-        ..showSnackBar(
-          const SnackBar(content: Text('물약 사용에 실패했습니다. 잠시 후 다시 시도해주세요.')),
-        );
+      _showBattleToast(
+        '물약 사용에 실패했습니다. 잠시 후 다시 시도해주세요.',
+        type: GameToastType.error,
+      );
     } finally {
       if (mounted) setState(() => _isUsingConsumable = false);
     }
@@ -527,13 +529,12 @@ class _BattlePageState extends State<BattlePage> with WidgetsBindingObserver {
       }
     } on BattleApiException catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(e.message)));
+      _showBattleToast(e.message, type: GameToastType.error);
     } catch (_) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('전투 나가기 처리에 실패했습니다. 잠시 후 다시 시도해주세요.')),
+      _showBattleToast(
+        '전투 나가기 처리에 실패했습니다. 잠시 후 다시 시도해주세요.',
+        type: GameToastType.error,
       );
     } finally {
       if (mounted) setState(() => _isLeavingBattle = false);
@@ -541,11 +542,7 @@ class _BattlePageState extends State<BattlePage> with WidgetsBindingObserver {
   }
 
   void _showBattleLockedMessage() {
-    ScaffoldMessenger.of(context)
-      ..removeCurrentSnackBar()
-      ..showSnackBar(
-        const SnackBar(content: Text('전투 중에는 다른 화면으로 이동할 수 없습니다.')),
-      );
+    _showBattleToast('전투 중에는 다른 화면으로 이동할 수 없습니다.', type: GameToastType.warning);
   }
 
   void _showBattleResultDialog() {

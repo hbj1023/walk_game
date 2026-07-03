@@ -28,6 +28,10 @@ type StepSyncResponse struct {
 	AttackDistanceRemainderM float64 `json:"attack_distance_remainder_m"`
 	AttackCountEarned        int     `json:"attack_count_earned"`
 	AttackCountBalance       int     `json:"attack_count_balance"`
+	OfflineAttackCountCap    int     `json:"offline_attack_count_cap"`
+	OfflineAttackCountEarned int     `json:"offline_attack_count_earned"`
+	OfflineAttackCountStored int     `json:"offline_attack_count_stored"`
+	OfflineAttackCountLost   int     `json:"offline_attack_count_lost"`
 	Token                    string  `json:"token"`
 }
 
@@ -43,4 +47,6 @@ type DailyStepSummaryRecord struct {
 	TotalDistanceM           int     `json:"total_distance_m"`
 	AttackCountEarned        int     `json:"attack_count_earned"`
 	AttackDistanceRemainderM float64 `json:"attack_distance_remainder_m"`
+	OfflineAttackCountEarned int     `json:"offline_attack_count_earned"`
+	OfflineAttackCountLost   int     `json:"offline_attack_count_lost"`
 }

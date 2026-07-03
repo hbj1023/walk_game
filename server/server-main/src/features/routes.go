@@ -30,6 +30,8 @@ func RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("/api/shops/", shopItemsHandler)
 	mux.HandleFunc("/api/stat-upgrades", statUpgradeHandler)
 	mux.HandleFunc("/api/stat-upgrades/", statUpgradeCostsHandler)
+	mux.HandleFunc("/api/exploration-upgrades", explorationUpgradeHandler)
+	mux.HandleFunc("/api/exploration-upgrades/", explorationUpgradeCostsHandler)
 	mux.HandleFunc("/api/characters/stats/", characterStatsHandler)
 	mux.HandleFunc("/api/missions", missionsHandler)
 	mux.HandleFunc("/api/notifications", notificationsHandler)

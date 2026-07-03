@@ -33,15 +33,17 @@ type NormalBattleResponse struct {
 }
 
 type CharacterRecord struct {
-	ID                 string `json:"id"`
-	User               string `json:"user"`
-	Name               string `json:"name"`
-	CurrentHP          int    `json:"current_hp"`
-	Level              int    `json:"level"`
-	Exp                int    `json:"exp"`
-	StatExp            int    `json:"stat_exp"`
-	CoinBalance        int    `json:"coin_balance"`
-	AttackCountBalance int    `json:"attack_count_balance"`
+	ID                     string `json:"id"`
+	User                   string `json:"user"`
+	Name                   string `json:"name"`
+	CurrentHP              int    `json:"current_hp"`
+	Level                  int    `json:"level"`
+	Exp                    int    `json:"exp"`
+	StatExp                int    `json:"stat_exp"`
+	CoinBalance            int    `json:"coin_balance"`
+	AttackCountBalance     int    `json:"attack_count_balance"`
+	OfflineStorageLevel    int    `json:"offline_storage_level"`
+	OfflineEfficiencyLevel int    `json:"offline_efficiency_level"`
 }
 
 type CharacterStatsRecord struct {

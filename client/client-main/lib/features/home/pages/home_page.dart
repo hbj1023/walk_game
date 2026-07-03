@@ -47,6 +47,7 @@ class _HomePageState extends State<HomePage>
         strideM: request.strideM,
         gpsDistanceM: request.gpsDistanceM,
         abnormalReason: request.abnormalReason,
+        syncType: request.syncType,
       ),
       onSyncSuccess: (_, _) => _loadMissions(),
       onStartError: (error) => _showSnackBar(error.toString()),

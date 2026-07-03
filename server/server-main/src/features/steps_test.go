@@ -49,6 +49,30 @@ func TestGetAttackDistanceMMatchesBalanceFormula(t *testing.T) {
 	}
 }
 
+func TestGetStepAttackDistanceMAddsOfflineAgilityPenalty(t *testing.T) {
+	distance := getStepAttackDistanceM(20, "offline", 0)
+	if round2(distance) != 86 {
+		t.Fatalf("getStepAttackDistanceM(20, offline) = %.2f, want 86.00", distance)
+	}
+}
+
+func TestNormalizeStepSyncRequestAcceptsOfflineSync(t *testing.T) {
+	req, _, _, err := normalizeStepSyncRequest(StepSyncRequest{
+		SourceType: "sensor",
+		SyncType:   "offline",
+		StepCount:  100,
+		DistanceM:  75,
+		IsDelta:    true,
+	})
+	if err != nil {
+		t.Fatalf("normalizeStepSyncRequest returned error: %v", err)
+	}
+
+	if req.SyncType != "offline" {
+		t.Fatalf("SyncType = %q, want offline", req.SyncType)
+	}
+}
+
 func TestCalculateDailyDeltaUsesCumulativeValues(t *testing.T) {
 	req := StepSyncRequest{
 		StepCount: 1200,

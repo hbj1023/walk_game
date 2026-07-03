@@ -12,7 +12,12 @@ import (
 	"server/src/utils/formulas"
 )
 
-const defaultStrideM = 0.75
+const (
+	defaultStrideM                 = 0.75
+	baseAttackDistanceM            = 100.0
+	offlineAgilityReductionPenalty = 0.3
+	defaultOfflineAttackCountCap   = 10
+)
 
 type pocketBaseListResponse[T any] struct {
 	Page       int `json:"page"`
@@ -75,12 +80,26 @@ func processStepSync(r *http.Request, profileID string, token string, req StepSy
 	totalStepCount, totalDistanceM := calculateDailyTotals(normalized, existingSummary, summaryFound)
 
 	agility := stats.BaseAgility + stats.UpgradedAgility
-	attackDistanceM := getAttackDistanceM(agility)
+	attackDistanceM := getStepAttackDistanceM(agility, normalized.SyncType, character.OfflineEfficiencyLevel)
 	attackCountEarned, attackDistanceRemainderM := calculateAttackCountEarned(
 		existingSummary.AttackDistanceRemainderM,
 		deltaDistanceM,
 		attackDistanceM,
 	)
+	offlineAttackCountEarned := 0
+	offlineAttackCountStored := 0
+	offlineAttackCountLost := 0
+	if normalized.SyncType == "offline" {
+		offlineAttackCountEarned = attackCountEarned
+		offlineAttackCountCap := offlineAttackCountCapForLevel(character.OfflineStorageLevel)
+		availableOfflineSlots := offlineAttackCountCap - existingSummary.OfflineAttackCountEarned
+		if availableOfflineSlots < 0 {
+			availableOfflineSlots = 0
+		}
+		offlineAttackCountStored = minInt(attackCountEarned, availableOfflineSlots)
+		offlineAttackCountLost = attackCountEarned - offlineAttackCountStored
+		attackCountEarned = offlineAttackCountStored
+	}
 
 	stepLog, err := createStepSyncLog(r, token, profileID, normalized, capturedAt)
 	if err != nil {
@@ -99,6 +118,9 @@ func processStepSync(r *http.Request, profileID string, token string, req StepSy
 		totalDistanceM,
 		attackCountEarned,
 		attackDistanceRemainderM,
+		offlineAttackCountEarned,
+		offlineAttackCountStored,
+		offlineAttackCountLost,
 	)
 	if err != nil {
 		return StepSyncResponse{}, fmt.Errorf("save daily step summary failed: %w", err)
@@ -134,6 +156,10 @@ func processStepSync(r *http.Request, profileID string, token string, req StepSy
 		AttackDistanceRemainderM: round2(attackDistanceRemainderM),
 		AttackCountEarned:        attackCountEarned,
 		AttackCountBalance:       attackCountBalance,
+		OfflineAttackCountCap:    offlineAttackCountCapForLevel(character.OfflineStorageLevel),
+		OfflineAttackCountEarned: offlineAttackCountEarned,
+		OfflineAttackCountStored: offlineAttackCountStored,
+		OfflineAttackCountLost:   offlineAttackCountLost,
 		Token:                    token,
 	}, nil
 }
@@ -148,8 +174,8 @@ func normalizeStepSyncRequest(req StepSyncRequest) (StepSyncRequest, time.Time, 
 	if req.SourceType != "sensor" && req.SourceType != "api" {
 		return StepSyncRequest{}, time.Time{}, "", statusError{status: http.StatusBadRequest, message: "source_type must be sensor or api"}
 	}
-	if req.SyncType != "realtime" && req.SyncType != "periodic" {
-		return StepSyncRequest{}, time.Time{}, "", statusError{status: http.StatusBadRequest, message: "sync_type must be realtime or periodic"}
+	if req.SyncType != "realtime" && req.SyncType != "periodic" && req.SyncType != "offline" {
+		return StepSyncRequest{}, time.Time{}, "", statusError{status: http.StatusBadRequest, message: "sync_type must be realtime, periodic, or offline"}
 	}
 	if req.StepCount < 0 || req.DistanceM < 0 {
 		return StepSyncRequest{}, time.Time{}, "", statusError{status: http.StatusBadRequest, message: "step_count and distance_m cannot be negative"}
@@ -266,6 +292,9 @@ func upsertDailyStepSummary(
 	totalDistanceM int,
 	attackCountEarned int,
 	attackDistanceRemainderM float64,
+	offlineAttackCountEarned int,
+	offlineAttackCountStored int,
+	offlineAttackCountLost int,
 ) (dailyStepSummaryRecord, error) {
 	payload := map[string]any{
 		"user":                        profileID,
@@ -274,12 +303,16 @@ func upsertDailyStepSummary(
 		"total_distance_m":            totalDistanceM,
 		"attack_count_earned":         attackCountEarned,
 		"attack_distance_remainder_m": round2(attackDistanceRemainderM),
+		"offline_attack_count_earned": offlineAttackCountStored,
+		"offline_attack_count_lost":   offlineAttackCountLost,
 	}
 	method := http.MethodPost
 	url := pocketBaseCollectionURL("daily_step_summaries")
 
 	if found {
 		payload["attack_count_earned"] = summary.AttackCountEarned + attackCountEarned
+		payload["offline_attack_count_earned"] = summary.OfflineAttackCountEarned + offlineAttackCountStored
+		payload["offline_attack_count_lost"] = summary.OfflineAttackCountLost + offlineAttackCountLost
 		method = http.MethodPatch
 		url = pocketBaseRecordURL("daily_step_summaries", summary.ID)
 	}
@@ -336,6 +369,13 @@ func calculateAttackCountEarned(previousRemainderM float64, deltaDistanceM int, 
 
 func maxInt(a int, b int) int {
 	if a > b {
+		return a
+	}
+	return b
+}
+
+func minInt(a int, b int) int {
+	if a < b {
 		return a
 	}
 	return b
@@ -431,6 +471,19 @@ func createAttackCountTransaction(r *http.Request, token string, characterID str
 
 func getAttackDistanceM(agility int) float64 {
 	return formulas.CalculateAttackDistance(agility)
+}
+
+func getStepAttackDistanceM(agility int, syncType string, offlineEfficiencyLevel int) float64 {
+	attackDistanceM := getAttackDistanceM(agility)
+	if syncType != "offline" {
+		return attackDistanceM
+	}
+
+	reductionM := baseAttackDistanceM - attackDistanceM
+	if reductionM <= 0 {
+		return attackDistanceM
+	}
+	return round2(attackDistanceM + reductionM*offlineAgilityPenaltyForLevel(offlineEfficiencyLevel))
 }
 
 func round2(value float64) float64 {

@@ -312,6 +312,10 @@ class StepSyncResult {
   final double attackDistanceRemainderM;
   final int attackCountEarned;
   final int attackCountBalance;
+  final int offlineAttackCountCap;
+  final int offlineAttackCountEarned;
+  final int offlineAttackCountStored;
+  final int offlineAttackCountLost;
 
   const StepSyncResult({
     required this.recordDate,
@@ -323,6 +327,10 @@ class StepSyncResult {
     required this.attackDistanceRemainderM,
     required this.attackCountEarned,
     required this.attackCountBalance,
+    required this.offlineAttackCountCap,
+    required this.offlineAttackCountEarned,
+    required this.offlineAttackCountStored,
+    required this.offlineAttackCountLost,
   });
 
   factory StepSyncResult.fromJson(Map<String, dynamic> json) {
@@ -336,6 +344,96 @@ class StepSyncResult {
       attackDistanceRemainderM: _asDouble(json['attack_distance_remainder_m']),
       attackCountEarned: _asInt(json['attack_count_earned']),
       attackCountBalance: _asInt(json['attack_count_balance']),
+      offlineAttackCountCap: _asInt(json['offline_attack_count_cap']),
+      offlineAttackCountEarned: _asInt(json['offline_attack_count_earned']),
+      offlineAttackCountStored: _asInt(json['offline_attack_count_stored']),
+      offlineAttackCountLost: _asInt(json['offline_attack_count_lost']),
+    );
+  }
+}
+
+class ExplorationUpgradeSummary {
+  final int coinBalance;
+  final Map<String, ExplorationUpgradeInfo> upgrades;
+
+  const ExplorationUpgradeSummary({
+    required this.coinBalance,
+    required this.upgrades,
+  });
+
+  factory ExplorationUpgradeSummary.fromJson(Map<String, dynamic> json) {
+    final upgradeMap = _asMap(json['upgrades']);
+    return ExplorationUpgradeSummary(
+      coinBalance: _asInt(json['coin_balance']),
+      upgrades: upgradeMap.map(
+        (key, value) =>
+            MapEntry(key, ExplorationUpgradeInfo.fromJson(_asMap(value))),
+      ),
+    );
+  }
+
+  factory ExplorationUpgradeSummary.defaults({required int coinBalance}) {
+    return ExplorationUpgradeSummary(
+      coinBalance: coinBalance,
+      upgrades: const {
+        'offline_storage': ExplorationUpgradeInfo(
+          level: 0,
+          maxLevel: 5,
+          costCoin: 150,
+          currentValue: 10,
+          nextValue: 15,
+          valueUnit: '회',
+          title: '공격기회 보관함',
+          description: '앱을 꺼둔 동안 쌓을 수 있는 공격기회 최대치를 늘립니다.',
+        ),
+        'offline_efficiency': ExplorationUpgradeInfo(
+          level: 0,
+          maxLevel: 5,
+          costCoin: 250,
+          currentValue: 30,
+          nextValue: 26,
+          valueUnit: '%',
+          title: '탐험 효율',
+          description: '오프라인 걷기에서 추가로 더 걸어야 하는 부담을 줄입니다.',
+        ),
+      },
+    );
+  }
+}
+
+class ExplorationUpgradeInfo {
+  final int level;
+  final int maxLevel;
+  final int costCoin;
+  final int currentValue;
+  final int nextValue;
+  final String valueUnit;
+  final String title;
+  final String description;
+
+  const ExplorationUpgradeInfo({
+    required this.level,
+    required this.maxLevel,
+    required this.costCoin,
+    required this.currentValue,
+    required this.nextValue,
+    required this.valueUnit,
+    required this.title,
+    required this.description,
+  });
+
+  bool get isMaxed => level >= maxLevel;
+
+  factory ExplorationUpgradeInfo.fromJson(Map<String, dynamic> json) {
+    return ExplorationUpgradeInfo(
+      level: _asInt(json['level']),
+      maxLevel: _asInt(json['max_level']),
+      costCoin: _asInt(json['cost_coin']),
+      currentValue: _asInt(json['current_value']),
+      nextValue: _asInt(json['next_value']),
+      valueUnit: _asString(json['value_unit']),
+      title: _asString(json['title']),
+      description: _asString(json['description']),
     );
   }
 }
@@ -928,6 +1026,40 @@ class GameApiService {
     return fetchStatUpgradeSummary();
   }
 
+  static Future<ExplorationUpgradeSummary>
+  fetchExplorationUpgradeSummary() async {
+    final characterId = await requireCharacterId();
+    try {
+      final response = await _get(
+        '/api/exploration-upgrades/costs/$characterId',
+      );
+      final summary = ExplorationUpgradeSummary.fromJson(
+        _asMap(response['data']),
+      );
+      GameState.instance.setCoins(summary.coinBalance);
+      return summary;
+    } on GameApiException {
+      return ExplorationUpgradeSummary.defaults(
+        coinBalance: GameState.instance.coins,
+      );
+    }
+  }
+
+  static Future<ExplorationUpgradeSummary> upgradeExploration(
+    String upgradeType,
+  ) async {
+    final characterId = await requireCharacterId();
+    final response = await _post('/api/exploration-upgrades', {
+      'characterId': characterId,
+      'upgradeType': upgradeType,
+    });
+    final summary = ExplorationUpgradeSummary.fromJson(
+      _asMap(response['data']),
+    );
+    GameState.instance.setCoins(summary.coinBalance);
+    return summary;
+  }
+
   static Future<List<UserMission>> fetchUserMissions() async {
     final userId = await requireUserId();
     final response = await _get('/api/users/$userId/missions');
@@ -972,10 +1104,11 @@ class GameApiService {
     double strideM = 0.75,
     int gpsDistanceM = 0,
     String abnormalReason = '',
+    String syncType = 'periodic',
   }) async {
     final response = await _post('/steps/sync', {
       'source_type': 'sensor',
-      'sync_type': 'periodic',
+      'sync_type': syncType,
       'step_count': stepCount,
       'distance_m': 0,
       'stride_m': strideM,
@@ -1243,9 +1376,17 @@ class GameApiService {
     http.Response response,
     String fallback,
   ) {
-    final decoded = response.body.isEmpty
-        ? <String, dynamic>{}
-        : _asMap(jsonDecode(response.body));
+    final Map<String, dynamic> decoded;
+    try {
+      decoded = response.body.isEmpty
+          ? <String, dynamic>{}
+          : _asMap(jsonDecode(response.body));
+    } on FormatException {
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        throw GameApiException(fallback);
+      }
+      throw const GameApiException('서버 응답을 읽을 수 없습니다.');
+    }
     if (response.statusCode < 200 || response.statusCode >= 300) {
       final message = _asString(decoded['error']).isNotEmpty
           ? _asString(decoded['error'])
