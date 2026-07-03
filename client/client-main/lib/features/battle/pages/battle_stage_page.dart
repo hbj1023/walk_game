@@ -802,12 +802,16 @@ class _BattleStagePageState extends State<BattleStagePage> {
                 borderRadius: BorderRadius.circular(10),
                 child: LayoutBuilder(
                   builder: (context, constraints) {
+                    final isWideStrip = constraints.maxWidth / mapHeight > 6;
+                    final mapAsset = isWideStrip
+                        ? 'assets/images/bg/stage1_forest_path_ui_strip.png'
+                        : 'assets/images/bg/stage1_forest_path_strip_map.png';
                     return Stack(
                       children: [
                         Positioned.fill(
                           child: Image.asset(
-                            'assets/images/bg/battle_satge_BG.jpg',
-                            fit: BoxFit.cover,
+                            mapAsset,
+                            fit: isWideStrip ? BoxFit.fill : BoxFit.cover,
                             alignment: const Alignment(0, 1.4),
                           ),
                         ),
