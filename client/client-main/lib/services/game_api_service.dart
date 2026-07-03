@@ -355,16 +355,19 @@ class StepSyncResult {
 class ExplorationUpgradeSummary {
   final int coinBalance;
   final Map<String, ExplorationUpgradeInfo> upgrades;
+  final bool serverAvailable;
 
   const ExplorationUpgradeSummary({
     required this.coinBalance,
     required this.upgrades,
+    required this.serverAvailable,
   });
 
   factory ExplorationUpgradeSummary.fromJson(Map<String, dynamic> json) {
     final upgradeMap = _asMap(json['upgrades']);
     return ExplorationUpgradeSummary(
       coinBalance: _asInt(json['coin_balance']),
+      serverAvailable: true,
       upgrades: upgradeMap.map(
         (key, value) =>
             MapEntry(key, ExplorationUpgradeInfo.fromJson(_asMap(value))),
@@ -375,6 +378,7 @@ class ExplorationUpgradeSummary {
   factory ExplorationUpgradeSummary.defaults({required int coinBalance}) {
     return ExplorationUpgradeSummary(
       coinBalance: coinBalance,
+      serverAvailable: false,
       upgrades: const {
         'offline_storage': ExplorationUpgradeInfo(
           level: 0,

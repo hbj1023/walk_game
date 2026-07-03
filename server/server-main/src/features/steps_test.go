@@ -73,6 +73,38 @@ func TestNormalizeStepSyncRequestAcceptsOfflineSync(t *testing.T) {
 	}
 }
 
+func TestExplorationUpgradeSummaryReflectsCharacterLevels(t *testing.T) {
+	summary := buildExplorationUpgradeSummary(battleCharacterRecord{
+		CoinBalance:            900,
+		OfflineStorageLevel:    1,
+		OfflineEfficiencyLevel: 2,
+	})
+
+	if summary["coin_balance"] != 900 {
+		t.Fatalf("coin_balance = %v, want 900", summary["coin_balance"])
+	}
+
+	upgrades := summary["upgrades"].(map[string]any)
+	storage := upgrades[explorationUpgradeStorage].(map[string]any)
+	if storage["level"] != 1 {
+		t.Fatalf("storage level = %v, want 1", storage["level"])
+	}
+	if storage["current_value"] != 15 {
+		t.Fatalf("storage current_value = %v, want 15", storage["current_value"])
+	}
+	if storage["cost_coin"] != 350 {
+		t.Fatalf("storage cost_coin = %v, want 350", storage["cost_coin"])
+	}
+
+	efficiency := upgrades[explorationUpgradeEfficiency].(map[string]any)
+	if efficiency["level"] != 2 {
+		t.Fatalf("efficiency level = %v, want 2", efficiency["level"])
+	}
+	if efficiency["current_value"] != 22 {
+		t.Fatalf("efficiency current_value = %v, want 22", efficiency["current_value"])
+	}
+}
+
 func TestCalculateDailyDeltaUsesCumulativeValues(t *testing.T) {
 	req := StepSyncRequest{
 		StepCount: 1200,

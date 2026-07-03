@@ -322,6 +322,10 @@ class _InventoryPageState extends State<InventoryPage> {
     if (_isActionLoading) return;
     final upgrade = _explorationSummary?.upgrades[key];
     if (upgrade == null || upgrade.isMaxed) return;
+    if (_explorationSummary?.serverAvailable != true) {
+      _showMessage('서버 업데이트 후 사용할 수 있습니다.');
+      return;
+    }
     if (_gs.coins < upgrade.costCoin) {
       _showMessage('코인이 부족합니다.');
       return;
@@ -856,14 +860,12 @@ class _InventoryPageState extends State<InventoryPage> {
               keyName: 'offline_storage',
               upgrade: storage,
               icon: Icons.inventory_2,
-              valueLabel: '최대 저장',
             ),
           if (efficiency != null)
             _buildExplorationUpgradeCard(
               keyName: 'offline_efficiency',
               upgrade: efficiency,
               icon: Icons.travel_explore,
-              valueLabel: '추가 거리',
               lowerIsBetter: true,
             ),
           const SizedBox(height: 8),
@@ -874,6 +876,7 @@ class _InventoryPageState extends State<InventoryPage> {
   }
 
   Widget _buildExplorationHeader() {
+    final serverReady = _explorationSummary?.serverAvailable == true;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(12),
@@ -893,11 +896,11 @@ class _InventoryPageState extends State<InventoryPage> {
             child: const Icon(Icons.hiking, color: kGold, size: 24),
           ),
           const SizedBox(width: 10),
-          const Expanded(
+          Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
+                const Text(
                   '탐험 가방',
                   style: TextStyle(
                     color: Colors.white,
@@ -905,9 +908,11 @@ class _InventoryPageState extends State<InventoryPage> {
                     fontWeight: FontWeight.bold,
                   ),
                 ),
-                SizedBox(height: 3),
+                const SizedBox(height: 3),
                 Text(
-                  '앱을 꺼둔 동안 쌓이는 공격기회와 오프라인 걷기 효율을 강화합니다.',
+                  serverReady
+                      ? '앱을 꺼둔 동안 쌓이는 공격기회와 오프라인 걷기 효율을 강화합니다.'
+                      : '서버 업데이트 전이라 기본 수치만 표시 중입니다.',
                   style: TextStyle(color: kTextLight, fontSize: 11),
                 ),
               ],
@@ -951,13 +956,19 @@ class _InventoryPageState extends State<InventoryPage> {
     required String keyName,
     required ExplorationUpgradeInfo upgrade,
     required IconData icon,
-    required String valueLabel,
     bool lowerIsBetter = false,
   }) {
+    final serverReady = _explorationSummary?.serverAvailable == true;
     final canUpgrade =
-        !_isActionLoading && !upgrade.isMaxed && _gs.coins >= upgrade.costCoin;
-    final valueText = '${upgrade.currentValue}${upgrade.valueUnit}';
-    final nextText = '${upgrade.nextValue}${upgrade.valueUnit}';
+        serverReady &&
+        !_isActionLoading &&
+        !upgrade.isMaxed &&
+        _gs.coins >= upgrade.costCoin;
+    final labels = _explorationLabels(keyName);
+    final delta = (upgrade.nextValue - upgrade.currentValue).abs();
+    final deltaText = keyName == 'offline_storage'
+        ? '+$delta${upgrade.valueUnit}'
+        : '-$delta%p';
     return Container(
       width: double.infinity,
       margin: const EdgeInsets.only(bottom: 8),
@@ -987,7 +998,7 @@ class _InventoryPageState extends State<InventoryPage> {
                   children: [
                     Expanded(
                       child: Text(
-                        upgrade.title,
+                        labels.title,
                         style: const TextStyle(
                           color: Colors.white,
                           fontSize: 14,
@@ -996,42 +1007,36 @@ class _InventoryPageState extends State<InventoryPage> {
                       ),
                     ),
                     Text(
-                      'Lv.${upgrade.level}/${upgrade.maxLevel}',
+                      '레벨 ${upgrade.level}/${upgrade.maxLevel}',
                       style: const TextStyle(color: kGold, fontSize: 11),
                     ),
                   ],
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  upgrade.description,
+                  labels.description,
                   style: const TextStyle(color: kTextLight, fontSize: 11),
                 ),
                 const SizedBox(height: 6),
-                Row(
-                  children: [
-                    Text(
-                      '$valueLabel $valueText',
-                      style: const TextStyle(color: kTextGray, fontSize: 11),
-                    ),
-                    if (!upgrade.isMaxed) ...[
-                      const SizedBox(width: 5),
-                      const Text(
-                        '>',
-                        style: TextStyle(color: kTextGray, fontSize: 11),
-                      ),
-                      const SizedBox(width: 5),
-                      Text(
-                        nextText,
-                        style: TextStyle(
-                          color: lowerIsBetter
-                              ? kGreen
-                              : const Color(0xFFBFF4FF),
-                          fontSize: 11,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ],
-                  ],
+                Text(
+                  _explorationCurrentText(keyName, upgrade),
+                  style: const TextStyle(color: kTextGray, fontSize: 11),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  upgrade.isMaxed
+                      ? '최대 레벨입니다.'
+                      : '다음 강화: $deltaText (${_explorationNextText(keyName, upgrade)})',
+                  style: TextStyle(
+                    color: lowerIsBetter ? kGreen : const Color(0xFFBFF4FF),
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  labels.source,
+                  style: const TextStyle(color: kTextGray, fontSize: 10),
                 ),
               ],
             ),
@@ -1048,7 +1053,9 @@ class _InventoryPageState extends State<InventoryPage> {
     ExplorationUpgradeInfo upgrade,
     bool enabled,
   ) {
-    final label = upgrade.isMaxed ? 'MAX' : '${upgrade.costCoin}';
+    final serverReady = _explorationSummary?.serverAvailable == true;
+    final textOnlyLabel = upgrade.isMaxed ? 'MAX' : '준비';
+    final priceLabel = '${upgrade.costCoin}';
     return GestureDetector(
       onTap: enabled ? () => _upgradeExploration(keyName) : null,
       child: Container(
@@ -1059,10 +1066,10 @@ class _InventoryPageState extends State<InventoryPage> {
           border: Border.all(color: enabled ? kGold : kBorderColor, width: 1.5),
         ),
         child: Center(
-          child: upgrade.isMaxed
-              ? const Text(
-                  'MAX',
-                  style: TextStyle(
+          child: upgrade.isMaxed || !serverReady
+              ? Text(
+                  textOnlyLabel,
+                  style: const TextStyle(
                     color: kGold,
                     fontSize: 12,
                     fontWeight: FontWeight.bold,
@@ -1078,7 +1085,7 @@ class _InventoryPageState extends State<InventoryPage> {
                     ),
                     const SizedBox(width: 3),
                     Text(
-                      label,
+                      priceLabel,
                       style: TextStyle(
                         color: enabled ? Colors.white : kTextGray,
                         fontSize: 11,
@@ -1090,6 +1097,38 @@ class _InventoryPageState extends State<InventoryPage> {
         ),
       ),
     );
+  }
+
+  _ExplorationLabels _explorationLabels(String keyName) {
+    if (keyName == 'offline_storage') {
+      return const _ExplorationLabels(
+        title: '공격기회 보관함',
+        description: '앱을 꺼둔 동안 쌓을 수 있는 공격기회 최대치를 늘립니다.',
+        source: '변경 원인: 탐험 가방 > 공격기회 보관함 레벨',
+      );
+    }
+    return const _ExplorationLabels(
+      title: '탐험 효율',
+      description: '오프라인 걷기에서 추가로 더 걸어야 하는 부담을 줄입니다.',
+      source: '변경 원인: 탐험 가방 > 탐험 효율 레벨',
+    );
+  }
+
+  String _explorationCurrentText(
+    String keyName,
+    ExplorationUpgradeInfo upgrade,
+  ) {
+    if (keyName == 'offline_storage') {
+      return '현재 효과: 오프라인 공격기회 최대 ${upgrade.currentValue}회 저장';
+    }
+    return '현재 효과: 오프라인 추가 거리 ${upgrade.currentValue}% 적용';
+  }
+
+  String _explorationNextText(String keyName, ExplorationUpgradeInfo upgrade) {
+    if (keyName == 'offline_storage') {
+      return '최대 ${upgrade.nextValue}회 저장';
+    }
+    return '추가 거리 ${upgrade.nextValue}% 적용';
   }
 
   Widget _buildExplorationNote() {
@@ -1363,4 +1402,16 @@ class _InventoryPageState extends State<InventoryPage> {
       ),
     );
   }
+}
+
+class _ExplorationLabels {
+  final String title;
+  final String description;
+  final String source;
+
+  const _ExplorationLabels({
+    required this.title,
+    required this.description,
+    required this.source,
+  });
 }
