@@ -40,7 +40,7 @@ class PixelBottomNav extends StatelessWidget {
         ),
       ),
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(7, 18, 7, 8),
+        padding: const EdgeInsets.fromLTRB(7, 22, 7, 8),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.end,
           children: items.map((item) {
@@ -56,8 +56,8 @@ class PixelBottomNav extends StatelessWidget {
                   onTap: () => onTap(item),
                   child: AnimatedContainer(
                     duration: const Duration(milliseconds: 120),
-                    height: isSelected ? 70 : 60,
-                    padding: const EdgeInsets.fromLTRB(3, 4, 3, 4),
+                    height: isSelected ? 90 : 78,
+                    padding: const EdgeInsets.fromLTRB(3, 7, 3, 6),
                     decoration: BoxDecoration(
                       color: isSelected
                           ? const Color(0xFF24130A)
@@ -105,7 +105,7 @@ class PixelBottomNav extends StatelessWidget {
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               _PixelNavIcon(item: item, isSelected: isSelected),
-                              const SizedBox(height: 4),
+                              const SizedBox(height: 5),
                               Text(
                                 item.label,
                                 maxLines: 1,
@@ -114,7 +114,7 @@ class PixelBottomNav extends StatelessWidget {
                                   color: isSelected
                                       ? const Color(0xFFFFDD73)
                                       : const Color(0xFF6F665F),
-                                  fontSize: 9,
+                                  fontSize: isSelected ? 13 : 12,
                                   fontWeight: isSelected
                                       ? FontWeight.w900
                                       : FontWeight.w800,
@@ -151,33 +151,33 @@ class _PixelNavIcon extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (isSelected) {
-      return Image.asset(item.icon, width: 19, height: 19);
+      return Image.asset(item.icon, width: 36, height: 36);
     }
 
     return ColorFiltered(
       colorFilter: const ColorFilter.matrix([
-        0.28,
+        0.52,
         0,
         0,
         0,
         0,
         0,
-        0.28,
+        0.52,
         0,
         0,
         0,
         0,
         0,
-        0.28,
+        0.52,
         0,
         0,
         0,
         0,
         0,
-        0.9,
+        0.95,
         0,
       ]),
-      child: Image.asset(item.icon, width: 15, height: 15),
+      child: Image.asset(item.icon, width: 31, height: 31),
     );
   }
 }

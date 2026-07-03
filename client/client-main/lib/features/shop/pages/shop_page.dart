@@ -7,6 +7,7 @@ import 'package:capstone_app/features/battle/pages/battle_stage_page.dart';
 import 'package:capstone_app/features/home/pages/home_page.dart';
 import 'package:capstone_app/features/inventory/pages/inventory_page.dart';
 import 'package:capstone_app/features/raid/pages/raid_list_page.dart';
+import 'package:capstone_app/widgets/game_feedback.dart';
 import 'package:capstone_app/widgets/player_level_badge.dart';
 import 'package:capstone_app/widgets/pixel_bottom_nav.dart';
 
@@ -119,39 +120,26 @@ class _ShopPageState extends State<ShopPage> {
     };
   }
 
-  void _showMessage(String message) {
-    ScaffoldMessenger.of(context)
-      ..removeCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text(message)));
-  }
-
   Future<void> _purchase(ShopItem item) async {
     if (_selectedShop == null || _isBuying) return;
     if (_gs.coins < item.priceCoin) {
-      _showMessage('코인이 부족합니다. 전투와 보상으로 코인을 더 모아주세요.');
+      showGameToast(
+        context,
+        '코인이 부족합니다. 전투 보상으로 코인을 모아주세요.',
+        type: GameToastType.warning,
+      );
       return;
     }
 
-    final confirmed = await showDialog<bool>(
+    final confirmed = await showGameConfirmDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text(item.itemTemplate.name),
-        content: Text(
+      title: item.itemTemplate.name,
+      message:
           '${item.itemTemplate.statSummary}\n가격 ${item.priceCoin} 코인\n구매 후 인벤토리에서 장착할 수 있습니다.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('취소'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('구매'),
-          ),
-        ],
-      ),
+      confirmLabel: '구매',
+      type: GameToastType.warning,
     );
-    if (confirmed != true) return;
+    if (!confirmed) return;
 
     setState(() => _isBuying = true);
     try {
@@ -174,9 +162,15 @@ class _ShopPageState extends State<ShopPage> {
             .where((id) => id.isNotEmpty)
             .toSet();
       });
-      _showMessage('${item.itemTemplate.name} 구매 완료. 남은 코인: ${_gs.coins}');
+      showGameToast(
+        context,
+        '${item.itemTemplate.name} 구매 완료. 남은 코인: ${_gs.coins}',
+        type: GameToastType.success,
+      );
     } catch (e) {
-      if (mounted) _showMessage(e.toString());
+      if (mounted) {
+        showGameToast(context, e.toString(), type: GameToastType.error);
+      }
     } finally {
       if (mounted) setState(() => _isBuying = false);
     }

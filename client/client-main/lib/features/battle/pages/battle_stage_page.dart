@@ -12,6 +12,7 @@ import 'package:capstone_app/features/home/pages/home_page.dart';
 import 'package:capstone_app/features/inventory/pages/inventory_page.dart';
 import 'package:capstone_app/features/raid/pages/raid_list_page.dart';
 import 'package:capstone_app/features/shop/pages/shop_page.dart';
+import 'package:capstone_app/widgets/game_feedback.dart';
 import 'package:capstone_app/widgets/player_level_badge.dart';
 import 'package:capstone_app/widgets/pixel_bottom_nav.dart';
 
@@ -332,9 +333,11 @@ class _BattleStagePageState extends State<BattleStagePage> {
     if (index < 0 || index >= stages.length) return;
     final stage = stages[index];
     if (!stage.unlocked) {
-      ScaffoldMessenger.of(
+      showGameToast(
         context,
-      ).showSnackBar(const SnackBar(content: Text('이전 스테이지를 먼저 클리어하세요.')));
+        '이전 스테이지를 먼저 클리어하세요.',
+        type: GameToastType.warning,
+      );
       return;
     }
     setState(() => _selectedIndex = index);
@@ -410,9 +413,7 @@ class _BattleStagePageState extends State<BattleStagePage> {
     }
 
     if (!mounted || errorMessage == null) return;
-    ScaffoldMessenger.of(context)
-      ..removeCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text(errorMessage)));
+    showGameToast(context, errorMessage, type: GameToastType.error);
   }
 
   Future<void> _precacheBattleAssets() async {
@@ -436,8 +437,13 @@ class _BattleStagePageState extends State<BattleStagePage> {
 
   @override
   Widget build(BuildContext context) {
-    final screenHeight = MediaQuery.of(context).size.height;
-    final mapHeight = math.min(330.0, math.max(220.0, screenHeight * 0.34));
+    final screenSize = MediaQuery.of(context).size;
+    final isShortWide = screenSize.height < 760 && screenSize.width > 700;
+    final mapHeight = isShortWide
+        ? math.min(86.0, math.max(76.0, screenSize.height * 0.12))
+        : math.min(300.0, math.max(205.0, screenSize.height * 0.31));
+    final startButtonBottom = isShortWide ? 0.0 : 8.0;
+    final contentBottomGap = isShortWide ? 154.0 : 166.0;
 
     return PopScope(
       canPop: !_isStarting,
@@ -454,14 +460,15 @@ class _BattleStagePageState extends State<BattleStagePage> {
             ),
             SafeArea(
               child: SingleChildScrollView(
-                padding: const EdgeInsets.only(bottom: 178),
+                physics: const NeverScrollableScrollPhysics(),
+                padding: EdgeInsets.only(bottom: contentBottomGap),
                 child: Column(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
                     _buildTopHud(),
                     _buildTitle(),
                     _buildStagePanel(mapHeight),
                     _buildMonsterPanel(),
-                    const SizedBox(height: 12),
                   ],
                 ),
               ),
@@ -469,11 +476,8 @@ class _BattleStagePageState extends State<BattleStagePage> {
             Positioned(
               left: 0,
               right: 0,
-              bottom: 96,
-              child: SafeArea(
-                top: false,
-                child: _buildStartButton(),
-              ),
+              bottom: startButtonBottom,
+              child: SafeArea(top: false, child: _buildStartButton()),
             ),
             if (_isStarting) Positioned.fill(child: _buildLoadingOverlay()),
           ],
@@ -577,7 +581,7 @@ class _BattleStagePageState extends State<BattleStagePage> {
 
   Widget _buildTopHud() {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
+      padding: const EdgeInsets.fromLTRB(8, 8, 8, 4),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -654,14 +658,14 @@ class _BattleStagePageState extends State<BattleStagePage> {
 
   Widget _buildTitle() {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(12, 10, 12, 8),
+      padding: const EdgeInsets.fromLTRB(8, 4, 8, 5),
       child: Column(
         children: [
           const Text(
             '✦ 전투 ✦',
             style: TextStyle(
               color: Colors.white,
-              fontSize: 32,
+              fontSize: 25,
               fontWeight: FontWeight.bold,
               shadows: [
                 Shadow(
@@ -677,7 +681,7 @@ class _BattleStagePageState extends State<BattleStagePage> {
             '모험을 떠나 몬스터를 물리치고 보상을 획득하세요!',
             style: TextStyle(
               color: Colors.white.withValues(alpha: 0.88),
-              fontSize: 11,
+              fontSize: 10,
               shadows: const [
                 Shadow(
                   color: Colors.black,
@@ -700,9 +704,9 @@ class _BattleStagePageState extends State<BattleStagePage> {
         _kChapterTitles[_currentChapter] ?? '$_currentChapter장 모험 지역';
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+      padding: const EdgeInsets.fromLTRB(6, 0, 6, 6),
       child: Container(
-        padding: const EdgeInsets.fromLTRB(10, 10, 10, 8),
+        padding: const EdgeInsets.fromLTRB(10, 8, 10, 7),
         decoration: BoxDecoration(
           color: _kPanelBg,
           borderRadius: BorderRadius.circular(12),
@@ -722,7 +726,7 @@ class _BattleStagePageState extends State<BattleStagePage> {
                   child: Container(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 12,
-                      vertical: 9,
+                      vertical: 7,
                     ),
                     decoration: BoxDecoration(
                       color: const Color(0xFF7A2A1D),
@@ -1096,9 +1100,9 @@ class _BattleStagePageState extends State<BattleStagePage> {
   Widget _buildMonsterPanel() {
     final selectedStage = _selectedStage;
     return Padding(
-      padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+      padding: const EdgeInsets.fromLTRB(6, 0, 6, 6),
       child: Container(
-        padding: const EdgeInsets.all(10),
+        padding: const EdgeInsets.all(8),
         decoration: BoxDecoration(
           color: _kPanelBg,
           borderRadius: BorderRadius.circular(12),
@@ -1145,14 +1149,20 @@ class _BattleStagePageState extends State<BattleStagePage> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          selectedStage.title,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 18,
-                            fontWeight: FontWeight.w900,
+                        Padding(
+                          padding: const EdgeInsets.only(top: 3),
+                          child: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            alignment: Alignment.centerLeft,
+                            child: Text(
+                              selectedStage.title,
+                              maxLines: 1,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 17,
+                                fontWeight: FontWeight.w900,
+                              ),
+                            ),
                           ),
                         ),
                         Text(
@@ -1170,7 +1180,7 @@ class _BattleStagePageState extends State<BattleStagePage> {
                   ),
                 ],
               ),
-            const SizedBox(height: 10),
+            const SizedBox(height: 7),
             if (selectedStage == null)
               Padding(
                 padding: const EdgeInsets.symmetric(vertical: 16),
@@ -1187,8 +1197,8 @@ class _BattleStagePageState extends State<BattleStagePage> {
               Row(
                 children: [
                   Container(
-                    width: 92,
-                    height: 92,
+                    width: 64,
+                    height: 64,
                     decoration: BoxDecoration(
                       color: Colors.black.withValues(alpha: 0.45),
                       borderRadius: BorderRadius.circular(8),
@@ -1217,14 +1227,14 @@ class _BattleStagePageState extends State<BattleStagePage> {
                           value: selectedStage.monsterName,
                           unlocked: selectedStage.unlocked,
                         ),
-                        const SizedBox(height: 7),
+                        const SizedBox(height: 5),
                         _buildMonsterInfoRow(
                           label: '체력',
                           value: _formatNumber(selectedStage.monsterHp),
                           iconPath: 'assets/images/icon/hp.png',
                           unlocked: selectedStage.unlocked,
                         ),
-                        const SizedBox(height: 7),
+                        const SizedBox(height: 5),
                         _buildMonsterInfoRow(
                           label: '상태',
                           value: _stageStatusLabel(selectedStage),
@@ -1248,7 +1258,7 @@ class _BattleStagePageState extends State<BattleStagePage> {
     String? iconPath,
   }) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
       decoration: BoxDecoration(
         color: Colors.black.withValues(alpha: 0.42),
         borderRadius: BorderRadius.circular(8),
@@ -1264,7 +1274,7 @@ class _BattleStagePageState extends State<BattleStagePage> {
             label,
             style: const TextStyle(
               color: Colors.white,
-              fontSize: 15,
+              fontSize: 13,
               fontWeight: FontWeight.bold,
             ),
           ),
@@ -1273,7 +1283,7 @@ class _BattleStagePageState extends State<BattleStagePage> {
             value,
             style: TextStyle(
               color: unlocked ? Colors.white : Colors.white60,
-              fontSize: 15,
+              fontSize: 13,
               fontWeight: FontWeight.bold,
             ),
           ),
@@ -1293,12 +1303,12 @@ class _BattleStagePageState extends State<BattleStagePage> {
     final locked =
         _isStageLoading || selectedStage == null || !selectedStage.unlocked;
     return Padding(
-      padding: const EdgeInsets.fromLTRB(12, 0, 12, 0),
+      padding: const EdgeInsets.fromLTRB(6, 0, 6, 10),
       child: GestureDetector(
         onTap: (locked || _isStarting) ? null : _startBattle,
         child: Container(
           width: double.infinity,
-          padding: const EdgeInsets.symmetric(vertical: 14),
+          padding: const EdgeInsets.symmetric(vertical: 8),
           decoration: BoxDecoration(
             color: (locked || _isStarting)
                 ? const Color(0xFF555555)
@@ -1313,11 +1323,25 @@ class _BattleStagePageState extends State<BattleStagePage> {
           ),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
             children: [
-              Image.asset(
-                'assets/images/icon/battle.png',
-                width: 28,
-                height: 28,
+              Container(
+                width: 30,
+                height: 30,
+                decoration: BoxDecoration(
+                  color: Colors.black.withValues(alpha: 0.22),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: 0.18),
+                    width: 1,
+                  ),
+                ),
+                alignment: Alignment.center,
+                child: Image.asset(
+                  'assets/images/icon/battle.png',
+                  width: 20,
+                  height: 20,
+                ),
               ),
               const SizedBox(width: 10),
               Flexible(
@@ -1334,7 +1358,7 @@ class _BattleStagePageState extends State<BattleStagePage> {
                     maxLines: 1,
                     style: const TextStyle(
                       color: Colors.white,
-                      fontSize: 30,
+                      fontSize: 24,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
