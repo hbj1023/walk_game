@@ -196,6 +196,9 @@ class BattleRewardItemTemplate {
   final String itemType;
   final String equipmentSlot;
   final String weaponType;
+  final String setKey;
+  final String setPieceType;
+  final String imagePath;
   final String rarity;
   final int baseHp;
   final int baseAttack;
@@ -208,6 +211,9 @@ class BattleRewardItemTemplate {
     required this.itemType,
     required this.equipmentSlot,
     required this.weaponType,
+    required this.setKey,
+    required this.setPieceType,
+    required this.imagePath,
     required this.rarity,
     required this.baseHp,
     required this.baseAttack,
@@ -222,6 +228,9 @@ class BattleRewardItemTemplate {
       itemType: _asString(json['item_type']),
       equipmentSlot: _asString(json['equipment_slot']),
       weaponType: _asString(json['weapon_type']),
+      setKey: _asString(json['set_key']),
+      setPieceType: _asString(json['set_piece_type']),
+      imagePath: _asString(json['image_path']),
       rarity: _asString(json['rarity']),
       baseHp: _asInt(json['base_hp']),
       baseAttack: _asInt(json['base_attack']),

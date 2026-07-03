@@ -769,6 +769,7 @@ class _InventoryPageState extends State<InventoryPage> {
   }
 
   String _inventoryItemImage(ItemTemplate template) {
+    if (template.imagePath.isNotEmpty) return template.imagePath;
     final normalizedName = template.name.replaceAll(' ', '').trim();
     return switch (normalizedName) {
       '초급회복물약' => 'assets/images/icon/potion1.png',

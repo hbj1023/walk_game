@@ -22,6 +22,9 @@ class ItemTemplate {
   final String itemType;
   final String equipmentSlot;
   final String weaponType;
+  final String setKey;
+  final String setPieceType;
+  final String imagePath;
   final String rarity;
   final int recoverHp;
   final int baseHp;
@@ -37,6 +40,9 @@ class ItemTemplate {
     required this.itemType,
     required this.equipmentSlot,
     required this.weaponType,
+    required this.setKey,
+    required this.setPieceType,
+    required this.imagePath,
     required this.rarity,
     required this.recoverHp,
     required this.baseHp,
@@ -54,6 +60,9 @@ class ItemTemplate {
       itemType: _asString(json['item_type']),
       equipmentSlot: _asString(json['equipment_slot']),
       weaponType: _asString(json['weapon_type']),
+      setKey: _asString(json['set_key']),
+      setPieceType: _asString(json['set_piece_type']),
+      imagePath: _asString(json['image_path']),
       rarity: _asString(json['rarity']),
       recoverHp: _asInt(json['recover_hp']),
       baseHp: _asInt(json['base_hp']),
