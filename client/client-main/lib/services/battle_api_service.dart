@@ -195,6 +195,7 @@ class BattleRewardItemTemplate {
   final String name;
   final String itemType;
   final String equipmentSlot;
+  final String weaponType;
   final String rarity;
   final int baseHp;
   final int baseAttack;
@@ -206,6 +207,7 @@ class BattleRewardItemTemplate {
     required this.name,
     required this.itemType,
     required this.equipmentSlot,
+    required this.weaponType,
     required this.rarity,
     required this.baseHp,
     required this.baseAttack,
@@ -219,6 +221,7 @@ class BattleRewardItemTemplate {
       name: _asString(json['name']),
       itemType: _asString(json['item_type']),
       equipmentSlot: _asString(json['equipment_slot']),
+      weaponType: _asString(json['weapon_type']),
       rarity: _asString(json['rarity']),
       baseHp: _asInt(json['base_hp']),
       baseAttack: _asInt(json['base_attack']),
@@ -237,8 +240,22 @@ class BattleRewardItemTemplate {
     };
   }
 
+  String get weaponTypeLabel {
+    return switch (weaponType) {
+      'sword' => '검',
+      'axe' => '도끼',
+      'spear' => '창',
+      'dagger' => '단검',
+      'greatsword' => '대검',
+      _ => '',
+    };
+  }
+
   String get statSummary {
     final parts = <String>[];
+    if (equipmentSlot == 'sword' && weaponTypeLabel.isNotEmpty) {
+      parts.add(weaponTypeLabel);
+    }
     if (baseHp > 0) parts.add('HP +$baseHp');
     if (baseAttack > 0) parts.add('공격 +$baseAttack');
     if (baseDefense > 0) parts.add('방어 +$baseDefense');

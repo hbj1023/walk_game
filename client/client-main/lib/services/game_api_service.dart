@@ -21,6 +21,7 @@ class ItemTemplate {
   final String name;
   final String itemType;
   final String equipmentSlot;
+  final String weaponType;
   final String rarity;
   final int recoverHp;
   final int baseHp;
@@ -35,6 +36,7 @@ class ItemTemplate {
     required this.name,
     required this.itemType,
     required this.equipmentSlot,
+    required this.weaponType,
     required this.rarity,
     required this.recoverHp,
     required this.baseHp,
@@ -51,6 +53,7 @@ class ItemTemplate {
       name: _asString(json['name']),
       itemType: _asString(json['item_type']),
       equipmentSlot: _asString(json['equipment_slot']),
+      weaponType: _asString(json['weapon_type']),
       rarity: _asString(json['rarity']),
       recoverHp: _asInt(json['recover_hp']),
       baseHp: _asInt(json['base_hp']),
@@ -64,6 +67,18 @@ class ItemTemplate {
 
   bool get isEquipment => itemType == 'equipment';
   bool get isConsumable => itemType == 'consumable';
+  bool get isWeapon => equipmentSlot == 'sword';
+
+  String get weaponTypeLabel {
+    return switch (weaponType) {
+      'sword' => '검',
+      'axe' => '도끼',
+      'spear' => '창',
+      'dagger' => '단검',
+      'greatsword' => '대검',
+      _ => '',
+    };
+  }
 
   String get slotLabel {
     return switch (equipmentSlot) {
@@ -77,6 +92,7 @@ class ItemTemplate {
 
   String get statSummary {
     final parts = <String>[];
+    if (isWeapon && weaponTypeLabel.isNotEmpty) parts.add(weaponTypeLabel);
     if (baseHp > 0) parts.add('HP +$baseHp');
     if (baseAttack > 0) parts.add('공격 +$baseAttack');
     if (baseDefense > 0) parts.add('방어 +$baseDefense');
