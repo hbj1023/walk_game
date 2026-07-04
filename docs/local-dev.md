@@ -52,3 +52,17 @@ After pulling backend or migration changes, rebuild Docker once:
 ```powershell
 .\scripts\start-local.ps1 -Rebuild
 ```
+
+To test with the existing production account and progress data, run:
+
+```powershell
+.\scripts\start-prod-web.ps1
+```
+
+That starts the same local Flutter web app, but points it at:
+
+```text
+http://15.165.116.173:8080
+```
+
+Use this when local PocketBase shows a new level 1 character but you want to test the real server account.
