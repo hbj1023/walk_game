@@ -1,23 +1,22 @@
-# Fresh local test database only.
-# Do not use this for normal play testing or existing-account login.
-# Use docker-compose.local.yml instead.
+# Local development compose.
+# Uses the normal PocketBase volume, not the fresh empty test volume.
 services:
   pocketbase:
     build:
       context: .
       dockerfile: Dockerfile.pocketbase
-    container_name: pocketbase-fresh
+    container_name: pocketbase
     ports:
-      - "8091:8090"
+      - "8090:8090"
     volumes:
-      - pocketbase_fresh_data:/pb/pb_data
+      - pocketbase_data:/pb/pb_data
     restart: unless-stopped
 
   api:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: auth-api-fresh
+    container_name: auth-api
     environment:
       POCKETBASE_URL: http://pocketbase:8090
       PORT: 8082
@@ -28,4 +27,4 @@ services:
     restart: unless-stopped
 
 volumes:
-  pocketbase_fresh_data:
+  pocketbase_data:
