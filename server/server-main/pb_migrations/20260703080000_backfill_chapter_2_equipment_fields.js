@@ -64,51 +64,35 @@ migrate((app) => {
     colossus: "assets/images/equipment/chapter2/ch2_armor_colossus.png",
   }
 
-  const templates = app.findRecordsByFilter(
-    "item_templates",
-    `item_type="equipment"`,
-    "",
-    500,
-    0,
-  )
-
-  for (const template of templates) {
+  const equipment = app.findRecordsByFilter("item_templates", `item_type="equipment"`, "", 500, 0)
+  for (const template of equipment) {
     const name = String(template.get("name") || "")
     const set = sets.find((candidate) => name.includes(candidate.name))
     if (!set) continue
 
-    const existingPieceType = String(template.get("set_piece_type") || "")
-    const existingWeaponType = String(template.get("weapon_type") || "")
-    let pieceType = existingPieceType
-    let weaponType = existingWeaponType
-    let imagePath = ""
+    let pieceType = ""
+    let weaponType = ""
+    let imagePath = armorImages[set.key]
 
-    if (!pieceType) {
-      if (set.weaponNames.some((weaponName) => name.endsWith(weaponName))) {
-        pieceType = "weapon"
-      } else if (name.endsWith("Helm")) {
-        pieceType = "helmet"
-      } else if (name.endsWith("Armor")) {
-        pieceType = "armor"
-      } else if (name.endsWith("Boots")) {
-        pieceType = "shoes"
-      }
+    if (set.weaponNames.some((weaponName) => name.endsWith(weaponName))) {
+      pieceType = "weapon"
+      weaponType = set.weaponType
+      imagePath = weaponImages[weaponType]
+    } else if (name.endsWith("Helm")) {
+      pieceType = "helmet"
+    } else if (name.endsWith("Armor")) {
+      pieceType = "armor"
+    } else if (name.endsWith("Boots")) {
+      pieceType = "shoes"
     }
 
-    if (pieceType === "weapon") {
-      if (!weaponType) weaponType = set.weaponType
-      imagePath = weaponImages[weaponType] || ""
-    } else {
-      imagePath = armorImages[set.key] || ""
-    }
-
-    if (!imagePath) continue
+    if (!pieceType || !imagePath) continue
     template.set("set_key", set.key)
     template.set("set_piece_type", pieceType)
-    template.set("weapon_type", pieceType === "weapon" ? weaponType : "")
+    template.set("weapon_type", weaponType)
     template.set("image_path", imagePath)
     app.save(template)
   }
 }, (app) => {
-  // Keep live image assignments on rollback.
+  // Keep chapter 2 equipment metadata because set bonuses and images depend on it.
 })
