@@ -142,9 +142,10 @@ if (!(Test-PortListening -Port $WebPort)) {
 }
 
 Write-Host ""
-Write-Host "DLR local app is running."
+Write-Host "DLR local app is running against the local DB."
 Write-Host "App:        http://127.0.0.1:$WebPort"
 Write-Host "API:        http://127.0.0.1:$ApiPort"
 Write-Host "PocketBase: http://127.0.0.1:$PocketBasePort"
 Write-Host ""
+Write-Host "Use scripts\start-game.ps1 when you want the existing production account/progress."
 Write-Host "Use scripts\stop-local.ps1 only when you intentionally want to stop it."

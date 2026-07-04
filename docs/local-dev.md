@@ -1,6 +1,19 @@
 # Local Development
 
-Use one stable entrypoint for local testing:
+For normal gameplay testing with the existing account and progress data, use:
+
+```powershell
+cd C:\Users\hbj10\Documents\Codex\2026-06-27\dlr\work
+.\scripts\start-game.ps1
+```
+
+This starts the local Flutter web app, but points it at the production API:
+
+```text
+http://15.165.116.173:8080
+```
+
+Use local DB mode only when testing backend, PocketBase migrations, or brand-new local accounts:
 
 ```powershell
 cd C:\Users\hbj10\Documents\Codex\2026-06-27\dlr\work
@@ -53,9 +66,10 @@ After pulling backend or migration changes, rebuild Docker once:
 .\scripts\start-local.ps1 -Rebuild
 ```
 
-To test with the existing production account and progress data, run:
+To test with the existing production account and progress data, run either:
 
 ```powershell
+.\scripts\start-game.ps1
 .\scripts\start-prod-web.ps1
 ```
 
