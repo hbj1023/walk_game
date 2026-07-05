@@ -21,3 +21,17 @@ func TestBossRewardRarityForRoll(t *testing.T) {
 		}
 	}
 }
+
+func TestBossClearRequiresTicket(t *testing.T) {
+	if bossClearRequiresTicket(stageProgressRecord{}, false) {
+		t.Fatal("missing progress should not require a boss ticket")
+	}
+
+	if bossClearRequiresTicket(stageProgressRecord{ClearCount: 0}, true) {
+		t.Fatal("first boss clear should not require a boss ticket")
+	}
+
+	if !bossClearRequiresTicket(stageProgressRecord{ClearCount: 1}, true) {
+		t.Fatal("repeat boss clear should require a boss ticket")
+	}
+}

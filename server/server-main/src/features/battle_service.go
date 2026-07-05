@@ -431,6 +431,7 @@ func attackBossBattle(ctx context.Context, token string, userID string, req Norm
 	if battle.BattleType != "boss" {
 		return NormalBattleResponse{}, statusError{status: http.StatusBadRequest, message: "battle is not boss type"}
 	}
+	ticketConsumed := false
 	if battle.Status != "in_progress" {
 		return NormalBattleResponse{}, statusError{status: http.StatusBadRequest, message: "battle is already finished"}
 	}
@@ -507,6 +508,12 @@ func attackBossBattle(ctx context.Context, token string, userID string, req Norm
 		}
 		rewardCoin = normalBattleCoinReward(rewardCoin, stage.StageNo, progress, progressFound, character.Level)
 		rewardExp = normalBattleExpReward(stage.StageNo, true, progress, progressFound, character.Level)
+		if bossClearRequiresTicket(progress, progressFound) {
+			if err := consumeBossEntranceTicket(ctx, token, character.ID); err != nil {
+				return NormalBattleResponse{}, err
+			}
+			ticketConsumed = true
+		}
 		monsterAttackGaugeM = 0
 	} else if monsterAttackGaugeM >= monsterAttackDistanceM {
 		monsterAttacked = true
@@ -546,18 +553,7 @@ func attackBossBattle(ctx context.Context, token string, userID string, req Norm
 	expBalance := character.Exp
 	statExpBalance := character.StatExp
 	statExpReward := 0
-	ticketConsumed := false
 	if status == "win" {
-		progress, progressFound, err := getStageProgress(ctx, token, character.ID, battle.Stage)
-		if err != nil {
-			return NormalBattleResponse{}, err
-		}
-		if progressFound && progress.ClearCount > 0 {
-			if err := consumeBossEntranceTicket(ctx, token, character.ID); err != nil {
-				return NormalBattleResponse{}, err
-			}
-			ticketConsumed = true
-		}
 		coinBalance += rewardCoin
 		level, expBalance, statExpBalance, statExpReward = applyCharacterExpReward(level, expBalance, rewardExp, statExpBalance)
 	}
@@ -908,6 +904,10 @@ func consumeBossEntranceTicket(ctx context.Context, token string, characterID st
 	}
 	_, err = patchCharacterConsumableQuantity(ctx, token, consumable.ID, consumable.Quantity-1)
 	return err
+}
+
+func bossClearRequiresTicket(progress stageProgressRecord, progressFound bool) bool {
+	return progressFound && progress.ClearCount > 0
 }
 
 func clearBossStage(ctx context.Context, token string, characterID string, stageID string, clearedAt string) error {
