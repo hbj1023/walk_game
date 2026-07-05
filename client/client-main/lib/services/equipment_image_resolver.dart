@@ -12,6 +12,14 @@ String resolveEquipmentImagePath({
   final chapter1ImagePath = _chapter1EquipmentImagePath(name);
   if (chapter1ImagePath.isNotEmpty) return chapter1ImagePath;
 
+  final weaponImagePath = _weaponImagePath(
+    equipmentSlot: equipmentSlot,
+    setPieceType: setPieceType,
+    weaponType: weaponType,
+    name: name,
+  );
+  if (weaponImagePath.isNotEmpty) return weaponImagePath;
+
   final chapter2ImagePath = _chapter2EquipmentImagePath(
     equipmentSlot: equipmentSlot,
     weaponType: weaponType,
@@ -67,15 +75,7 @@ String _chapter2EquipmentImagePath({
     final inferredWeaponType = weaponType.isNotEmpty
         ? weaponType
         : _weaponTypeForSet(inferredSetKey);
-    return switch (inferredWeaponType) {
-      'sword' => 'assets/images/equipment/chapter2/ch2_weapon_sword.png',
-      'axe' => 'assets/images/equipment/chapter2/ch2_weapon_axe.png',
-      'spear' => 'assets/images/equipment/chapter2/ch2_weapon_spear.png',
-      'dagger' => 'assets/images/equipment/chapter2/ch2_weapon_dagger.png',
-      'greatsword' =>
-        'assets/images/equipment/chapter2/ch2_weapon_colossus.png',
-      _ => '',
-    };
+    return _chapter2WeaponImagePath(inferredWeaponType);
   }
 
   final pieceSuffix = switch (inferredPieceType) {
@@ -146,6 +146,57 @@ String _weaponTypeForSet(String setKey) {
     'sentinel' => 'spear',
     'shadow' => 'dagger',
     'colossus' => 'greatsword',
+    _ => '',
+  };
+}
+
+String _weaponImagePath({
+  required String equipmentSlot,
+  required String setPieceType,
+  required String weaponType,
+  required String name,
+}) {
+  if (equipmentSlot != 'sword' && setPieceType != 'weapon') return '';
+
+  final inferredWeaponType = weaponType.isNotEmpty
+      ? weaponType
+      : _inferWeaponTypeFromName(name);
+  return _chapter2WeaponImagePath(inferredWeaponType);
+}
+
+String _inferWeaponTypeFromName(String name) {
+  if (name.contains('대검')) return 'greatsword';
+  if (name.contains('도끼')) return 'axe';
+  if (name.contains('창')) return 'spear';
+  if (name.contains('단검')) return 'dagger';
+  if (name.contains('검')) return 'sword';
+
+  final lowerName = name.toLowerCase();
+  if (lowerName.contains('greatsword') || lowerName.contains('colossus')) {
+    return 'greatsword';
+  }
+  if (lowerName.contains('axe') || lowerName.contains('berserker')) {
+    return 'axe';
+  }
+  if (lowerName.contains('spear') || lowerName.contains('sentinel')) {
+    return 'spear';
+  }
+  if (lowerName.contains('dagger') || lowerName.contains('shadow')) {
+    return 'dagger';
+  }
+  if (lowerName.contains('sword') || lowerName.contains('vanguard')) {
+    return 'sword';
+  }
+  return '';
+}
+
+String _chapter2WeaponImagePath(String weaponType) {
+  return switch (weaponType) {
+    'sword' => 'assets/images/equipment/chapter2/ch2_weapon_sword.png',
+    'axe' => 'assets/images/equipment/chapter2/ch2_weapon_axe.png',
+    'spear' => 'assets/images/equipment/chapter2/ch2_weapon_spear.png',
+    'dagger' => 'assets/images/equipment/chapter2/ch2_weapon_dagger.png',
+    'greatsword' => 'assets/images/equipment/chapter2/ch2_weapon_colossus.png',
     _ => '',
   };
 }
