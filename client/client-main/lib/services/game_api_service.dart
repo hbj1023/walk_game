@@ -348,6 +348,38 @@ class StatUpgradeSummary {
   }
 }
 
+class CharacterStatsSummary {
+  final Map<String, int> baseStats;
+  final Map<String, int> upgradeStats;
+  final Map<String, int> equipmentStats;
+  final Map<String, int> setBonusStats;
+  final Map<String, int> finalStats;
+  final int equippedItemCount;
+  final int activeSetBonusCount;
+
+  const CharacterStatsSummary({
+    required this.baseStats,
+    required this.upgradeStats,
+    required this.equipmentStats,
+    required this.setBonusStats,
+    required this.finalStats,
+    required this.equippedItemCount,
+    required this.activeSetBonusCount,
+  });
+
+  factory CharacterStatsSummary.fromJson(Map<String, dynamic> json) {
+    return CharacterStatsSummary(
+      baseStats: _intMap(_asMap(json['base_stats'])),
+      upgradeStats: _intMap(_asMap(json['upgrade_stats'])),
+      equipmentStats: _intMap(_asMap(json['equipment_stats'])),
+      setBonusStats: _intMap(_asMap(json['set_bonus_stats'])),
+      finalStats: _intMap(_asMap(json['final_stats'])),
+      equippedItemCount: _asListOfMaps(json['equipped_items']).length,
+      activeSetBonusCount: _asListOfMaps(json['active_set_bonuses']).length,
+    );
+  }
+}
+
 class UserMission {
   final String id;
   final String title;
@@ -1121,6 +1153,12 @@ class GameApiService {
     GameState.instance.setExp(summary.exp);
     GameState.instance.setStatExp(summary.statExp);
     return summary;
+  }
+
+  static Future<CharacterStatsSummary> fetchCharacterStatsSummary() async {
+    final characterId = await requireCharacterId();
+    final response = await _get('/api/characters/stats/$characterId');
+    return CharacterStatsSummary.fromJson(_asMap(response['data']));
   }
 
   static Future<StatUpgradeSummary> upgradeStat(String statType) async {
