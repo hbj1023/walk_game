@@ -78,6 +78,87 @@ class ItemTemplate {
   bool get isConsumable => itemType == 'consumable';
   bool get isWeapon => equipmentSlot == 'sword';
 
+  String get displayImagePath {
+    if (imagePath.isNotEmpty) return imagePath;
+    final chapter2ImagePath = _chapter2EquipmentImagePath;
+    if (chapter2ImagePath.isNotEmpty) return chapter2ImagePath;
+    return '';
+  }
+
+  String get _chapter2EquipmentImagePath {
+    if (!isEquipment) return '';
+
+    final inferredSetKey = _inferredSetKey;
+    final inferredPieceType = _inferredPieceType;
+    if (inferredPieceType == 'weapon') {
+      return switch (weaponType) {
+        'sword' => 'assets/images/equipment/chapter2/ch2_weapon_sword.png',
+        'axe' => 'assets/images/equipment/chapter2/ch2_weapon_axe.png',
+        'spear' => 'assets/images/equipment/chapter2/ch2_weapon_spear.png',
+        'dagger' => 'assets/images/equipment/chapter2/ch2_weapon_dagger.png',
+        'greatsword' =>
+          'assets/images/equipment/chapter2/ch2_weapon_colossus.png',
+        _ => '',
+      };
+    }
+
+    final pieceSuffix = switch (inferredPieceType) {
+      'helmet' => 'helmet',
+      'armor' => 'armor',
+      'shoes' => 'boots',
+      _ => '',
+    };
+    if (pieceSuffix.isEmpty) return '';
+
+    final assetSetKey = switch (inferredSetKey) {
+      'vanguard' => 'berserker',
+      'berserker' => 'shadow',
+      'sentinel' => 'sentinel',
+      'shadow' => 'vanguard',
+      'colossus' => 'colossus',
+      _ => '',
+    };
+    if (assetSetKey.isEmpty) return '';
+    return 'assets/images/equipment/chapter2/ch2_armor_${assetSetKey}_$pieceSuffix.png';
+  }
+
+  String get _inferredSetKey {
+    if (setKey.isNotEmpty) return setKey;
+    final lowerName = name.toLowerCase();
+    if (lowerName.contains('vanguard') || name.contains('모험가')) {
+      return 'vanguard';
+    }
+    if (lowerName.contains('berserker') || name.contains('광전사')) {
+      return 'berserker';
+    }
+    if (lowerName.contains('sentinel') || name.contains('창술사')) {
+      return 'sentinel';
+    }
+    if (lowerName.contains('shadow') || name.contains('도적')) {
+      return 'shadow';
+    }
+    if (lowerName.contains('colossus') || name.contains('견습기사')) {
+      return 'colossus';
+    }
+    return '';
+  }
+
+  String get _inferredPieceType {
+    if (setPieceType.isNotEmpty) return setPieceType;
+    if (isWeapon) return 'weapon';
+    if (equipmentSlot.isNotEmpty) return equipmentSlot;
+
+    final lowerName = name.toLowerCase();
+    if (lowerName.contains('helm') ||
+        name.contains('투구') ||
+        name.contains('두건')) {
+      return 'helmet';
+    }
+    if (lowerName.contains('armor') || name.contains('갑옷')) return 'armor';
+    if (lowerName.contains('boots') || name.contains('장화')) return 'shoes';
+    return '';
+  }
+
   String get weaponTypeLabel {
     return switch (weaponType) {
       'sword' => '검',
