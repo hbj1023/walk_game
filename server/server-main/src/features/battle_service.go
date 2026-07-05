@@ -970,18 +970,15 @@ func grantRandomBossEquipmentReward(ctx context.Context, token string, character
 	}
 	rng := rand.New(rand.NewSource(time.Now().UnixNano()))
 	rarity := randomBossRewardRarity(rng)
+	if rarity == "" {
+		return nil, nil
+	}
 	templates, err := listBossRewardTemplates(ctx, token, rarity, stage.StageNo)
 	if err != nil {
 		return nil, err
 	}
 	if len(templates) == 0 {
-		templates, err = listBossRewardTemplates(ctx, token, "", stage.StageNo)
-		if err != nil {
-			return nil, err
-		}
-	}
-	if len(templates) == 0 {
-		return nil, statusError{status: http.StatusBadRequest, message: "boss equipment rewards are not configured"}
+		return nil, statusError{status: http.StatusBadRequest, message: "boss epic equipment rewards are not configured"}
 	}
 	template := templates[rng.Intn(len(templates))]
 	return createOwnedEquipment(ctx, token, characterID, template)
@@ -993,10 +990,8 @@ func randomBossRewardRarity(rng *rand.Rand) string {
 
 func bossRewardRarityForRoll(roll int) string {
 	switch {
-	case roll < 50:
-		return "common"
-	case roll < 85:
-		return "rare"
+	case roll < 40:
+		return ""
 	default:
 		return "epic"
 	}

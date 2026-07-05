@@ -7,11 +7,9 @@ func TestBossRewardRarityForRoll(t *testing.T) {
 		roll int
 		want string
 	}{
-		{roll: 0, want: "common"},
-		{roll: 49, want: "common"},
-		{roll: 50, want: "rare"},
-		{roll: 84, want: "rare"},
-		{roll: 85, want: "epic"},
+		{roll: 0, want: ""},
+		{roll: 39, want: ""},
+		{roll: 40, want: "epic"},
 		{roll: 99, want: "epic"},
 	}
 
