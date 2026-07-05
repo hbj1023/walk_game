@@ -589,7 +589,14 @@ func attackBossBattle(ctx context.Context, token string, userID string, req Norm
 		}
 		rewardItem, err = grantRandomBossEquipmentReward(ctx, token, character.ID, battle.Stage)
 		if err != nil {
-			return NormalBattleResponse{}, err
+			log.Printf(
+				"failed to grant boss equipment reward: character=%s battle=%s stage=%s err=%v",
+				character.ID,
+				battle.ID,
+				battle.Stage,
+				err,
+			)
+			rewardItem = nil
 		}
 	}
 
