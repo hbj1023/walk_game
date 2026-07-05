@@ -90,6 +90,8 @@ class ItemTemplate {
 
     final inferredSetKey = _inferredSetKey;
     final inferredPieceType = _inferredPieceType;
+    if (inferredSetKey.isEmpty) return '';
+
     if (inferredPieceType == 'weapon') {
       return switch (weaponType) {
         'sword' => 'assets/images/equipment/chapter2/ch2_weapon_sword.png',
