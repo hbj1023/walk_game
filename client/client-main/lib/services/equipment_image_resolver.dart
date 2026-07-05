@@ -7,9 +7,10 @@ String resolveEquipmentImagePath({
   required String setPieceType,
   required String name,
 }) {
-  final explicitImagePath = imagePath.trim();
-  if (explicitImagePath.isNotEmpty) return explicitImagePath;
   if (itemType != 'equipment') return '';
+
+  final chapter1ImagePath = _chapter1EquipmentImagePath(name);
+  if (chapter1ImagePath.isNotEmpty) return chapter1ImagePath;
 
   final chapter2ImagePath = _chapter2EquipmentImagePath(
     equipmentSlot: equipmentSlot,
@@ -20,7 +21,10 @@ String resolveEquipmentImagePath({
   );
   if (chapter2ImagePath.isNotEmpty) return chapter2ImagePath;
 
-  return _chapter1EquipmentImagePath(name);
+  final explicitImagePath = imagePath.trim();
+  if (explicitImagePath.isNotEmpty) return explicitImagePath;
+
+  return '';
 }
 
 String _chapter1EquipmentImagePath(String name) {
