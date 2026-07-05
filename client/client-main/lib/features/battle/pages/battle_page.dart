@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import 'package:capstone_app/services/auth_service.dart';
@@ -87,6 +88,7 @@ class _BattlePageState extends State<BattlePage> with WidgetsBindingObserver {
   bool _isUsingConsumable = false;
   bool _routeExitAllowed = false;
   bool _isRunningAutoAttacks = false;
+  bool _resultDialogShown = false;
   int _pendingAutoAttacks = 0;
 
   late final int _playerMaxHp = widget.initialResult.characterMaxHp > 0
@@ -144,7 +146,7 @@ class _BattlePageState extends State<BattlePage> with WidgetsBindingObserver {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       if (_battleEnded) {
-        _showBattleResultDialog();
+        _showBattleResultDialogOnce();
       } else {
         unawaited(_stepTracker.start());
       }
@@ -291,7 +293,7 @@ class _BattlePageState extends State<BattlePage> with WidgetsBindingObserver {
       if (_battleEnded) {
         _pendingAutoAttacks = 0;
         unawaited(_stepTracker.stop(syncPending: true));
-        _showBattleResultDialog();
+        _showBattleResultDialogOnce();
       }
       _loadConsumables();
       return true;
@@ -300,7 +302,9 @@ class _BattlePageState extends State<BattlePage> with WidgetsBindingObserver {
       if (showMissingSnack) {
         _showBattleToast(e.message, type: GameToastType.error);
       }
-    } catch (_) {
+    } catch (error, stackTrace) {
+      debugPrint('Battle attack failed unexpectedly: $error');
+      debugPrintStack(stackTrace: stackTrace);
       if (!mounted) return false;
       if (showMissingSnack) {
         _showBattleToast(
@@ -545,7 +549,10 @@ class _BattlePageState extends State<BattlePage> with WidgetsBindingObserver {
     _showBattleToast('전투 중에는 다른 화면으로 이동할 수 없습니다.', type: GameToastType.warning);
   }
 
-  void _showBattleResultDialog() {
+  void _showBattleResultDialogOnce() {
+    if (_resultDialogShown || !mounted) return;
+    _resultDialogShown = true;
+
     final isWin = _battleStatus == 'win';
     final accent = isWin ? _kGold : const Color(0xFFE84C3D);
     final title = isWin ? '승리!' : '패배';
