@@ -247,9 +247,6 @@ func attackNormalBattle(ctx context.Context, token string, userID string, req No
 	if battle.BattleType != "normal" {
 		return NormalBattleResponse{}, statusError{status: http.StatusBadRequest, message: "battle is not normal type"}
 	}
-	if battle.Status != "in_progress" {
-		return NormalBattleResponse{}, statusError{status: http.StatusBadRequest, message: "battle is already finished"}
-	}
 
 	character, err := getBattleCharacterByID(ctx, token, battle.Character)
 	if err != nil {
@@ -257,9 +254,6 @@ func attackNormalBattle(ctx context.Context, token string, userID string, req No
 	}
 	if character.User != userID {
 		return NormalBattleResponse{}, statusError{status: http.StatusForbidden, message: "battle does not belong to user"}
-	}
-	if character.AttackCountBalance < 1 {
-		return NormalBattleResponse{}, statusError{status: http.StatusBadRequest, message: "attack_count_balance is not enough"}
 	}
 
 	stats, err := getBattleCharacterStats(ctx, token, character.ID)
@@ -274,6 +268,12 @@ func attackNormalBattle(ctx context.Context, token string, userID string, req No
 	monster, err := getMonsterByID(ctx, token, battle.Monster)
 	if err != nil {
 		return NormalBattleResponse{}, err
+	}
+	if battle.Status != "in_progress" {
+		return buildStoredBattleResponse(character, characterMaxHP, battle, monster), nil
+	}
+	if character.AttackCountBalance < 1 {
+		return NormalBattleResponse{}, statusError{status: http.StatusBadRequest, message: "attack_count_balance is not enough"}
 	}
 	if battle.MonsterCurrentHP <= 0 || battle.CharacterCurrentHP <= 0 {
 		if err := finishBrokenNormalBattle(ctx, token, battle); err != nil {
@@ -432,9 +432,6 @@ func attackBossBattle(ctx context.Context, token string, userID string, req Norm
 		return NormalBattleResponse{}, statusError{status: http.StatusBadRequest, message: "battle is not boss type"}
 	}
 	ticketConsumed := false
-	if battle.Status != "in_progress" {
-		return NormalBattleResponse{}, statusError{status: http.StatusBadRequest, message: "battle is already finished"}
-	}
 
 	character, err := getBattleCharacterByID(ctx, token, battle.Character)
 	if err != nil {
@@ -442,9 +439,6 @@ func attackBossBattle(ctx context.Context, token string, userID string, req Norm
 	}
 	if character.User != userID {
 		return NormalBattleResponse{}, statusError{status: http.StatusForbidden, message: "battle does not belong to user"}
-	}
-	if character.AttackCountBalance < 1 {
-		return NormalBattleResponse{}, statusError{status: http.StatusBadRequest, message: "attack_count_balance is not enough"}
 	}
 
 	stats, err := getBattleCharacterStats(ctx, token, character.ID)
@@ -459,6 +453,12 @@ func attackBossBattle(ctx context.Context, token string, userID string, req Norm
 	monster, err := getMonsterByID(ctx, token, battle.Monster)
 	if err != nil {
 		return NormalBattleResponse{}, err
+	}
+	if battle.Status != "in_progress" {
+		return buildStoredBattleResponse(character, characterMaxHP, battle, monster), nil
+	}
+	if character.AttackCountBalance < 1 {
+		return NormalBattleResponse{}, statusError{status: http.StatusBadRequest, message: "attack_count_balance is not enough"}
 	}
 	if battle.MonsterCurrentHP <= 0 || battle.CharacterCurrentHP <= 0 {
 		if err := finishBrokenNormalBattle(ctx, token, battle); err != nil {
@@ -824,6 +824,24 @@ func buildCurrentNormalBattleResponse(
 		Monster:            monster,
 		AttackCountBalance: character.AttackCountBalance,
 	}, nil
+}
+
+func buildStoredBattleResponse(
+	character battleCharacterRecord,
+	characterMaxHP int,
+	battle battleRecord,
+	monster monsterRecord,
+) NormalBattleResponse {
+	return NormalBattleResponse{
+		Battle:                 battle,
+		Character:              character,
+		CharacterMaxHP:         characterMaxHP,
+		Monster:                monster,
+		RewardCoin:             battle.RewardCoin,
+		AttackCountBalance:     character.AttackCountBalance,
+		MonsterAttackGaugeM:    round2(battle.MonsterAttackGaugeM),
+		MonsterAttackDistanceM: round2(formulas.CalculateMonsterAttackDistance()),
+	}
 }
 
 func getBattleCharacterMaxHP(ctx context.Context, token string, characterID string, stats battleCharacterStatsRecord) (int, error) {
