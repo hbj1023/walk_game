@@ -7,6 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'api_config.dart';
 import 'auth_service.dart';
+import 'equipment_image_resolver.dart';
 
 class BattleApiException implements Exception {
   final String message;
@@ -238,6 +239,16 @@ class BattleRewardItemTemplate {
       baseAgility: _asInt(json['base_agility']),
     );
   }
+
+  String get displayImagePath => resolveEquipmentImagePath(
+    imagePath: imagePath,
+    itemType: itemType,
+    equipmentSlot: equipmentSlot,
+    weaponType: weaponType,
+    setKey: setKey,
+    setPieceType: setPieceType,
+    name: name,
+  );
 
   String get slotLabel {
     return switch (equipmentSlot) {

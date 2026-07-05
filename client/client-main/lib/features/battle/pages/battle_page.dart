@@ -904,6 +904,7 @@ class _BattlePageState extends State<BattlePage> with WidgetsBindingObserver {
   }
 
   String _rewardEquipmentImage(BattleRewardItemTemplate template) {
+    if (template.displayImagePath.isNotEmpty) return template.displayImagePath;
     final normalizedName = template.name.replaceAll(' ', '').trim();
     return switch (normalizedName) {
       '초급검' => 'assets/images/icon/sword1.png',

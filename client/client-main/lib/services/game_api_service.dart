@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 
 import 'api_config.dart';
 import 'auth_service.dart';
+import 'equipment_image_resolver.dart';
 import 'game_state.dart';
 
 class GameApiException implements Exception {
@@ -78,12 +79,15 @@ class ItemTemplate {
   bool get isConsumable => itemType == 'consumable';
   bool get isWeapon => equipmentSlot == 'sword';
 
-  String get displayImagePath {
-    if (imagePath.isNotEmpty) return imagePath;
-    final chapter2ImagePath = _chapter2EquipmentImagePath;
-    if (chapter2ImagePath.isNotEmpty) return chapter2ImagePath;
-    return '';
-  }
+  String get displayImagePath => resolveEquipmentImagePath(
+    imagePath: imagePath,
+    itemType: itemType,
+    equipmentSlot: equipmentSlot,
+    weaponType: weaponType,
+    setKey: setKey,
+    setPieceType: setPieceType,
+    name: name,
+  );
 
   String get _chapter2EquipmentImagePath {
     if (!isEquipment) return '';
