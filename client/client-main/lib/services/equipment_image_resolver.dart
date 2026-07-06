@@ -38,6 +38,8 @@ String resolveEquipmentImagePath({
 String _chapter1EquipmentImagePath(String name) {
   final normalizedName = name.replaceAll(' ', '').trim();
   return switch (normalizedName) {
+    '부서진검' =>
+      'assets/images/equipment/chapter1/tutorial_weapon_beginner_sword.png',
     '낡은모자' => 'assets/images/equipment/chapter1/tutorial_armor_helmet.png',
     '낡은갑옷' => 'assets/images/equipment/chapter1/tutorial_armor_chest.png',
     '낡은신발' => 'assets/images/equipment/chapter1/tutorial_armor_boots.png',

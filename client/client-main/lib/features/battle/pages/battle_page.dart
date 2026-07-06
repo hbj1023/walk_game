@@ -907,6 +907,7 @@ class _BattlePageState extends State<BattlePage> with WidgetsBindingObserver {
     if (template.displayImagePath.isNotEmpty) return template.displayImagePath;
     final normalizedName = template.name.replaceAll(' ', '').trim();
     return switch (normalizedName) {
+      '부서진검' => 'assets/images/icon/sword1.png',
       '낡은검' => 'assets/images/icon/sword1.png',
       '초급검' => 'assets/images/icon/sword1.png',
       '일반검' => 'assets/images/icon/sword2.png',

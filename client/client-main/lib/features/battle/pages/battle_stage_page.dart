@@ -100,6 +100,19 @@ const _kMonsterHpFallbacks = <int, int>{
   10: 1700,
 };
 
+const _kRecommendedCombatPowerByStage = <int, int>{
+  1: 150,
+  2: 180,
+  3: 230,
+  4: 280,
+  5: 360,
+  6: 520,
+  7: 650,
+  8: 800,
+  9: 950,
+  10: 1100,
+};
+
 const _kBattlePreloadAssets = <String>[
   'assets/images/bg/stage1_battle_BG.png',
   'assets/images/profile_frame.png',
@@ -1288,11 +1301,30 @@ class _BattleStagePageState extends State<BattleStagePage> {
                           unlocked: selectedStage.unlocked,
                         ),
                         const SizedBox(height: 5),
-                        _buildMonsterInfoRow(
-                          label: '체력',
-                          value: _formatNumber(selectedStage.monsterHp),
-                          iconPath: 'assets/images/icon/hp.png',
-                          unlocked: selectedStage.unlocked,
+                        Row(
+                          children: [
+                            Expanded(
+                              child: _buildMonsterInfoRow(
+                                label: '체력',
+                                value: _formatNumber(selectedStage.monsterHp),
+                                iconPath: 'assets/images/icon/hp.png',
+                                unlocked: selectedStage.unlocked,
+                              ),
+                            ),
+                            const SizedBox(width: 5),
+                            Expanded(
+                              child: _buildMonsterInfoRow(
+                                label: '권장',
+                                value: _formatNumber(
+                                  _recommendedCombatPowerForStage(
+                                    selectedStage.stageNo,
+                                  ),
+                                ),
+                                iconPath: 'assets/images/icon/atk.png',
+                                unlocked: selectedStage.unlocked,
+                              ),
+                            ),
+                          ],
                         ),
                         const SizedBox(height: 5),
                         _buildMonsterInfoRow(
@@ -1349,6 +1381,18 @@ class _BattleStagePageState extends State<BattleStagePage> {
           ),
         ],
       ),
+    );
+  }
+
+  int _recommendedCombatPowerForStage(int stageNo) {
+    final knownPower = _kRecommendedCombatPowerByStage[stageNo];
+    if (knownPower != null) return knownPower;
+
+    final chapter = _chapterForStage(stageNo);
+    final chapterStageNo = _stageNoInChapter(stageNo);
+    return math.max(
+      150,
+      1100 + ((chapter - 2) * 550) + ((chapterStageNo - 1) * 140),
     );
   }
 

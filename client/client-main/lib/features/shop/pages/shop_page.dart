@@ -922,6 +922,7 @@ class _ShopPageState extends State<ShopPage> {
     if (template.displayImagePath.isNotEmpty) return template.displayImagePath;
     final normalizedName = template.name.replaceAll(' ', '').trim();
     return switch (normalizedName) {
+      '부서진검' => 'assets/images/icon/sword1.png',
       '초급회복물약' => 'assets/images/icon/potion1.png',
       '중급회복물약' => 'assets/images/icon/potion2.png',
       '고급회복물약' => 'assets/images/icon/potion3.png',
