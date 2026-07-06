@@ -242,6 +242,7 @@ class BattleRewardItemTemplate {
 
   String get displayImagePath => resolveEquipmentImagePath(
     imagePath: imagePath,
+    rarity: rarity,
     itemType: itemType,
     equipmentSlot: equipmentSlot,
     weaponType: weaponType,

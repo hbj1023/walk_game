@@ -1,5 +1,6 @@
 String resolveEquipmentImagePath({
   required String imagePath,
+  required String rarity,
   required String itemType,
   required String equipmentSlot,
   required String weaponType,
@@ -17,6 +18,7 @@ String resolveEquipmentImagePath({
     setPieceType: setPieceType,
     weaponType: weaponType,
     name: name,
+    rarity: rarity,
   );
   if (weaponImagePath.isNotEmpty) return weaponImagePath;
 
@@ -26,6 +28,7 @@ String resolveEquipmentImagePath({
     setKey: setKey,
     setPieceType: setPieceType,
     name: name,
+    rarity: rarity,
   );
   if (chapter2ImagePath.isNotEmpty) return chapter2ImagePath;
 
@@ -66,6 +69,7 @@ String _chapter2EquipmentImagePath({
   required String setKey,
   required String setPieceType,
   required String name,
+  required String rarity,
 }) {
   final inferredSetKey = _inferSetKey(setKey, name);
   if (inferredSetKey.isEmpty) return '';
@@ -80,7 +84,7 @@ String _chapter2EquipmentImagePath({
     final inferredWeaponType = weaponType.isNotEmpty
         ? weaponType
         : _weaponTypeForSet(inferredSetKey);
-    return _chapter2WeaponImagePath(inferredWeaponType);
+    return _chapter2WeaponImagePath(inferredWeaponType, rarity: rarity);
   }
 
   final pieceSuffix = switch (inferredPieceType) {
@@ -160,13 +164,14 @@ String _weaponImagePath({
   required String setPieceType,
   required String weaponType,
   required String name,
+  required String rarity,
 }) {
   if (equipmentSlot != 'sword' && setPieceType != 'weapon') return '';
 
   final inferredWeaponType = weaponType.isNotEmpty
       ? weaponType
       : _inferWeaponTypeFromName(name);
-  return _chapter2WeaponImagePath(inferredWeaponType);
+  return _chapter2WeaponImagePath(inferredWeaponType, rarity: rarity);
 }
 
 String _inferWeaponTypeFromName(String name) {
@@ -195,13 +200,29 @@ String _inferWeaponTypeFromName(String name) {
   return '';
 }
 
-String _chapter2WeaponImagePath(String weaponType) {
+String _chapter2WeaponImagePath(String weaponType, {String rarity = ''}) {
+  final isRare = rarity.trim().toLowerCase() == 'rare';
   return switch (weaponType) {
-    'sword' => 'assets/images/equipment/chapter2/ch2_weapon_sword.png',
-    'axe' => 'assets/images/equipment/chapter2/ch2_weapon_axe.png',
-    'spear' => 'assets/images/equipment/chapter2/ch2_weapon_spear.png',
-    'dagger' => 'assets/images/equipment/chapter2/ch2_weapon_dagger.png',
-    'greatsword' => 'assets/images/equipment/chapter2/ch2_weapon_colossus.png',
+    'sword' =>
+      isRare
+          ? 'assets/images/equipment/chapter2/ch2_weapon_rare_sword.png'
+          : 'assets/images/equipment/chapter2/ch2_weapon_sword.png',
+    'axe' =>
+      isRare
+          ? 'assets/images/equipment/chapter2/ch2_weapon_rare_axe.png'
+          : 'assets/images/equipment/chapter2/ch2_weapon_axe.png',
+    'spear' =>
+      isRare
+          ? 'assets/images/equipment/chapter2/ch2_weapon_rare_spear.png'
+          : 'assets/images/equipment/chapter2/ch2_weapon_spear.png',
+    'dagger' =>
+      isRare
+          ? 'assets/images/equipment/chapter2/ch2_weapon_rare_dagger.png'
+          : 'assets/images/equipment/chapter2/ch2_weapon_dagger.png',
+    'greatsword' =>
+      isRare
+          ? 'assets/images/equipment/chapter2/ch2_weapon_rare_greatsword.png'
+          : 'assets/images/equipment/chapter2/ch2_weapon_colossus.png',
     _ => '',
   };
 }
