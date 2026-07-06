@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"math"
 	"math/rand"
 	"net/http"
@@ -756,7 +757,7 @@ func purchaseShopItem(ctx context.Context, token string, shopID string, characte
 	if itemTemplate.ItemType == "equipment" {
 		unlockedShopItem, err = unlockNextEquipmentShopItem(ctx, token, shopID, itemTemplate)
 		if err != nil {
-			return nil, err
+			log.Printf("failed to unlock next equipment shop item after purchase: character=%s shop=%s item_template=%s err=%v", characterID, shopID, itemTemplate.ID, err)
 		}
 	}
 
