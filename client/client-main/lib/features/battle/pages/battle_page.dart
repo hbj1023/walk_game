@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import 'package:capstone_app/services/auth_service.dart';
@@ -14,6 +13,7 @@ import 'package:capstone_app/features/inventory/pages/inventory_page.dart';
 import 'package:capstone_app/features/raid/pages/raid_list_page.dart';
 import 'package:capstone_app/features/shop/pages/shop_page.dart';
 import 'package:capstone_app/widgets/game_feedback.dart';
+import 'package:capstone_app/widgets/character_stats_panel.dart';
 import 'package:capstone_app/widgets/player_level_badge.dart';
 
 const _kPanelBorder = Color(0xFF6B3A1F);
@@ -907,7 +907,9 @@ class _BattlePageState extends State<BattlePage> with WidgetsBindingObserver {
     if (template.displayImagePath.isNotEmpty) return template.displayImagePath;
     final normalizedName = template.name.replaceAll(' ', '').trim();
     return switch (normalizedName) {
+      '낡은검' => 'assets/images/icon/sword1.png',
       '초급검' => 'assets/images/icon/sword1.png',
+      '일반검' => 'assets/images/icon/sword2.png',
       '레어검' => 'assets/images/icon/sword2.png',
       '에픽투구' => 'assets/images/icon/cap3.png',
       '에픽갑옷' => 'assets/images/icon/armor3.png',
@@ -1031,20 +1033,30 @@ class _BattlePageState extends State<BattlePage> with WidgetsBindingObserver {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _buildPlayerProfileBlock(),
-          const SizedBox(width: 8),
           Expanded(
-            child: Text(
-              _userName,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 14,
-                fontWeight: FontWeight.bold,
-                shadows: [
-                  Shadow(
-                    color: Colors.black,
-                    blurRadius: 6,
-                    offset: Offset(1, 1),
+            child: GestureDetector(
+              behavior: HitTestBehavior.translucent,
+              onTap: _openCharacterStatsDialog,
+              child: Row(
+                children: [
+                  _buildPlayerProfileBlock(),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      _userName,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                        shadows: [
+                          Shadow(
+                            color: Colors.black,
+                            blurRadius: 6,
+                            offset: Offset(1, 1),
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
                 ],
               ),
@@ -1098,6 +1110,14 @@ class _BattlePageState extends State<BattlePage> with WidgetsBindingObserver {
       level: _gs.level,
       exp: _gs.exp,
       expToNext: _gs.expToNextLevel,
+    );
+  }
+
+  void _openCharacterStatsDialog() {
+    showDialog<void>(
+      context: context,
+      builder: (context) =>
+          CharacterStatsDialog(userName: _userName, level: _gs.level),
     );
   }
 

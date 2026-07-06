@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import 'package:capstone_app/models/raid_boss.dart';
@@ -5,12 +7,14 @@ import 'package:capstone_app/services/auth_service.dart';
 import 'package:capstone_app/services/friendship_service.dart';
 import 'package:capstone_app/services/game_api_service.dart';
 import 'package:capstone_app/services/game_state.dart';
+import 'package:capstone_app/services/profile_icon_service.dart';
 import 'package:capstone_app/features/social/widgets/friend_sheet.dart';
 import 'package:capstone_app/features/battle/pages/battle_stage_page.dart';
 import 'package:capstone_app/features/home/pages/home_page.dart';
 import 'package:capstone_app/features/inventory/pages/inventory_page.dart';
 import 'package:capstone_app/features/raid/pages/raid_lobby_page.dart';
 import 'package:capstone_app/features/shop/pages/shop_page.dart';
+import 'package:capstone_app/widgets/character_stats_panel.dart';
 import 'package:capstone_app/widgets/player_level_badge.dart';
 import 'package:capstone_app/widgets/pixel_bottom_nav.dart';
 
@@ -20,6 +24,7 @@ const _kCardBg = Color(0xFF1A1A1A);
 const _kCardBorder = Color(0xFF6B3A1F);
 const _kGold = Color(0xFFF0C040);
 const _kRedStar = Color(0xFFE03030);
+const _kRaidMinimumLevel = 5;
 
 // ─── RaidListPage ─────────────────────────────────────────────────────────────
 
@@ -52,6 +57,7 @@ class _RaidListPageState extends State<RaidListPage> {
   void initState() {
     super.initState();
     _gs.addListener(_onGameStateChanged);
+    unawaited(ProfileIconService.loadIntoGameState());
     _loadUserName();
     _loadRaidBosses();
     _loadRaidInvitations();
@@ -184,6 +190,10 @@ class _RaidListPageState extends State<RaidListPage> {
   }
 
   Future<void> _acceptInvitation(RaidInvitationInfo invitation) async {
+    if (_gs.level < _kRaidMinimumLevel) {
+      _showMessage('레이드는 $_kRaidMinimumLevel레벨부터 입장할 수 있습니다.');
+      return;
+    }
     try {
       final summary = await GameApiService.acceptRaidInvitation(invitation.id);
       if (!mounted) return;
@@ -193,7 +203,7 @@ class _RaidListPageState extends State<RaidListPage> {
           : RaidBoss(
               id: summary.raid.monsterId,
               name: summary.raid.title.isEmpty ? '레이드 보스' : summary.raid.title,
-              recommendedLevel: 10,
+              recommendedLevel: _kRaidMinimumLevel,
               difficulty: 1,
               isLocked: false,
               bgPath: 'assets/images/bg/raid_forest.png',
@@ -315,27 +325,31 @@ class _RaidListPageState extends State<RaidListPage> {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              _buildPlayerProfileBlock(),
-              const SizedBox(width: 8),
-              Text(
-                _userName,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 14,
-                  fontWeight: FontWeight.bold,
-                  shadows: [
-                    Shadow(
-                      color: Colors.black,
-                      blurRadius: 6,
-                      offset: Offset(1, 1),
-                    ),
-                  ],
+          GestureDetector(
+            behavior: HitTestBehavior.translucent,
+            onTap: _openCharacterStatsDialog,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                _buildPlayerProfileBlock(),
+                const SizedBox(width: 8),
+                Text(
+                  _userName,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                    shadows: [
+                      Shadow(
+                        color: Colors.black,
+                        blurRadius: 6,
+                        offset: Offset(1, 1),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
           const Spacer(),
           Column(
@@ -407,6 +421,14 @@ class _RaidListPageState extends State<RaidListPage> {
       level: _gs.level,
       exp: _gs.exp,
       expToNext: _gs.expToNextLevel,
+    );
+  }
+
+  void _openCharacterStatsDialog() {
+    showDialog<void>(
+      context: context,
+      builder: (context) =>
+          CharacterStatsDialog(userName: _userName, level: _gs.level),
     );
   }
 
@@ -754,6 +776,15 @@ class _RaidListPageState extends State<RaidListPage> {
           ),
           const SizedBox(height: 6),
           _buildDifficultyRow(boss.difficulty, isRed),
+          const SizedBox(height: 5),
+          Text(
+            '입장 기준 LV.${boss.recommendedLevel}',
+            style: const TextStyle(
+              color: Colors.white54,
+              fontSize: 11,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
           const SizedBox(height: 8),
           _buildStatusRow(boss),
         ],
@@ -786,6 +817,26 @@ class _RaidListPageState extends State<RaidListPage> {
   }
 
   Widget _buildStatusRow(RaidBoss boss) {
+    if (_gs.level < boss.recommendedLevel) {
+      return Container(
+        decoration: BoxDecoration(
+          color: Colors.black.withValues(alpha: 0.4),
+          borderRadius: BorderRadius.circular(4),
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.lock, color: Colors.red, size: 13),
+            const SizedBox(width: 4),
+            Text(
+              'LV.${boss.recommendedLevel}부터 입장 가능',
+              style: const TextStyle(color: Colors.red, fontSize: 11),
+            ),
+          ],
+        ),
+      );
+    }
     if (boss.isLocked) {
       return Container(
         decoration: BoxDecoration(
@@ -833,6 +884,10 @@ class _RaidListPageState extends State<RaidListPage> {
       _showMessage('레이드 보스 정보를 불러오는 중입니다.');
       return;
     }
+    if (_gs.level < _kRaidMinimumLevel) {
+      _showMessage('레이드는 $_kRaidMinimumLevel레벨부터 입장할 수 있습니다.');
+      return;
+    }
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -845,8 +900,13 @@ class _RaidListPageState extends State<RaidListPage> {
 
   Widget _buildPartyButton() {
     final boss = _selectedBoss;
+    final levelLocked = _gs.level < _kRaidMinimumLevel;
     final locked =
-        boss == null || boss.isLocked || _loadingBosses || _startingRaid;
+        boss == null ||
+        boss.isLocked ||
+        levelLocked ||
+        _loadingBosses ||
+        _startingRaid;
     return Padding(
       padding: const EdgeInsets.fromLTRB(0, 10, 0, 8),
       child: GestureDetector(
@@ -877,7 +937,11 @@ class _RaidListPageState extends State<RaidListPage> {
                   : const Icon(Icons.group, color: Colors.white, size: 26),
               const SizedBox(width: 10),
               Text(
-                _startingRaid ? '레이드 생성 중' : '파티 구성',
+                _startingRaid
+                    ? '레이드 생성 중'
+                    : levelLocked
+                    ? '입장 Lv.$_kRaidMinimumLevel 필요'
+                    : '파티 구성',
                 style: TextStyle(
                   color: Colors.white,
                   fontSize: 18,

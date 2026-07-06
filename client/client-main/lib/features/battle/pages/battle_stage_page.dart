@@ -13,6 +13,7 @@ import 'package:capstone_app/features/inventory/pages/inventory_page.dart';
 import 'package:capstone_app/features/raid/pages/raid_list_page.dart';
 import 'package:capstone_app/features/shop/pages/shop_page.dart';
 import 'package:capstone_app/widgets/game_feedback.dart';
+import 'package:capstone_app/widgets/character_stats_panel.dart';
 import 'package:capstone_app/widgets/player_level_badge.dart';
 import 'package:capstone_app/widgets/pixel_bottom_nav.dart';
 
@@ -63,11 +64,11 @@ const _kChapterStagePoints = <int, List<Offset>>{
     Offset(0.89, 0.33),
   ],
   2: [
-    Offset(0.118, 0.64),
-    Offset(0.3, 0.62),
-    Offset(0.5, 0.37),
-    Offset(0.7, 0.48),
-    Offset(0.89, 0.33),
+    Offset(0.12, 0.64),
+    Offset(0.31, 0.7),
+    Offset(0.49, 0.54),
+    Offset(0.668, 0.52),
+    Offset(0.841, 0.46),
   ],
 };
 
@@ -121,6 +122,11 @@ const _kBattlePreloadAssets = <String>[
   'assets/images/nav/nav_battle.png',
   'assets/images/nav/nav_raid.png',
 ];
+
+double _stageNodeVisualOffsetY(int stageNo) {
+  final chapterStageNo = stageNo <= 0 ? 1 : ((stageNo - 1) % 5) + 1;
+  return chapterStageNo == 2 ? -30.0 : 0.0;
+}
 
 class BattleStagePage extends StatefulWidget {
   const BattleStagePage({super.key});
@@ -195,10 +201,15 @@ class _BattleStagePageState extends State<BattleStagePage> {
       final stages = await BattleApiService.fetchNormalStages();
       final mapped = _withBossStages(stages.map(_stageFromServer).toList())
         ..sort((a, b) => a.stageNo.compareTo(b.stageNo));
+      final initialChapter = _initialChapterForStages(mapped);
+      final initialVisibleStages = mapped
+          .where((stage) => _chapterForStage(stage.stageNo) == initialChapter)
+          .toList(growable: false);
       if (!mounted) return;
       setState(() {
         _allStages = mapped;
-        _selectedIndex = _initialSelectedIndex(_visibleStages);
+        _currentChapter = initialChapter;
+        _selectedIndex = _initialSelectedIndex(initialVisibleStages);
         _isStageLoading = false;
       });
     } on BattleApiException catch (e) {
@@ -229,6 +240,18 @@ class _BattleStagePageState extends State<BattleStagePage> {
     }
     final firstUnlocked = stages.indexWhere((stage) => stage.unlocked);
     return firstUnlocked >= 0 ? firstUnlocked : 0;
+  }
+
+  int _initialChapterForStages(List<_StageData> stages) {
+    var highestChapter = 1;
+    for (final stage in stages) {
+      if (!stage.unlocked && !stage.cleared) continue;
+      highestChapter = math.max(
+        highestChapter,
+        _chapterForStage(stage.stageNo),
+      );
+    }
+    return highestChapter;
   }
 
   _StageData _stageFromServer(NormalStageInfo stage) {
@@ -598,27 +621,31 @@ class _BattleStagePageState extends State<BattleStagePage> {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              _buildPlayerProfileBlock(),
-              const SizedBox(width: 8),
-              Text(
-                _userName,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 14,
-                  fontWeight: FontWeight.bold,
-                  shadows: [
-                    Shadow(
-                      color: Colors.black,
-                      blurRadius: 6,
-                      offset: Offset(1, 1),
-                    ),
-                  ],
+          GestureDetector(
+            behavior: HitTestBehavior.translucent,
+            onTap: _openCharacterStatsDialog,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                _buildPlayerProfileBlock(),
+                const SizedBox(width: 8),
+                Text(
+                  _userName,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                    shadows: [
+                      Shadow(
+                        color: Colors.black,
+                        blurRadius: 6,
+                        offset: Offset(1, 1),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
           const Spacer(),
           Column(
@@ -666,6 +693,14 @@ class _BattleStagePageState extends State<BattleStagePage> {
       level: _gs.level,
       exp: _gs.exp,
       expToNext: _gs.expToNextLevel,
+    );
+  }
+
+  void _openCharacterStatsDialog() {
+    showDialog<void>(
+      context: context,
+      builder: (context) =>
+          CharacterStatsDialog(userName: _userName, level: _gs.level),
     );
   }
 
@@ -915,7 +950,7 @@ class _BattleStagePageState extends State<BattleStagePage> {
     final stage = stages[index];
     final isSelected = _safeSelectedIndex == index;
     final left = (stage.point.dx * constraints.maxWidth) - (iconSize / 2);
-    final extraOffsetY = _stageNoInChapter(stage.stageNo) == 2 ? -30.0 : 0.0;
+    final extraOffsetY = _stageNodeVisualOffsetY(stage.stageNo);
     final top =
         (stage.point.dy * constraints.maxHeight) -
         (iconSize / 2) +
@@ -930,25 +965,29 @@ class _BattleStagePageState extends State<BattleStagePage> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            if (stage.cleared)
-              const Padding(
-                padding: EdgeInsets.only(bottom: 2),
-                child: Text(
-                  'CLEAR',
-                  style: TextStyle(
-                    color: _kGold,
-                    fontSize: 9,
-                    fontWeight: FontWeight.w900,
-                    shadows: [
-                      Shadow(
-                        color: Colors.black,
-                        blurRadius: 4,
-                        offset: Offset(1, 1),
+            SizedBox(
+              height: 13,
+              child: stage.cleared
+                  ? const Padding(
+                      padding: EdgeInsets.only(bottom: 2),
+                      child: Text(
+                        'CLEAR',
+                        style: TextStyle(
+                          color: _kGold,
+                          fontSize: 9,
+                          fontWeight: FontWeight.w900,
+                          shadows: [
+                            Shadow(
+                              color: Colors.black,
+                              blurRadius: 4,
+                              offset: Offset(1, 1),
+                            ),
+                          ],
+                        ),
                       ),
-                    ],
-                  ),
-                ),
-              ),
+                    )
+                  : const SizedBox.shrink(),
+            ),
             SizedBox(
               width: iconSize,
               height: iconSize,
@@ -1484,11 +1523,13 @@ class _StagePathPainter extends CustomPainter {
     for (int i = 0; i < stages.length - 1; i++) {
       final start = Offset(
         stages[i].point.dx * size.width,
-        stages[i].point.dy * size.height,
+        (stages[i].point.dy * size.height) +
+            _stageNodeVisualOffsetY(stages[i].stageNo),
       );
       final end = Offset(
         stages[i + 1].point.dx * size.width,
-        stages[i + 1].point.dy * size.height,
+        (stages[i + 1].point.dy * size.height) +
+            _stageNodeVisualOffsetY(stages[i + 1].stageNo),
       );
       final paint = Paint()
         ..color = stages[i + 1].unlocked

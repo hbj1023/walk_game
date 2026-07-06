@@ -23,6 +23,8 @@ class AuthService {
   static const _characterIdKey = 'auth_character_id';
   static const _emailKey = 'auth_email';
   static const _nameKey = 'auth_name';
+  static const _legacyProfileIconKey = 'profile_icon_key';
+  static const _legacyProfileImageDataUrlKey = 'profile_image_data_url';
   static const _requestTimeout = Duration(seconds: 10);
 
   static Uri _apiUri(String path) => ApiConfig.uri(path);
@@ -207,6 +209,10 @@ class AuthService {
     await prefs.remove(_characterIdKey);
     await prefs.remove(_emailKey);
     await prefs.remove(_nameKey);
+    await prefs.remove(_legacyProfileIconKey);
+    await prefs.remove(_legacyProfileImageDataUrlKey);
+    GameState.instance.setProfileImageDataUrl(null);
+    GameState.instance.setProfileIconKey('vanguard');
   }
 
   static Future<Map<String, dynamic>> _decodeBody(
@@ -310,9 +316,13 @@ class AuthService {
     await prefs.setString(_tokenKey, token);
     if (userId != null && userId.isNotEmpty) {
       await prefs.setString(_userIdKey, userId);
+    } else {
+      await prefs.remove(_userIdKey);
     }
     if (characterId != null && characterId.isNotEmpty) {
       await prefs.setString(_characterIdKey, characterId);
+    } else {
+      await prefs.remove(_characterIdKey);
     }
     await prefs.setString(
       _emailKey,
@@ -323,6 +333,8 @@ class AuthService {
         : fallbackName;
     if (resolvedName != null && resolvedName.isNotEmpty) {
       await prefs.setString(_nameKey, resolvedName);
+    } else {
+      await prefs.remove(_nameKey);
     }
   }
 }

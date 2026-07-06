@@ -10,6 +10,7 @@ import 'package:capstone_app/features/inventory/pages/inventory_page.dart';
 import 'package:capstone_app/features/auth/pages/login_page.dart';
 import 'package:capstone_app/features/raid/pages/raid_list_page.dart';
 import 'package:capstone_app/features/shop/pages/shop_page.dart';
+import 'package:capstone_app/widgets/character_stats_panel.dart';
 import 'package:capstone_app/widgets/player_level_badge.dart';
 import 'package:capstone_app/widgets/pixel_bottom_nav.dart';
 
@@ -254,13 +255,17 @@ class _HomePageState extends State<HomePage>
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // 프로필 프레임 + 닉네임 (각각 독립)
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              _buildPlayerProfileBlock(),
-              const SizedBox(width: 8),
-              _buildFloatingName(),
-            ],
+          GestureDetector(
+            behavior: HitTestBehavior.translucent,
+            onTap: _openCharacterStatsDialog,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                _buildPlayerProfileBlock(),
+                const SizedBox(width: 8),
+                _buildFloatingName(),
+              ],
+            ),
           ),
           const Spacer(),
           Column(
@@ -460,6 +465,14 @@ class _HomePageState extends State<HomePage>
 
   void _openFriendSheet() {
     showDialog(context: context, builder: (context) => const FriendSheet());
+  }
+
+  void _openCharacterStatsDialog() {
+    showDialog<void>(
+      context: context,
+      builder: (context) =>
+          CharacterStatsDialog(userName: _userName, level: _gs.level),
+    );
   }
 
   void _openSettingsDialog() {

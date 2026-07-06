@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 
+import 'package:capstone_app/services/game_state.dart';
+import 'package:capstone_app/widgets/profile_icon_catalog.dart';
+
 class PlayerLevelBadge extends StatelessWidget {
   final int level;
   final int exp;
@@ -94,24 +97,13 @@ class PlayerProfileWithLevel extends StatelessWidget {
         clipBehavior: Clip.none,
         alignment: Alignment.topCenter,
         children: [
-          Stack(
-            alignment: Alignment.center,
-            children: [
-              Image.asset(
-                'assets/images/profile_frame.png',
-                width: 56,
-                height: 56,
-                fit: BoxFit.contain,
-              ),
-              Padding(
-                padding: const EdgeInsets.all(10),
-                child: Icon(
-                  Icons.person,
-                  size: 24,
-                  color: Colors.white.withValues(alpha: 0.6),
-                ),
-              ),
-            ],
+          AnimatedBuilder(
+            animation: GameState.instance,
+            builder: (context, _) => ProfileIconPreview(
+              iconKey: GameState.instance.profileIconKey,
+              customImageDataUrl: GameState.instance.profileImageDataUrl,
+              size: 56,
+            ),
           ),
           Positioned(
             top: 54,

@@ -44,8 +44,11 @@ String _chapter1EquipmentImagePath(String name) {
     '튼튼한모자' => 'assets/images/equipment/chapter1/stage1_armor_helmet.png',
     '튼튼한갑옷' => 'assets/images/equipment/chapter1/stage1_armor_chest.png',
     '튼튼한신발' => 'assets/images/equipment/chapter1/stage1_armor_boots.png',
+    '낡은검' =>
+      'assets/images/equipment/chapter1/tutorial_weapon_beginner_sword.png',
     '초급검' =>
       'assets/images/equipment/chapter1/tutorial_weapon_beginner_sword.png',
+    '일반검' => 'assets/images/equipment/chapter1/tutorial_weapon_rare_sword.png',
     '레어검' => 'assets/images/equipment/chapter1/tutorial_weapon_rare_sword.png',
     '에픽검' => 'assets/images/equipment/chapter1/epic_green_brass_sword.png',
     '에픽투구' => 'assets/images/equipment/chapter1/epic_green_brass_helmet.png',

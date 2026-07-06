@@ -13,6 +13,8 @@ class GameState extends ChangeNotifier {
   int _exp = 0;
   int _statExp = 0;
   int _attackCountBalance = 0;
+  String _profileIconKey = 'vanguard';
+  String? _profileImageDataUrl;
 
   int get coins => _coins;
   int get level => _level;
@@ -20,6 +22,8 @@ class GameState extends ChangeNotifier {
   int get statExp => _statExp;
   int get expToNextLevel => (_level < 1 ? 1 : _level) * 100;
   int get attackCountBalance => _attackCountBalance;
+  String get profileIconKey => _profileIconKey;
+  String? get profileImageDataUrl => _profileImageDataUrl;
 
   void setCoins(int value) {
     if (_coins == value) return;
@@ -51,6 +55,21 @@ class GameState extends ChangeNotifier {
     final next = value < 0 ? 0 : value;
     if (_statExp == next) return;
     _statExp = next;
+    notifyListeners();
+  }
+
+  void setProfileIconKey(String value) {
+    final next = value.trim().isEmpty ? 'vanguard' : value.trim();
+    if (_profileIconKey == next) return;
+    _profileIconKey = next;
+    notifyListeners();
+  }
+
+  void setProfileImageDataUrl(String? value) {
+    final next = value?.trim();
+    final normalized = next == null || next.isEmpty ? null : next;
+    if (_profileImageDataUrl == normalized) return;
+    _profileImageDataUrl = normalized;
     notifyListeners();
   }
 

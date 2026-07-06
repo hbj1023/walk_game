@@ -505,6 +505,9 @@ class BattleApiService {
   }) {
     final message = (body['error'] as String?)?.trim();
     if (message == null || message.isEmpty) return fallback;
+    if (message == 'boss entrance ticket is required') {
+      return '보스 입장권이 없어 입장할 수 없습니다.';
+    }
     if (message == 'Something went wrong while processing your request.') {
       return '서버에서 전투 요청을 처리하지 못했습니다. 잠시 후 다시 시도해주세요.';
     }

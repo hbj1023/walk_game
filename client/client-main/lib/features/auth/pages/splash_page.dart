@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:capstone_app/services/auth_service.dart';
 import 'package:capstone_app/services/battle_api_service.dart';
+import 'package:capstone_app/services/profile_icon_service.dart';
 import 'package:capstone_app/features/home/pages/home_page.dart';
 import 'package:capstone_app/features/auth/pages/intro_page.dart';
 import 'package:capstone_app/features/auth/pages/login_page.dart';
@@ -24,6 +25,7 @@ class _SplashPageState extends State<SplashPage> {
     super.initState();
     _timer = Timer(const Duration(milliseconds: 1600), () async {
       final prefs = await SharedPreferences.getInstance();
+      await ProfileIconService.loadIntoGameState();
       final hasSeenIntro = prefs.getBool('hasSeenIntro') ?? false;
       var token = await AuthService.getSavedToken();
       if (token != null && token.isNotEmpty) {
@@ -31,6 +33,7 @@ class _SplashPageState extends State<SplashPage> {
           await AuthService.fetchMainMessage().timeout(
             const Duration(seconds: 3),
           );
+          await ProfileIconService.loadIntoGameState();
           await BattleApiService.leaveStoredUnfinishedNormalBattle().timeout(
             const Duration(seconds: 3),
           );

@@ -7,6 +7,7 @@ import 'package:capstone_app/features/battle/pages/battle_stage_page.dart';
 import 'package:capstone_app/features/home/pages/home_page.dart';
 import 'package:capstone_app/features/raid/pages/raid_list_page.dart';
 import 'package:capstone_app/features/shop/pages/shop_page.dart';
+import 'package:capstone_app/widgets/character_stats_panel.dart';
 import 'package:capstone_app/widgets/game_feedback.dart';
 import 'package:capstone_app/widgets/player_level_badge.dart';
 import 'package:capstone_app/widgets/pixel_bottom_nav.dart';
@@ -59,7 +60,6 @@ class _InventoryPageState extends State<InventoryPage> {
   String? _error;
   List<OwnedInventoryItem> _items = const [];
   StatUpgradeSummary? _statSummary;
-  CharacterStatsSummary? _characterStatsSummary;
   ExplorationUpgradeSummary? _explorationSummary;
 
   final _gs = GameState.instance;
@@ -98,15 +98,13 @@ class _InventoryPageState extends State<InventoryPage> {
       final results = await Future.wait<Object>([
         GameApiService.fetchInventoryItems(),
         GameApiService.fetchStatUpgradeSummary(),
-        GameApiService.fetchCharacterStatsSummary(),
         GameApiService.fetchExplorationUpgradeSummary(),
       ]);
       if (!mounted) return;
       setState(() {
         _items = results[0] as List<OwnedInventoryItem>;
         _statSummary = results[1] as StatUpgradeSummary;
-        _characterStatsSummary = results[2] as CharacterStatsSummary;
-        _explorationSummary = results[3] as ExplorationUpgradeSummary;
+        _explorationSummary = results[2] as ExplorationUpgradeSummary;
         _isLoading = false;
       });
     } catch (e) {
@@ -225,6 +223,10 @@ class _InventoryPageState extends State<InventoryPage> {
     if (result == null) return;
 
     if (result == 'sell') {
+      if (item.isEquipped) {
+        _showMessage('착용 중인 장비는 판매할 수 없습니다. 먼저 해제해주세요.');
+        return;
+      }
       await _sellItem(item);
       return;
     }
@@ -311,11 +313,9 @@ class _InventoryPageState extends State<InventoryPage> {
     setState(() => _isActionLoading = true);
     try {
       final summary = await GameApiService.upgradeStat(key);
-      final statSummary = await GameApiService.fetchCharacterStatsSummary();
       if (!mounted) return;
       setState(() {
         _statSummary = summary;
-        _characterStatsSummary = statSummary;
       });
       _showMessage('${_statLabel[key]} 강화 완료! -$cost SP');
     } catch (e) {
@@ -400,27 +400,31 @@ class _InventoryPageState extends State<InventoryPage> {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              _buildPlayerProfileBlock(),
-              const SizedBox(width: 8),
-              Text(
-                _userName,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 14,
-                  fontWeight: FontWeight.bold,
-                  shadows: [
-                    Shadow(
-                      color: Colors.black,
-                      blurRadius: 6,
-                      offset: Offset(1, 1),
-                    ),
-                  ],
+          GestureDetector(
+            behavior: HitTestBehavior.translucent,
+            onTap: _openCharacterStatsDialog,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                _buildPlayerProfileBlock(),
+                const SizedBox(width: 8),
+                Text(
+                  _userName,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                    shadows: [
+                      Shadow(
+                        color: Colors.black,
+                        blurRadius: 6,
+                        offset: Offset(1, 1),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
           const Spacer(),
           _buildCoinCard(),
@@ -457,6 +461,14 @@ class _InventoryPageState extends State<InventoryPage> {
       level: _gs.level,
       exp: _gs.exp,
       expToNext: _gs.expToNextLevel,
+    );
+  }
+
+  void _openCharacterStatsDialog() {
+    showDialog<void>(
+      context: context,
+      builder: (context) =>
+          CharacterStatsDialog(userName: _userName, level: _gs.level),
     );
   }
 
@@ -791,7 +803,9 @@ class _InventoryPageState extends State<InventoryPage> {
       '에픽투구' => 'assets/images/icon/cap3.png',
       '에픽갑옷' => 'assets/images/icon/armor3.png',
       '에픽신발' => 'assets/images/icon/shoes3.png',
+      '낡은검' => 'assets/images/icon/sword1.png',
       '초급검' => 'assets/images/icon/sword1.png',
+      '일반검' => 'assets/images/icon/sword2.png',
       '레어검' => 'assets/images/icon/sword2.png',
       '에픽검' => 'assets/images/icon/sword3.png',
       '5스테이지보스입장권' => 'assets/images/icon/ticket.png',
@@ -844,7 +858,6 @@ class _InventoryPageState extends State<InventoryPage> {
   Widget _buildStatsTab() {
     return Column(
       children: [
-        _buildOverallStatsPanel(),
         _buildCurrencyRow(),
         const SizedBox(height: 8),
         Column(children: _statKeys.map(_buildStatRow).toList()),
@@ -852,214 +865,6 @@ class _InventoryPageState extends State<InventoryPage> {
         const SizedBox(height: 8),
       ],
     );
-  }
-
-  Widget _buildOverallStatsPanel() {
-    final summary = _characterStatsSummary;
-    return Container(
-      width: double.infinity,
-      margin: const EdgeInsets.fromLTRB(8, 8, 8, 8),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: kPanelColor,
-        border: Border.all(color: kBorderColor, width: 1.5),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              const Icon(Icons.auto_graph, color: kGold, size: 18),
-              const SizedBox(width: 6),
-              const Text(
-                '전체 능력치',
-                style: TextStyle(
-                  color: kTextLight,
-                  fontSize: 15,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const Spacer(),
-              Text(
-                'LV.${_gs.level}',
-                style: const TextStyle(
-                  color: kGold,
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          LayoutBuilder(
-            builder: (context, constraints) {
-              final tileWidth = (constraints.maxWidth - 8) / 2;
-              return Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: _statKeys
-                    .map((key) => _buildStatOverviewTile(key, tileWidth))
-                    .toList(),
-              );
-            },
-          ),
-          const SizedBox(height: 10),
-          _buildSelectedStatBreakdown(summary),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildStatOverviewTile(String key, double width) {
-    final selected = _selectedStatKey == key;
-    final value = _statValue(
-      _characterStatsSummary?.finalStats,
-      key,
-      fallback: _statSummary?.currentStats[key] ?? 0,
-    );
-    final equipment = _statValue(_characterStatsSummary?.equipmentStats, key);
-    final setBonus = _statValue(_characterStatsSummary?.setBonusStats, key);
-    final extra = equipment + setBonus;
-
-    return GestureDetector(
-      onTap: () => setState(() => _selectedStatKey = key),
-      child: Container(
-        width: width,
-        padding: const EdgeInsets.all(10),
-        decoration: BoxDecoration(
-          color: selected
-              ? const Color(0xFF332015)
-              : Colors.black.withValues(alpha: 0.22),
-          border: Border.all(
-            color: selected ? kGold : kBorderColor,
-            width: 1.2,
-          ),
-        ),
-        child: Row(
-          children: [
-            Image.asset(
-              _statIconPath(key),
-              width: 24,
-              height: 24,
-              errorBuilder: (_, _, _) =>
-                  const Icon(Icons.auto_awesome, color: kGold, size: 22),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    _statLabel[key]!,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(color: kTextGray, fontSize: 10),
-                  ),
-                  Text(
-                    '$value',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 18,
-                      fontWeight: FontWeight.w900,
-                    ),
-                  ),
-                  Text(
-                    extra > 0 ? '장비+$extra' : '기본 성장',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      color: extra > 0 ? kGreen : kTextGray,
-                      fontSize: 10,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildSelectedStatBreakdown(CharacterStatsSummary? summary) {
-    final key = _selectedStatKey;
-    final base = _statValue(summary?.baseStats, key);
-    final upgrade = _statValue(summary?.upgradeStats, key);
-    final equipment = _statValue(summary?.equipmentStats, key);
-    final setBonus = _statValue(summary?.setBonusStats, key);
-    final total = _statValue(
-      summary?.finalStats,
-      key,
-      fallback: _statSummary?.currentStats[key] ?? 0,
-    );
-
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(10),
-      decoration: BoxDecoration(
-        color: Colors.black.withValues(alpha: 0.24),
-        border: Border.all(color: kBorderColor, width: 1),
-      ),
-      child: Column(
-        children: [
-          Row(
-            children: [
-              Text(
-                '${_statLabel[key]} 구성',
-                style: const TextStyle(
-                  color: kTextLight,
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const Spacer(),
-              if (summary != null)
-                Text(
-                  '장착 ${summary.equippedItemCount} / 세트 ${summary.activeSetBonusCount}',
-                  style: const TextStyle(color: kTextGray, fontSize: 10),
-                ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          _buildBreakdownRow('기본', base, kTextGray),
-          _buildBreakdownRow('직접 강화', upgrade, const Color(0xFFBFF4FF)),
-          _buildBreakdownRow('장비', equipment, kGreen),
-          _buildBreakdownRow('세트', setBonus, kGold),
-          const Divider(color: kBorderColor, height: 14),
-          _buildBreakdownRow('최종', total, Colors.white, strong: true),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildBreakdownRow(
-    String label,
-    int value,
-    Color color, {
-    bool strong = false,
-  }) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 2),
-      child: Row(
-        children: [
-          Text(label, style: const TextStyle(color: kTextGray, fontSize: 11)),
-          const Spacer(),
-          Text(
-            strong || value == 0 ? '$value' : '+$value',
-            style: TextStyle(
-              color: color,
-              fontSize: strong ? 14 : 12,
-              fontWeight: strong ? FontWeight.w900 : FontWeight.bold,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  int _statValue(Map<String, int>? stats, String key, {int fallback = 0}) {
-    if (stats == null) return fallback;
-    return stats[key] ?? fallback;
   }
 
   Widget _buildExplorationTab() {

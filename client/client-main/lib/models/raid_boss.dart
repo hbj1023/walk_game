@@ -87,11 +87,4 @@ int _raidDifficulty(RaidMonsterInfo monster) {
   return 1;
 }
 
-int _raidRecommendedLevel(RaidMonsterInfo monster) {
-  final difficulty = _raidDifficulty(monster);
-  return switch (difficulty) {
-    3 => 30,
-    2 => 20,
-    _ => 10,
-  };
-}
+int _raidRecommendedLevel(RaidMonsterInfo _) => 5;

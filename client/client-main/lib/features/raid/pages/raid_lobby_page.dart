@@ -4,7 +4,9 @@ import 'package:flutter/material.dart';
 
 import 'package:capstone_app/models/raid_boss.dart';
 import 'package:capstone_app/services/game_api_service.dart';
+import 'package:capstone_app/services/game_state.dart';
 import 'package:capstone_app/features/raid/pages/raid_battle_page.dart';
+import 'package:capstone_app/widgets/profile_icon_catalog.dart';
 
 const _kLobbyBg = Color(0xFF1A1008);
 const _kLobbyBorder = Color(0xFF6B3A1F);
@@ -491,6 +493,17 @@ class _RaidLobbyPageState extends State<RaidLobbyPage> {
                 color: participant.joinStatus == 'joined'
                     ? (isMine ? _kLobbyGold : _kLobbyBlue)
                     : Colors.white38,
+                leading: isMine
+                    ? AnimatedBuilder(
+                        animation: GameState.instance,
+                        builder: (context, _) => ProfileIconPreview(
+                          iconKey: GameState.instance.profileIconKey,
+                          customImageDataUrl:
+                              GameState.instance.profileImageDataUrl,
+                          size: 32,
+                        ),
+                      )
+                    : null,
               );
             }),
         ],
@@ -628,6 +641,7 @@ class _RaidLobbyPageState extends State<RaidLobbyPage> {
     required String subtitle,
     required String trailing,
     required Color color,
+    Widget? leading,
     VoidCallback? onTap,
   }) {
     return GestureDetector(
@@ -642,7 +656,7 @@ class _RaidLobbyPageState extends State<RaidLobbyPage> {
         ),
         child: Row(
           children: [
-            Icon(icon, color: color, size: 20),
+            leading ?? Icon(icon, color: color, size: 20),
             const SizedBox(width: 10),
             Expanded(
               child: Column(

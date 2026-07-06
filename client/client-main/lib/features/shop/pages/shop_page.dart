@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'package:capstone_app/services/auth_service.dart';
+import 'package:capstone_app/services/battle_api_service.dart';
 import 'package:capstone_app/services/game_api_service.dart';
 import 'package:capstone_app/services/game_state.dart';
 import 'package:capstone_app/features/battle/pages/battle_stage_page.dart';
@@ -8,6 +9,7 @@ import 'package:capstone_app/features/home/pages/home_page.dart';
 import 'package:capstone_app/features/inventory/pages/inventory_page.dart';
 import 'package:capstone_app/features/raid/pages/raid_list_page.dart';
 import 'package:capstone_app/widgets/game_feedback.dart';
+import 'package:capstone_app/widgets/character_stats_panel.dart';
 import 'package:capstone_app/widgets/player_level_badge.dart';
 import 'package:capstone_app/widgets/pixel_bottom_nav.dart';
 
@@ -19,6 +21,14 @@ const _kGold = Color(0xFFFFD700);
 const _kTextLight = Color(0xFFEEDDCC);
 const _kTextGray = Color(0xFF888888);
 const _kSlotColor = Color(0xFF1E1208);
+const _kCommonColor = Color(0xFF56B866);
+const _kRareColor = Color(0xFF4C8DFF);
+const _kEpicColor = Color(0xFFC177FF);
+
+const _equipmentRarityOrder = ['common', 'rare', 'epic'];
+const _standardSetRarityRows = ['common', 'rare'];
+const _epicSetRarityRows = ['epic'];
+const _equipmentSlotOrder = ['weapon', 'helmet', 'armor', 'shoes'];
 
 // ─── 탭 정의 ──────────────────────────────────────────────────────────────────
 const _tabs = ['장비', '소모품'];
@@ -38,7 +48,9 @@ class _ShopPageState extends State<ShopPage> {
   String? _error;
   List<Shop> _shops = const [];
   List<ShopItem> _items = const [];
+  List<OwnedInventoryItem> _inventoryItems = const [];
   Set<String> _ownedEquipmentTemplateIds = const {};
+  bool _chapter2EquipmentUnlocked = false;
   Shop? _selectedShop;
   final _gs = GameState.instance;
 
@@ -76,13 +88,18 @@ class _ShopPageState extends State<ShopPage> {
       final results = await Future.wait<Object>([
         GameApiService.fetchShops(),
         GameApiService.fetchInventoryItems(),
+        BattleApiService.fetchNormalStages(),
       ]);
       final shops = results[0] as List<Shop>;
       final inventoryItems = results[1] as List<OwnedInventoryItem>;
+      final stages = results[2] as List<NormalStageInfo>;
       final selected = shops.isEmpty ? null : shops.first;
       final items = selected == null
           ? <ShopItem>[]
           : await GameApiService.fetchShopItems(selected.id);
+      final chapter2Unlocked = stages.any(
+        (stage) => stage.stageNo >= 6 && stage.isUnlocked,
+      );
       final ownedEquipmentTemplateIds = inventoryItems
           .where((item) => item.itemTemplate.isEquipment)
           .map((item) => item.itemTemplate.id)
@@ -93,7 +110,9 @@ class _ShopPageState extends State<ShopPage> {
         _shops = shops;
         _selectedShop = selected;
         _items = items;
+        _inventoryItems = inventoryItems;
         _ownedEquipmentTemplateIds = ownedEquipmentTemplateIds;
+        _chapter2EquipmentUnlocked = chapter2Unlocked;
         _isLoading = false;
       });
     } catch (e) {
@@ -112,6 +131,8 @@ class _ShopPageState extends State<ShopPage> {
             .where(
               (item) =>
                   item.itemTemplate.isEquipment &&
+                  (_chapter2EquipmentUnlocked ||
+                      !_isChapter2Equipment(item.itemTemplate)) &&
                   !_ownedEquipmentTemplateIds.contains(item.itemTemplate.id),
             )
             .toList(),
@@ -156,6 +177,7 @@ class _ShopPageState extends State<ShopPage> {
       if (!mounted) return;
       setState(() {
         _items = items;
+        _inventoryItems = inventoryItems;
         _ownedEquipmentTemplateIds = inventoryItems
             .where((ownedItem) => ownedItem.itemTemplate.isEquipment)
             .map((ownedItem) => ownedItem.itemTemplate.id)
@@ -214,27 +236,31 @@ class _ShopPageState extends State<ShopPage> {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              _buildPlayerProfileBlock(),
-              const SizedBox(width: 8),
-              Text(
-                _userName,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 14,
-                  fontWeight: FontWeight.bold,
-                  shadows: [
-                    Shadow(
-                      color: Colors.black,
-                      blurRadius: 6,
-                      offset: Offset(1, 1),
-                    ),
-                  ],
+          GestureDetector(
+            behavior: HitTestBehavior.translucent,
+            onTap: _openCharacterStatsDialog,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                _buildPlayerProfileBlock(),
+                const SizedBox(width: 8),
+                Text(
+                  _userName,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                    shadows: [
+                      Shadow(
+                        color: Colors.black,
+                        blurRadius: 6,
+                        offset: Offset(1, 1),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
           const Spacer(),
           _buildCoinCard(),
@@ -271,6 +297,14 @@ class _ShopPageState extends State<ShopPage> {
       level: _gs.level,
       exp: _gs.exp,
       expToNext: _gs.expToNextLevel,
+    );
+  }
+
+  void _openCharacterStatsDialog() {
+    showDialog<void>(
+      context: context,
+      builder: (context) =>
+          CharacterStatsDialog(userName: _userName, level: _gs.level),
     );
   }
 
@@ -408,6 +442,10 @@ class _ShopPageState extends State<ShopPage> {
     }
 
     final items = _filteredItems;
+    if (_selectedTab == 0) {
+      return _buildEquipmentSetShelf(items);
+    }
+
     if (items.isEmpty) {
       return const Center(
         child: Text('해당 탭에 판매 상품이 없습니다.', style: TextStyle(color: _kTextGray)),
@@ -418,6 +456,375 @@ class _ShopPageState extends State<ShopPage> {
       padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
       itemCount: items.length,
       itemBuilder: (context, index) => _buildShopItemCard(items[index]),
+    );
+  }
+
+  Widget _buildEquipmentSetShelf(List<ShopItem> items) {
+    final sections = _buildEquipmentSetSections(items);
+    if (sections.isEmpty) {
+      return const Center(
+        child: Text('판매 중인 장비가 없습니다.', style: TextStyle(color: _kTextGray)),
+      );
+    }
+
+    return ListView.builder(
+      padding: const EdgeInsets.fromLTRB(12, 12, 12, 92),
+      itemCount: sections.length,
+      itemBuilder: (context, index) =>
+          _buildEquipmentSetSection(sections[index]),
+    );
+  }
+
+  List<_EquipmentSetSection> _buildEquipmentSetSections(List<ShopItem> items) {
+    final sections = <String, _EquipmentSetSection>{};
+
+    void putCell({
+      required ItemTemplate template,
+      ShopItem? shopItem,
+      required bool owned,
+    }) {
+      if (!template.isEquipment) return;
+      final slot = _equipmentPieceType(template);
+      if (!_equipmentSlotOrder.contains(slot)) return;
+      final rarity = _equipmentRarity(template);
+      if (!_equipmentRarityOrder.contains(rarity)) return;
+
+      final setKey = _equipmentSetKey(template);
+      final section = sections.putIfAbsent(
+        setKey,
+        () => _EquipmentSetSection(
+          key: setKey,
+          name: _equipmentSetName(template),
+          chapter: _equipmentChapter(template),
+          order: _equipmentSetOrder(template),
+          isEpicSet: _equipmentRarity(template) == 'epic',
+        ),
+      );
+      final row = section.rows.putIfAbsent(
+        rarity,
+        () => _EquipmentRarityRow(rarity: rarity),
+      );
+      final current = row.cells[slot];
+      if (current == null || owned || !current.owned) {
+        row.cells[slot] = _EquipmentShopCell(
+          template: template,
+          shopItem: shopItem,
+          owned: owned,
+        );
+      }
+    }
+
+    for (final item in _inventoryItems) {
+      if (!item.itemTemplate.isEquipment || item.isRemoved) continue;
+      putCell(template: item.itemTemplate, owned: true);
+    }
+    for (final item in items) {
+      if (_ownedEquipmentTemplateIds.contains(item.itemTemplate.id)) continue;
+      putCell(template: item.itemTemplate, shopItem: item, owned: false);
+    }
+
+    final list = sections.values.toList()
+      ..sort((a, b) {
+        final chapter = a.chapter.compareTo(b.chapter);
+        if (chapter != 0) return chapter;
+        final order = a.order.compareTo(b.order);
+        if (order != 0) return order;
+        return a.name.compareTo(b.name);
+      });
+    return list;
+  }
+
+  Widget _buildEquipmentSetSection(_EquipmentSetSection section) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: _kPanelColor,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: section.isEpicSet ? _kEpicColor : _kBorderColor,
+          width: section.isEpicSet ? 1.8 : 1.5,
+        ),
+        image: section.chapter >= 2
+            ? const DecorationImage(
+                image: AssetImage(
+                  'assets/images/bg/stage2_shadow_mushroom_forest_map.png',
+                ),
+                fit: BoxFit.cover,
+                opacity: 0.10,
+              )
+            : const DecorationImage(
+                image: AssetImage(
+                  'assets/images/bg/stage1_forest_path_ui_strip.png',
+                ),
+                fit: BoxFit.cover,
+                opacity: 0.10,
+              ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 30,
+                height: 30,
+                decoration: BoxDecoration(
+                  color: Colors.black.withValues(alpha: 0.35),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: _kBorderColor),
+                ),
+                child: Icon(
+                  section.isEpicSet
+                      ? Icons.workspace_premium_rounded
+                      : section.chapter >= 2
+                      ? Icons.forest_rounded
+                      : Icons.hiking_rounded,
+                  color: section.isEpicSet
+                      ? _kEpicColor
+                      : section.chapter >= 2
+                      ? _kCommonColor
+                      : _kGold,
+                  size: 18,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  section.name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: _kTextLight,
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+              _buildChapterBadge(section.chapter, isEpicSet: section.isEpicSet),
+            ],
+          ),
+          const SizedBox(height: 10),
+          for (final rarity
+              in section.isEpicSet
+                  ? _epicSetRarityRows
+                  : _standardSetRarityRows)
+            _buildEquipmentRarityRow(
+              section.rows[rarity] ?? _EquipmentRarityRow(rarity: rarity),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildChapterBadge(int chapter, {required bool isEpicSet}) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.35),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: _kBorderColor),
+      ),
+      child: Text(
+        isEpicSet
+            ? '보스 세트'
+            : chapter >= 2
+            ? '버섯숲'
+            : '숲길',
+        style: TextStyle(
+          color: isEpicSet ? _kEpicColor : _kTextGray,
+          fontSize: 10,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEquipmentRarityRow(_EquipmentRarityRow row) {
+    final color = _rarityColor(row.rarity);
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(7),
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          color.withValues(alpha: 0.08),
+          Colors.black.withValues(alpha: 0.34),
+        ),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: color.withValues(alpha: 0.58), width: 1.2),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          SizedBox(
+            width: 42,
+            child: Column(
+              children: [
+                Icon(_rarityIcon(row.rarity), color: color, size: 16),
+                const SizedBox(height: 3),
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text(
+                    _rarityLabel(row.rarity),
+                    style: TextStyle(
+                      color: color,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 6),
+          for (final slot in _equipmentSlotOrder) ...[
+            Expanded(child: _buildEquipmentSetTile(row.cells[slot], slot)),
+            if (slot != _equipmentSlotOrder.last) const SizedBox(width: 6),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEquipmentSetTile(_EquipmentShopCell? cell, String slot) {
+    final template = cell?.template;
+    final shopItem = cell?.shopItem;
+    final owned = cell?.owned ?? false;
+    final canBuy =
+        shopItem != null && !_isBuying && _gs.coins >= shopItem.priceCoin;
+    final rarity = template == null ? 'locked' : _equipmentRarity(template);
+    final borderColor = template == null
+        ? Colors.white24
+        : _rarityColor(rarity).withValues(alpha: owned ? 0.45 : 0.9);
+    final backgroundColor = template == null
+        ? Colors.black.withValues(alpha: 0.30)
+        : Color.alphaBlend(
+            _rarityColor(rarity).withValues(alpha: 0.06),
+            _kSlotColor,
+          );
+
+    return GestureDetector(
+      onTap: shopItem == null || _isBuying ? null : () => _purchase(shopItem),
+      child: Opacity(
+        opacity: template == null ? 0.46 : 1,
+        child: Container(
+          height: 88,
+          padding: const EdgeInsets.all(5),
+          decoration: BoxDecoration(
+            color: backgroundColor,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: borderColor, width: 1.1),
+          ),
+          child: Column(
+            children: [
+              Expanded(
+                child: Center(
+                  child: template == null
+                      ? Icon(_slotIcon(slot), color: Colors.white24, size: 24)
+                      : Image.asset(
+                          _templateImage(template),
+                          width: 34,
+                          height: 34,
+                          fit: BoxFit.contain,
+                        ),
+                ),
+              ),
+              const SizedBox(height: 3),
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(
+                  _slotLabel(slot),
+                  style: const TextStyle(
+                    color: _kTextGray,
+                    fontSize: 9,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 3),
+              _buildEquipmentTileState(
+                template: template,
+                shopItem: shopItem,
+                owned: owned,
+                canBuy: canBuy,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEquipmentTileState({
+    required ItemTemplate? template,
+    required ShopItem? shopItem,
+    required bool owned,
+    required bool canBuy,
+  }) {
+    if (template == null) {
+      return _buildTinyStateChip('잠김', Colors.white24);
+    }
+    if (owned) {
+      return _buildTinyStateChip('보유', _kGold);
+    }
+    if (shopItem == null) {
+      return _buildTinyStateChip('잠김', Colors.white24);
+    }
+    return Container(
+      height: 17,
+      padding: const EdgeInsets.symmetric(horizontal: 4),
+      decoration: BoxDecoration(
+        color: canBuy ? _kAccentRed : Colors.grey.shade800,
+        borderRadius: BorderRadius.circular(5),
+        border: Border.all(color: _kBorderColor),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Image.asset(
+            'assets/images/icon/coin_icon.png',
+            width: 10,
+            height: 10,
+          ),
+          const SizedBox(width: 2),
+          Flexible(
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                '${shopItem.priceCoin}',
+                style: TextStyle(
+                  color: canBuy ? Colors.white : _kTextGray,
+                  fontSize: 9,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTinyStateChip(String label, Color color) {
+    return Container(
+      height: 17,
+      padding: const EdgeInsets.symmetric(horizontal: 5),
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.35),
+        borderRadius: BorderRadius.circular(5),
+        border: Border.all(color: color.withValues(alpha: 0.55)),
+      ),
+      child: FittedBox(
+        fit: BoxFit.scaleDown,
+        child: Text(
+          label,
+          style: TextStyle(
+            color: color,
+            fontSize: 9,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      ),
     );
   }
 
@@ -508,7 +915,10 @@ class _ShopPageState extends State<ShopPage> {
   }
 
   String _shopItemImage(ShopItem item) {
-    final template = item.itemTemplate;
+    return _templateImage(item.itemTemplate);
+  }
+
+  String _templateImage(ItemTemplate template) {
     if (template.displayImagePath.isNotEmpty) return template.displayImagePath;
     final normalizedName = template.name.replaceAll(' ', '').trim();
     return switch (normalizedName) {
@@ -524,7 +934,9 @@ class _ShopPageState extends State<ShopPage> {
       '에픽투구' => 'assets/images/icon/cap3.png',
       '에픽갑옷' => 'assets/images/icon/armor3.png',
       '에픽신발' => 'assets/images/icon/shoes3.png',
+      '낡은검' => 'assets/images/icon/sword1.png',
       '초급검' => 'assets/images/icon/sword1.png',
+      '일반검' => 'assets/images/icon/sword2.png',
       '레어검' => 'assets/images/icon/sword2.png',
       '에픽검' => 'assets/images/icon/sword3.png',
       '5스테이지보스입장권' => 'assets/images/icon/ticket.png',
@@ -539,6 +951,175 @@ class _ShopPageState extends State<ShopPage> {
               : 'assets/images/icon/weapon.png',
       },
     };
+  }
+
+  String _equipmentRarity(ItemTemplate template) {
+    final rarity = template.rarity.trim().toLowerCase();
+    return _equipmentRarityOrder.contains(rarity) ? rarity : 'common';
+  }
+
+  Color _rarityColor(String rarity) {
+    return switch (rarity) {
+      'common' => _kCommonColor,
+      'rare' => _kRareColor,
+      'epic' => _kEpicColor,
+      _ => Colors.white24,
+    };
+  }
+
+  IconData _rarityIcon(String rarity) {
+    return switch (rarity) {
+      'common' => Icons.eco_rounded,
+      'rare' => Icons.auto_awesome_rounded,
+      'epic' => Icons.workspace_premium_rounded,
+      _ => Icons.lock_rounded,
+    };
+  }
+
+  String _rarityLabel(String rarity) {
+    return switch (rarity) {
+      'common' => '일반',
+      'rare' => '희귀',
+      'epic' => '에픽',
+      _ => '잠김',
+    };
+  }
+
+  String _equipmentPieceType(ItemTemplate template) {
+    if (template.setPieceType.trim().isNotEmpty) {
+      final piece = template.setPieceType.trim();
+      return piece == 'sword' ? 'weapon' : piece;
+    }
+    if (template.equipmentSlot == 'sword') return 'weapon';
+    if (_equipmentSlotOrder.contains(template.equipmentSlot)) {
+      return template.equipmentSlot;
+    }
+    final name = template.name.toLowerCase();
+    if (name.contains('검') ||
+        name.contains('도끼') ||
+        name.contains('창') ||
+        name.contains('단검') ||
+        name.contains('sword') ||
+        name.contains('axe') ||
+        name.contains('spear') ||
+        name.contains('dagger')) {
+      return 'weapon';
+    }
+    if (name.contains('투구') || name.contains('두건') || name.contains('helm')) {
+      return 'helmet';
+    }
+    if (name.contains('갑옷') || name.contains('armor')) return 'armor';
+    if (name.contains('신발') || name.contains('장화') || name.contains('boots')) {
+      return 'shoes';
+    }
+    return '';
+  }
+
+  String _slotLabel(String slot) {
+    return switch (slot) {
+      'weapon' => '무기',
+      'helmet' => '투구',
+      'armor' => '갑옷',
+      'shoes' => '신발',
+      _ => '',
+    };
+  }
+
+  IconData _slotIcon(String slot) {
+    return switch (slot) {
+      'weapon' => Icons.gavel_rounded,
+      'helmet' => Icons.health_and_safety_rounded,
+      'armor' => Icons.shield_rounded,
+      'shoes' => Icons.directions_walk_rounded,
+      _ => Icons.lock_rounded,
+    };
+  }
+
+  int _equipmentChapter(ItemTemplate template) {
+    return _isChapter2Equipment(template) ? 2 : 1;
+  }
+
+  int _equipmentSetOrder(ItemTemplate template) {
+    final key = _equipmentBaseSetKey(template);
+    final offset = _equipmentRarity(template) == 'epic' ? 100 : 0;
+    return switch (key) {
+      'chapter1-adventurer' => 0 + offset,
+      'vanguard' => 10 + offset,
+      'berserker' => 20 + offset,
+      'sentinel' => 30 + offset,
+      'shadow' => 40 + offset,
+      'colossus' => 50 + offset,
+      _ => 90 + offset,
+    };
+  }
+
+  String _equipmentSetKey(ItemTemplate template) {
+    final baseKey = _equipmentBaseSetKey(template);
+    if (_equipmentRarity(template) == 'epic') {
+      return 'epic-$baseKey';
+    }
+    return baseKey;
+  }
+
+  String _equipmentBaseSetKey(ItemTemplate template) {
+    if (template.setKey.trim().isNotEmpty) return template.setKey.trim();
+    final name = template.name.toLowerCase();
+    if (name.contains('모험가') || name.contains('vanguard')) return 'vanguard';
+    if (name.contains('광전사') || name.contains('berserker')) {
+      return 'berserker';
+    }
+    if (name.contains('창술사') || name.contains('sentinel')) return 'sentinel';
+    if (name.contains('도적') || name.contains('shadow')) return 'shadow';
+    if (name.contains('견습기사') || name.contains('colossus')) {
+      return 'colossus';
+    }
+    return 'chapter1-adventurer';
+  }
+
+  String _equipmentSetName(ItemTemplate template) {
+    final key = _equipmentBaseSetKey(template);
+    if (_equipmentRarity(template) == 'epic') {
+      return switch (key) {
+        'vanguard' => '모험가 보스 에픽 세트',
+        'berserker' => '광전사 보스 에픽 세트',
+        'sentinel' => '창술사 보스 에픽 세트',
+        'shadow' => '도적 보스 에픽 세트',
+        'colossus' => '견습기사 보스 에픽 세트',
+        _ => '숲길 보스 에픽 세트',
+      };
+    }
+    return switch (key) {
+      'vanguard' => '모험가 세트',
+      'berserker' => '광전사 세트',
+      'sentinel' => '창술사 세트',
+      'shadow' => '도적 세트',
+      'colossus' => '견습기사 세트',
+      _ => '숲길 준비 세트',
+    };
+  }
+
+  bool _isChapter2Equipment(ItemTemplate template) {
+    if (!template.isEquipment) return false;
+    if (template.setKey.trim().isNotEmpty) return true;
+
+    final imagePath = '${template.imagePath} ${template.displayImagePath}'
+        .toLowerCase();
+    if (imagePath.contains('/chapter2/') ||
+        imagePath.contains('\\chapter2\\')) {
+      return true;
+    }
+
+    final name = template.name.toLowerCase();
+    return name.contains('모험가') ||
+        name.contains('광전사') ||
+        name.contains('창술사') ||
+        name.contains('도적') ||
+        name.contains('견습기사') ||
+        name.contains('vanguard') ||
+        name.contains('berserker') ||
+        name.contains('sentinel') ||
+        name.contains('shadow') ||
+        name.contains('colossus');
   }
 
   String _itemMeta(ShopItem item) {
@@ -618,4 +1199,40 @@ class _ShopPageState extends State<ShopPage> {
       ),
     );
   }
+}
+
+class _EquipmentSetSection {
+  final String key;
+  final String name;
+  final int chapter;
+  final int order;
+  final bool isEpicSet;
+  final Map<String, _EquipmentRarityRow> rows = {};
+
+  _EquipmentSetSection({
+    required this.key,
+    required this.name,
+    required this.chapter,
+    required this.order,
+    required this.isEpicSet,
+  });
+}
+
+class _EquipmentRarityRow {
+  final String rarity;
+  final Map<String, _EquipmentShopCell> cells = {};
+
+  _EquipmentRarityRow({required this.rarity});
+}
+
+class _EquipmentShopCell {
+  final ItemTemplate template;
+  final ShopItem? shopItem;
+  final bool owned;
+
+  const _EquipmentShopCell({
+    required this.template,
+    required this.shopItem,
+    required this.owned,
+  });
 }

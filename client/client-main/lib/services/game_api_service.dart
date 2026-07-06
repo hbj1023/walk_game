@@ -89,46 +89,7 @@ class ItemTemplate {
     name: name,
   );
 
-  String get _chapter2EquipmentImagePath {
-    if (!isEquipment) return '';
-
-    final inferredSetKey = _inferredSetKey;
-    final inferredPieceType = _inferredPieceType;
-    if (inferredSetKey.isEmpty) return '';
-
-    if (inferredPieceType == 'weapon') {
-      return switch (weaponType) {
-        'sword' => 'assets/images/equipment/chapter2/ch2_weapon_sword.png',
-        'axe' => 'assets/images/equipment/chapter2/ch2_weapon_axe.png',
-        'spear' => 'assets/images/equipment/chapter2/ch2_weapon_spear.png',
-        'dagger' => 'assets/images/equipment/chapter2/ch2_weapon_dagger.png',
-        'greatsword' =>
-          'assets/images/equipment/chapter2/ch2_weapon_colossus.png',
-        _ => '',
-      };
-    }
-
-    final pieceSuffix = switch (inferredPieceType) {
-      'helmet' => 'helmet',
-      'armor' => 'armor',
-      'shoes' => 'boots',
-      _ => '',
-    };
-    if (pieceSuffix.isEmpty) return '';
-
-    final assetSetKey = switch (inferredSetKey) {
-      'vanguard' => 'berserker',
-      'berserker' => 'shadow',
-      'sentinel' => 'sentinel',
-      'shadow' => 'vanguard',
-      'colossus' => 'colossus',
-      _ => '',
-    };
-    if (assetSetKey.isEmpty) return '';
-    return 'assets/images/equipment/chapter2/ch2_armor_${assetSetKey}_$pieceSuffix.png';
-  }
-
-  String get _inferredSetKey {
+  String get inferredSetKey {
     if (setKey.isNotEmpty) return setKey;
     final lowerName = name.toLowerCase();
     if (lowerName.contains('vanguard') || name.contains('모험가')) {
@@ -149,7 +110,7 @@ class ItemTemplate {
     return '';
   }
 
-  String get _inferredPieceType {
+  String get inferredPieceType {
     if (setPieceType.isNotEmpty) return setPieceType;
     if (isWeapon) return 'weapon';
     if (equipmentSlot.isNotEmpty) return equipmentSlot;
@@ -1572,6 +1533,7 @@ String _localizeApiMessage(String message) {
     'equipment is not sellable' => '판매할 수 없는 장비입니다.',
     'equipment is already equipped' => '이미 장착 중인 장비입니다.',
     'equipment is not equipped' => '장착 중인 장비가 아닙니다.',
+    'equipped equipment cannot be sold' => '착용 중인 장비는 판매할 수 없습니다.',
     'owned equipment not found' => '장비를 찾을 수 없습니다.',
     'owned equipment does not belong to character' => '내 장비가 아닙니다.',
     'not enough consumable quantity' => '소모품 수량이 부족합니다.',
@@ -1594,6 +1556,7 @@ String _localizeApiMessage(String message) {
     'character is not participating in raid' => '레이드 참여 캐릭터가 아닙니다.',
     'raid is full' => '레이드 파티가 가득 찼습니다.',
     'character already joined raid' => '이미 참여한 레이드입니다.',
+    'raid requires level 5' => '레이드는 5레벨부터 입장할 수 있습니다.',
     'invitation is not pending' => '이미 처리된 초대입니다.',
     'only raid host can cancel invitations' => '레이드 방장만 초대를 취소할 수 있습니다.',
     'raid has pending invitations' => '수락 대기 중인 초대가 있어 전투를 시작할 수 없습니다.',
