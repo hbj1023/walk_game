@@ -156,6 +156,20 @@ func startBossBattle(ctx context.Context, token string, userID string, req Norma
 		return NormalBattleResponse{}, err
 	}
 
+	if err := ensureBossStageUnlocked(ctx, token, character.ID, stage); err != nil {
+		return NormalBattleResponse{}, err
+	}
+
+	progress, progressFound, err := getStageProgress(ctx, token, character.ID, stage.ID)
+	if err != nil {
+		return NormalBattleResponse{}, err
+	}
+	if bossClearRequiresTicket(progress, progressFound) {
+		if err := ensureBossEntranceTicketAvailable(ctx, token, character.ID); err != nil {
+			return NormalBattleResponse{}, err
+		}
+	}
+
 	if current, found, err := findCurrentBattleByType(ctx, token, character.ID, "boss"); err != nil {
 		return NormalBattleResponse{}, err
 	} else if found {
@@ -165,10 +179,6 @@ func startBossBattle(ctx context.Context, token string, userID string, req Norma
 		if err := finishBrokenNormalBattle(ctx, token, current); err != nil {
 			return NormalBattleResponse{}, err
 		}
-	}
-
-	if err := ensureBossStageUnlocked(ctx, token, character.ID, stage); err != nil {
-		return NormalBattleResponse{}, err
 	}
 
 	stageMonster, err := getFirstStageMonster(ctx, token, stage.ID)
@@ -469,6 +479,15 @@ func attackBossBattle(ctx context.Context, token string, userID string, req Norm
 		}
 		return NormalBattleResponse{}, statusError{status: http.StatusBadRequest, message: "battle is already finished"}
 	}
+	progress, progressFound, err := getStageProgress(ctx, token, character.ID, battle.Stage)
+	if err != nil {
+		return NormalBattleResponse{}, err
+	}
+	if bossClearRequiresTicket(progress, progressFound) {
+		if err := ensureBossEntranceTicketAvailable(ctx, token, character.ID); err != nil {
+			return NormalBattleResponse{}, err
+		}
+	}
 
 	playerDamage := formulas.CalculateDamage(statContext.Stats.Attack, monster.Defense)
 	playerDamage = adjustedPlayerDamage(playerDamage, battle.BattleType, statContext.Effects)
@@ -499,10 +518,6 @@ func attackBossBattle(ctx context.Context, token string, userID string, req Norm
 		status = "win"
 		rewardCoin = randomCoin(monster.RewardCoinMin, monster.RewardCoinMax)
 		stage, err := getStageByID(ctx, token, battle.Stage)
-		if err != nil {
-			return NormalBattleResponse{}, err
-		}
-		progress, progressFound, err := getStageProgress(ctx, token, character.ID, battle.Stage)
 		if err != nil {
 			return NormalBattleResponse{}, err
 		}
@@ -583,6 +598,9 @@ func attackBossBattle(ctx context.Context, token string, userID string, req Norm
 	if status == "win" {
 		if err := clearBossStage(ctx, token, character.ID, battle.Stage, now); err != nil {
 			return NormalBattleResponse{}, err
+		}
+		if _, err := unlockBossEquipmentShopItemsForStage(ctx, token, battle.Stage); err != nil {
+			log.Printf("failed to unlock boss equipment shop items: character=%s battle=%s stage=%s err=%v", character.ID, battle.ID, battle.Stage, err)
 		}
 		if err := syncUserBattleClearMissions(ctx, token, userID, now); err != nil {
 			log.Printf("failed to sync boss stage clear missions: %v", err)
@@ -916,19 +934,36 @@ func ensureBossStageUnlocked(ctx context.Context, token string, characterID stri
 }
 
 func consumeBossEntranceTicket(ctx context.Context, token string, characterID string) error {
-	ticket, err := findItemTemplateByName(ctx, token, bossEntranceTicketName)
+	consumable, err := getAvailableBossEntranceTicket(ctx, token, characterID)
 	if err != nil {
 		return err
 	}
-	consumable, err := getCharacterConsumable(ctx, token, characterID, ticket.ID)
-	if err != nil {
-		return statusError{status: http.StatusForbidden, message: "boss entrance ticket is required"}
-	}
-	if consumable.Quantity < 1 {
-		return statusError{status: http.StatusForbidden, message: "boss entrance ticket is required"}
-	}
 	_, err = patchCharacterConsumableQuantity(ctx, token, consumable.ID, consumable.Quantity-1)
 	return err
+}
+
+func ensureBossEntranceTicketAvailable(ctx context.Context, token string, characterID string) error {
+	_, err := getAvailableBossEntranceTicket(ctx, token, characterID)
+	return err
+}
+
+func getAvailableBossEntranceTicket(ctx context.Context, token string, characterID string) (characterConsumableRecord, error) {
+	ticket, err := findItemTemplateByName(ctx, token, bossEntranceTicketName)
+	if err != nil {
+		return characterConsumableRecord{}, err
+	}
+	consumable, err := getCharacterConsumable(ctx, token, characterID, ticket.ID)
+	if err != nil {
+		return characterConsumableRecord{}, bossEntranceTicketRequiredError()
+	}
+	if consumable.Quantity < 1 {
+		return characterConsumableRecord{}, bossEntranceTicketRequiredError()
+	}
+	return consumable, nil
+}
+
+func bossEntranceTicketRequiredError() error {
+	return statusError{status: http.StatusForbidden, message: "boss entrance ticket is required"}
 }
 
 func bossClearRequiresTicket(progress stageProgressRecord, progressFound bool) bool {

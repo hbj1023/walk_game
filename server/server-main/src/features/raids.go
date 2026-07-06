@@ -25,6 +25,7 @@ const (
 	baseRaidAttackDistanceM    = 1000
 	baseRaidMonsterAttackM     = 1000
 	defaultRaidMonsterHP       = 1800
+	minRaidEntryLevel          = 5
 )
 
 var raidLocks sync.Map
@@ -463,6 +464,9 @@ func createRaid(ctx context.Context, token string, userID string, req raidCreate
 	if host.User != userID {
 		return nil, statusError{status: http.StatusForbidden, message: "host character does not belong to authenticated user"}
 	}
+	if err := ensureRaidEntryLevel(host); err != nil {
+		return nil, err
+	}
 	monster, err := getMonsterByID(ctx, token, req.MonsterID)
 	if err != nil {
 		return nil, err
@@ -514,6 +518,9 @@ func joinRaid(ctx context.Context, token string, userID string, raidID string, c
 	}
 	if character.User != userID {
 		return nil, statusError{status: http.StatusForbidden, message: "character does not belong to authenticated user"}
+	}
+	if err := ensureRaidEntryLevel(character); err != nil {
+		return nil, err
 	}
 	unlockRaid := lockRaid(raidID)
 	defer unlockRaid()
@@ -837,6 +844,9 @@ func acceptRaidInvitation(ctx context.Context, token string, userID string, invi
 	}
 	if character.User != userID {
 		return nil, statusError{status: http.StatusForbidden, message: "character does not belong to authenticated user"}
+	}
+	if err := ensureRaidEntryLevel(character); err != nil {
+		return nil, err
 	}
 	invitation, err := getRaidInvitation(ctx, token, invitationID)
 	if err != nil {
@@ -1517,6 +1527,16 @@ func ensureRaidJoinable(ctx context.Context, token string, raid raidRecord, char
 		return statusError{status: http.StatusBadRequest, message: "raid is full"}
 	}
 	return nil
+}
+
+func ensureRaidEntryLevel(character battleCharacterRecord) error {
+	if character.Level >= minRaidEntryLevel {
+		return nil
+	}
+	return statusError{
+		status:  http.StatusForbidden,
+		message: fmt.Sprintf("raid requires level %d", minRaidEntryLevel),
+	}
 }
 
 func listRaidParticipantRecords(ctx context.Context, token string, raidID string) (pocketBaseListResponse[raidParticipantRecord], error) {

@@ -96,7 +96,13 @@ func shopItemsHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	items, err := listAvailableShopItems(r.Context(), token, shopID, time.Now().UTC())
+	character, err := getBattleCharacterByUserID(r.Context(), token, user.ID)
+	if err != nil {
+		writeJSON(w, statusCodeForError(err, http.StatusBadRequest), map[string]string{"error": err.Error()})
+		return
+	}
+
+	items, err := listAvailableShopItems(r.Context(), token, shopID, character.ID, time.Now().UTC())
 	if err != nil {
 		writeJSON(w, statusCodeForError(err, http.StatusBadRequest), map[string]string{"error": err.Error()})
 		return
@@ -155,7 +161,13 @@ func getActiveShop(ctx context.Context, token string, shopID string) (shopRecord
 	return shop, nil
 }
 
-func listAvailableShopItems(ctx context.Context, token string, shopID string, now time.Time) (pocketBaseListResponse[map[string]any], error) {
+func listAvailableShopItems(ctx context.Context, token string, shopID string, characterID string, now time.Time) (pocketBaseListResponse[map[string]any], error) {
+	if characterID != "" {
+		if err := ensureClearedBossEquipmentShopItems(ctx, token, shopID, characterID); err != nil {
+			return pocketBaseListResponse[map[string]any]{}, err
+		}
+	}
+
 	query := url.Values{}
 	query.Set("filter", fmt.Sprintf("shop=%q && is_active=true", shopID))
 	query.Set("expand", "item_template")
@@ -176,6 +188,13 @@ func listAvailableShopItems(ctx context.Context, token string, shopID string, no
 		return pocketBaseListResponse[map[string]any]{}, fmt.Errorf("failed to parse shop items response")
 	}
 	list.Items = filterShopItemsByAvailability(list.Items, now)
+	if characterID != "" {
+		filtered, err := filterShopItemsByCharacterProgress(ctx, token, characterID, list.Items)
+		if err != nil {
+			return pocketBaseListResponse[map[string]any]{}, err
+		}
+		list.Items = filtered
+	}
 	list.TotalItems = len(list.Items)
 	if list.PerPage > 0 && list.TotalItems > 0 {
 		list.TotalPages = int(math.Ceil(float64(list.TotalItems) / float64(list.PerPage)))
@@ -183,6 +202,323 @@ func listAvailableShopItems(ctx context.Context, token string, shopID string, no
 		list.TotalPages = 0
 	}
 	return list, nil
+}
+
+type equipmentShopProgress struct {
+	reachedRankByLine map[string]int
+	activeRankByLine  map[string]int
+}
+
+func filterShopItemsByCharacterProgress(ctx context.Context, token string, characterID string, items []map[string]any) ([]map[string]any, error) {
+	ownedHistory, err := listOwnedEquipmentHistory(ctx, token, characterID)
+	if err != nil {
+		return nil, err
+	}
+	progress := buildEquipmentShopProgress(ownedHistory)
+
+	chapter2Unlocked, err := isChapter2EquipmentShopUnlocked(ctx, token, characterID)
+	if err != nil {
+		return nil, err
+	}
+	bossShopUnlocks, err := getClearedBossEquipmentShopUnlocks(ctx, token, characterID)
+	if err != nil {
+		return nil, err
+	}
+
+	filtered := make([]map[string]any, 0, len(items))
+	for _, item := range items {
+		template, found := shopItemTemplateFromMap(item)
+		if !found || template.ItemType != "equipment" {
+			filtered = append(filtered, item)
+			continue
+		}
+		if isEquipmentTemplateVisibleInShop(template, progress, chapter2Unlocked, bossShopUnlocks) {
+			filtered = append(filtered, item)
+		}
+	}
+	return filtered, nil
+}
+
+func buildEquipmentShopProgress(ownedHistory []ownedEquipmentRecord) equipmentShopProgress {
+	progress := equipmentShopProgress{
+		reachedRankByLine: map[string]int{},
+		activeRankByLine:  map[string]int{},
+	}
+	for _, owned := range ownedHistory {
+		template, ok := owned.Expand["item_template"]
+		if !ok || template.ID == "" || template.ItemType != "equipment" {
+			continue
+		}
+		lineKey := equipmentShopLineKey(template)
+		if lineKey == "" {
+			continue
+		}
+		rank, ok := equipmentShopRarityRank(template.Rarity)
+		if !ok {
+			continue
+		}
+		if current, exists := progress.reachedRankByLine[lineKey]; !exists || rank > current {
+			progress.reachedRankByLine[lineKey] = rank
+		}
+		if owned.Status != "sold" && owned.Status != "deleted" {
+			if current, exists := progress.activeRankByLine[lineKey]; !exists || rank > current {
+				progress.activeRankByLine[lineKey] = rank
+			}
+		}
+	}
+	return progress
+}
+
+func isEquipmentTemplateVisibleInShop(template itemTemplateRecord, progress equipmentShopProgress, chapter2Unlocked bool, bossShopUnlocks map[int]bool) bool {
+	if !isEquipmentShopRarity(template.Rarity) {
+		return false
+	}
+	if equipmentShopChapter(template) >= 2 && !chapter2Unlocked {
+		return false
+	}
+
+	lineKey := equipmentShopLineKey(template)
+	if lineKey == "" {
+		return false
+	}
+	rank, ok := equipmentShopRarityRank(template.Rarity)
+	if !ok {
+		return false
+	}
+
+	reachedRank, hasReached := progress.reachedRankByLine[lineKey]
+	activeRank, hasActive := progress.activeRankByLine[lineKey]
+	if rank == 2 {
+		if !isBossEquipmentShopUnlockedForTemplate(template, bossShopUnlocks) {
+			return false
+		}
+		if hasActive && activeRank >= rank {
+			return false
+		}
+		return true
+	}
+
+	if hasActive && activeRank >= rank {
+		return false
+	}
+	if !hasReached {
+		return rank == 0
+	}
+	if hasActive && activeRank == reachedRank && rank == reachedRank+1 {
+		return true
+	}
+	if rank == reachedRank && (!hasActive || activeRank < reachedRank) {
+		return true
+	}
+	return false
+}
+
+func isEquipmentShopRarity(rarity string) bool {
+	rank, ok := equipmentShopRarityRank(rarity)
+	return ok && rank <= 2
+}
+
+func equipmentShopRarityRank(rarity string) (int, bool) {
+	for index, candidate := range equipmentRarityOrder {
+		if candidate == rarity {
+			return index, true
+		}
+	}
+	return -1, false
+}
+
+func equipmentShopChapter(template itemTemplateRecord) int {
+	if strings.TrimSpace(template.SetKey) != "" ||
+		strings.Contains(strings.ToLower(template.ImagePath), "/chapter2/") ||
+		strings.Contains(strings.ToLower(template.Name), "견습기사") ||
+		strings.Contains(strings.ToLower(template.Name), "모험가") ||
+		strings.Contains(strings.ToLower(template.Name), "광전사") ||
+		strings.Contains(strings.ToLower(template.Name), "창술사") ||
+		strings.Contains(strings.ToLower(template.Name), "도적") {
+		return 2
+	}
+	return 1
+}
+
+func equipmentShopLineKey(template itemTemplateRecord) string {
+	chapter := equipmentShopChapter(template)
+	pieceType := equipmentShopPieceType(template)
+	if pieceType == "" {
+		return ""
+	}
+	if strings.TrimSpace(template.SetKey) != "" {
+		return fmt.Sprintf("chapter:%d:set:%s:piece:%s", chapter, template.SetKey, pieceType)
+	}
+	weaponType := template.WeaponType
+	if weaponType == "" && template.EquipmentSlot == "sword" {
+		weaponType = "sword"
+	}
+	return fmt.Sprintf("chapter:%d:slot:%s:weapon:%s:piece:%s", chapter, template.EquipmentSlot, weaponType, pieceType)
+}
+
+func equipmentShopPieceType(template itemTemplateRecord) string {
+	if template.SetPieceType != "" {
+		return template.SetPieceType
+	}
+	if template.EquipmentSlot == "sword" {
+		return "weapon"
+	}
+	return template.EquipmentSlot
+}
+
+func shopItemTemplateFromMap(item map[string]any) (itemTemplateRecord, bool) {
+	expand, ok := item["expand"].(map[string]any)
+	if !ok {
+		return itemTemplateRecord{}, false
+	}
+	rawTemplate, ok := expand["item_template"]
+	if !ok || rawTemplate == nil {
+		return itemTemplateRecord{}, false
+	}
+	data, err := json.Marshal(rawTemplate)
+	if err != nil {
+		return itemTemplateRecord{}, false
+	}
+	var template itemTemplateRecord
+	if err := json.Unmarshal(data, &template); err != nil {
+		return itemTemplateRecord{}, false
+	}
+	return template, template.ID != ""
+}
+
+func isChapter2EquipmentShopUnlocked(ctx context.Context, token string, characterID string) (bool, error) {
+	if stage, err := getNormalStageByNo(ctx, token, 6); err == nil {
+		progress, found, err := getStageProgress(ctx, token, characterID, stage.ID)
+		if err != nil {
+			return false, err
+		}
+		if found && progress.Status != "locked" {
+			return true, nil
+		}
+	} else if !isNotFoundStatusError(err) {
+		return false, err
+	}
+
+	if bossStage, err := getBossStageByNo(ctx, token, 5); err == nil {
+		progress, found, err := getStageProgress(ctx, token, characterID, bossStage.ID)
+		if err != nil {
+			return false, err
+		}
+		return isStageCleared(progress, found), nil
+	} else if !isNotFoundStatusError(err) {
+		return false, err
+	}
+
+	return false, nil
+}
+
+func ensureClearedBossEquipmentShopItems(ctx context.Context, token string, shopID string, characterID string) error {
+	if shopID == "" || characterID == "" {
+		return nil
+	}
+	bossStages, err := listActiveBossStages(ctx, token)
+	if err != nil {
+		return err
+	}
+	for _, stage := range bossStages {
+		progress, found, err := getStageProgress(ctx, token, characterID, stage.ID)
+		if err != nil {
+			return err
+		}
+		if !isStageCleared(progress, found) {
+			continue
+		}
+		if _, err := unlockBossEquipmentShopItemsForStageNo(ctx, token, shopID, stage.StageNo); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func getClearedBossEquipmentShopUnlocks(ctx context.Context, token string, characterID string) (map[int]bool, error) {
+	unlocks := map[int]bool{}
+	if characterID == "" {
+		return unlocks, nil
+	}
+	bossStages, err := listActiveBossStages(ctx, token)
+	if err != nil {
+		return nil, err
+	}
+	for _, stage := range bossStages {
+		progress, found, err := getStageProgress(ctx, token, characterID, stage.ID)
+		if err != nil {
+			return nil, err
+		}
+		if !isStageCleared(progress, found) {
+			continue
+		}
+		chapter := equipmentShopChapterForBossStageNo(stage.StageNo)
+		if chapter > 0 {
+			unlocks[chapter] = true
+		}
+	}
+	return unlocks, nil
+}
+
+func isBossEquipmentShopUnlockedForTemplate(template itemTemplateRecord, bossShopUnlocks map[int]bool) bool {
+	if len(bossShopUnlocks) == 0 {
+		return false
+	}
+	return bossShopUnlocks[equipmentShopChapter(template)]
+}
+
+func equipmentShopChapterForBossStageNo(stageNo int) int {
+	if stageNo <= 0 || stageNo%5 != 0 {
+		return 0
+	}
+	return stageNo / 5
+}
+
+func listActiveBossStages(ctx context.Context, token string) ([]stageRecord, error) {
+	query := url.Values{}
+	query.Set("filter", `stage_type="boss" && is_active=true`)
+	query.Set("sort", "stage_no")
+	query.Set("perPage", "100")
+
+	resp, err := pocketBaseRequest(ctx, http.MethodGet, pocketBaseCollectionURL("stages")+"?"+query.Encode(), token, nil)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return nil, mapPocketBaseError(resp, "failed to list boss stages")
+	}
+
+	var list pocketBaseListResponse[stageRecord]
+	if err := json.NewDecoder(resp.Body).Decode(&list); err != nil {
+		return nil, errors.New("failed to parse boss stages response")
+	}
+	return list.Items, nil
+}
+
+func isNotFoundStatusError(err error) bool {
+	var statusErr statusError
+	return errors.As(err, &statusErr) && statusErr.status == http.StatusNotFound
+}
+
+func ensureEquipmentShopPurchaseUnlocked(ctx context.Context, token string, characterID string, template itemTemplateRecord) error {
+	ownedHistory, err := listOwnedEquipmentHistory(ctx, token, characterID)
+	if err != nil {
+		return err
+	}
+	progress := buildEquipmentShopProgress(ownedHistory)
+	chapter2Unlocked, err := isChapter2EquipmentShopUnlocked(ctx, token, characterID)
+	if err != nil {
+		return err
+	}
+	bossShopUnlocks, err := getClearedBossEquipmentShopUnlocks(ctx, token, characterID)
+	if err != nil {
+		return err
+	}
+	if !isEquipmentTemplateVisibleInShop(template, progress, chapter2Unlocked, bossShopUnlocks) {
+		return statusError{status: http.StatusForbidden, message: "equipment is not unlocked in shop"}
+	}
+	return nil
 }
 
 func filterShopItemsByAvailability(items []map[string]any, now time.Time) []map[string]any {
@@ -334,6 +670,11 @@ func purchaseShopItem(ctx context.Context, token string, shopID string, characte
 	}
 	if itemTemplate.ItemType != "consumable" && itemTemplate.ItemType != "equipment" {
 		return nil, statusError{status: http.StatusBadRequest, message: "unsupported item type"}
+	}
+	if itemTemplate.ItemType == "equipment" {
+		if err := ensureEquipmentShopPurchaseUnlocked(ctx, token, characterID, itemTemplate); err != nil {
+			return nil, err
+		}
 	}
 
 	totalPrice, err := totalCoinPrice(shopItem.PriceCoin, quantity)
@@ -845,37 +1186,107 @@ func unlockNextEquipmentShopItem(ctx context.Context, token string, shopID strin
 		return nil, nil
 	}
 
-	nextTemplate, found, err := findEquipmentTemplateBySlotAndRarity(ctx, token, itemTemplate.EquipmentSlot, nextRarity)
+	nextTemplate, found, err := findNextEquipmentTemplateForLine(ctx, token, itemTemplate, nextRarity)
 	if err != nil || !found {
 		return nil, err
 	}
 
-	existing, found, err := findShopItemByTemplate(ctx, token, shopID, nextTemplate.ID)
+	return ensureEquipmentTemplateShopItem(ctx, token, shopID, nextTemplate, itemTemplate.PriceCoin)
+}
+
+func unlockBossEquipmentShopItemsForStage(ctx context.Context, token string, stageID string) ([]map[string]any, error) {
+	stage, err := getStageByID(ctx, token, stageID)
+	if err != nil {
+		return nil, err
+	}
+	if stage.StageType != "boss" {
+		return nil, nil
+	}
+
+	shops, err := listActiveShops(ctx, token)
+	if err != nil {
+		return nil, err
+	}
+	unlocked := []map[string]any{}
+	for _, shop := range shops.Items {
+		if !isNormalShopMap(shop) {
+			continue
+		}
+		shopID := mapString(shop["id"])
+		items, err := unlockBossEquipmentShopItemsForStageNo(ctx, token, shopID, stage.StageNo)
+		if err != nil {
+			return nil, err
+		}
+		unlocked = append(unlocked, items...)
+	}
+	return unlocked, nil
+}
+
+func unlockBossEquipmentShopItemsForStageNo(ctx context.Context, token string, shopID string, stageNo int) ([]map[string]any, error) {
+	if shopID == "" {
+		return nil, nil
+	}
+	templates, err := listBossRewardTemplates(ctx, token, "epic", stageNo)
+	if err != nil {
+		return nil, err
+	}
+	unlocked := make([]map[string]any, 0, len(templates))
+	for _, template := range templates {
+		item, err := ensureEquipmentTemplateShopItem(ctx, token, shopID, template, 0)
+		if err != nil {
+			return nil, err
+		}
+		unlocked = append(unlocked, item)
+	}
+	return unlocked, nil
+}
+
+func isNormalShopMap(shop map[string]any) bool {
+	shopType := mapString(shop["shop_type"])
+	return shopType == "" || shopType == "normal"
+}
+
+func ensureEquipmentTemplateShopItem(ctx context.Context, token string, shopID string, template itemTemplateRecord, fallbackPriceCoin float64) (map[string]any, error) {
+	priceCoin := equipmentTemplateShopPrice(template, fallbackPriceCoin)
+	existing, found, err := findShopItemByTemplate(ctx, token, shopID, template.ID)
 	if err != nil {
 		return nil, err
 	}
 	if found {
+		payload := map[string]any{}
+		if !existing.IsActive {
+			payload["is_active"] = true
+		}
+		if existing.PriceCoin != priceCoin {
+			payload["price_coin"] = priceCoin
+		}
+		if len(payload) > 0 {
+			return patchShopItem(ctx, token, existing.ID, payload)
+		}
 		if existing.IsActive {
 			return map[string]any{
 				"id":            existing.ID,
 				"item_template": existing.ItemTemplate,
+				"price_coin":    existing.PriceCoin,
 				"is_active":     existing.IsActive,
 				"already_open":  true,
 			}, nil
 		}
-		return patchShopItem(ctx, token, existing.ID, map[string]any{"is_active": true})
 	}
 
-	priceCoin := nextTemplate.PriceCoin
-	if priceCoin <= 0 {
-		priceCoin = itemTemplate.PriceCoin
-	}
 	return createShopItem(ctx, token, map[string]any{
 		"shop":          shopID,
-		"item_template": nextTemplate.ID,
+		"item_template": template.ID,
 		"price_coin":    priceCoin,
 		"is_active":     true,
 	})
+}
+
+func equipmentTemplateShopPrice(template itemTemplateRecord, fallbackPriceCoin float64) float64 {
+	if template.PriceCoin > 0 {
+		return template.PriceCoin
+	}
+	return fallbackPriceCoin
 }
 
 func nextEquipmentRarity(current string) (string, bool) {
@@ -887,13 +1298,25 @@ func nextEquipmentRarity(current string) (string, bool) {
 	return "", false
 }
 
-func findEquipmentTemplateBySlotAndRarity(ctx context.Context, token string, slot string, rarity string) (itemTemplateRecord, bool, error) {
-	filter := url.QueryEscape(fmt.Sprintf(
-		"item_type=%q && equipment_slot=%q && rarity=%q && is_active=true",
+func findNextEquipmentTemplateForLine(ctx context.Context, token string, current itemTemplateRecord, rarity string) (itemTemplateRecord, bool, error) {
+	filterValue := fmt.Sprintf(
+		"item_type=%q && rarity=%q && is_active=true",
 		"equipment",
-		slot,
 		rarity,
-	))
+	)
+	if current.SetKey != "" {
+		filterValue += fmt.Sprintf(" && set_key=%q && set_piece_type=%q", current.SetKey, equipmentShopPieceType(current))
+	} else {
+		filterValue += fmt.Sprintf(" && equipment_slot=%q && set_key=%q", current.EquipmentSlot, "")
+		if current.EquipmentSlot == "sword" {
+			weaponType := current.WeaponType
+			if weaponType == "" {
+				weaponType = "sword"
+			}
+			filterValue += fmt.Sprintf(" && weapon_type=%q", weaponType)
+		}
+	}
+	filter := url.QueryEscape(filterValue)
 	endpoint := pocketBaseCollectionURL(itemTemplatesCollection) + "?filter=" + filter + "&sort=price_coin,created&perPage=1"
 	resp, err := pocketBaseRequest(ctx, http.MethodGet, endpoint, token, nil)
 	if err != nil {
@@ -1072,6 +1495,39 @@ func countActiveOwnedEquipmentByTemplate(ctx context.Context, token string, char
 		return 0, errors.New("failed to parse owned equipments response")
 	}
 	return list.TotalItems, nil
+}
+
+func listOwnedEquipmentHistory(ctx context.Context, token string, characterID string) ([]ownedEquipmentRecord, error) {
+	records := make([]ownedEquipmentRecord, 0)
+	for page := 1; ; page++ {
+		query := url.Values{}
+		query.Set("filter", fmt.Sprintf("character=%q && status!=\"deleted\"", characterID))
+		query.Set("expand", "item_template")
+		query.Set("sort", "created")
+		query.Set("page", fmt.Sprintf("%d", page))
+		query.Set("perPage", "100")
+
+		resp, err := pocketBaseRequest(ctx, http.MethodGet, pocketBaseCollectionURL(ownedEquipmentsCollection)+"?"+query.Encode(), token, nil)
+		if err != nil {
+			return nil, err
+		}
+		if resp.StatusCode != http.StatusOK {
+			err := mapPocketBaseError(resp, "failed to list owned equipment history")
+			resp.Body.Close()
+			return nil, err
+		}
+
+		var list pocketBaseListResponse[ownedEquipmentRecord]
+		if err := json.NewDecoder(resp.Body).Decode(&list); err != nil {
+			resp.Body.Close()
+			return nil, errors.New("failed to parse owned equipment history response")
+		}
+		resp.Body.Close()
+		records = append(records, list.Items...)
+		if page >= list.TotalPages || len(list.Items) == 0 {
+			return records, nil
+		}
+	}
 }
 
 func addCharacterConsumableQuantity(ctx context.Context, token string, characterID string, itemTemplateID string, quantity int) (map[string]any, error) {

@@ -748,21 +748,8 @@ func sellOwnedEquipment(ctx context.Context, token string, characterID string, o
 		return nil, statusError{status: http.StatusBadRequest, message: "owned item is not equipment"}
 	}
 
-	beforeMaxHP := 0
 	if owned.Status == "equipped" {
-		beforeMaxHP, err = getCharacterFinalHP(ctx, token, characterID)
-		if err != nil {
-			return nil, err
-		}
-		equippedItems, err := findCharacterEquipmentsByOwnedEquipment(ctx, token, characterID, ownedEquipmentID)
-		if err != nil {
-			return nil, err
-		}
-		for _, equipped := range equippedItems.Items {
-			if err := deleteCharacterEquipment(ctx, token, equipped.ID); err != nil {
-				return nil, err
-			}
-		}
+		return nil, statusError{status: http.StatusConflict, message: "equipped equipment cannot be sold"}
 	}
 
 	refundCoin := itemSellRefundCoin(itemTemplate.PriceCoin, 1)
@@ -784,18 +771,6 @@ func sellOwnedEquipment(ctx context.Context, token string, characterID string, o
 		return nil, err
 	}
 
-	var updatedBattle any
-	hpDelta := 0
-	if beforeMaxHP > 0 {
-		syncedCharacter, syncedBattle, delta, err := syncCharacterHPAfterMaxHPChange(ctx, token, characterID, beforeMaxHP)
-		if err != nil {
-			return nil, err
-		}
-		updatedCharacter = syncedCharacter
-		updatedBattle = syncedBattle
-		hpDelta = delta
-	}
-
 	if refundCoin > 0 {
 		if err := createInventorySellResourceTransaction(ctx, token, characterID, "equipment_sell", ownedEquipmentID, refundCoin, coinBalance, "equipment sell refund"); err != nil {
 			return nil, err
@@ -804,9 +779,9 @@ func sellOwnedEquipment(ctx context.Context, token string, characterID string, o
 
 	return map[string]any{
 		"character":           updatedCharacter,
-		"battle":              updatedBattle,
+		"battle":              nil,
 		"owned_equipment":     updatedOwned,
-		"hp_delta":            hpDelta,
+		"hp_delta":            0,
 		"refund_coin":         refundCoin,
 		"refund_rate":         equipmentSellRefundRate,
 		"original_price_coin": itemTemplate.PriceCoin,
