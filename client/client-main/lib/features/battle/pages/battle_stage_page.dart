@@ -1301,30 +1301,11 @@ class _BattleStagePageState extends State<BattleStagePage> {
                           unlocked: selectedStage.unlocked,
                         ),
                         const SizedBox(height: 5),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: _buildMonsterInfoRow(
-                                label: '체력',
-                                value: _formatNumber(selectedStage.monsterHp),
-                                iconPath: 'assets/images/icon/hp.png',
-                                unlocked: selectedStage.unlocked,
-                              ),
-                            ),
-                            const SizedBox(width: 5),
-                            Expanded(
-                              child: _buildMonsterInfoRow(
-                                label: '권장',
-                                value: _formatNumber(
-                                  _recommendedCombatPowerForStage(
-                                    selectedStage.stageNo,
-                                  ),
-                                ),
-                                iconPath: 'assets/images/icon/atk.png',
-                                unlocked: selectedStage.unlocked,
-                              ),
-                            ),
-                          ],
+                        _buildMonsterInfoRow(
+                          label: '체력',
+                          value: _formatNumber(selectedStage.monsterHp),
+                          iconPath: 'assets/images/icon/hp.png',
+                          unlocked: selectedStage.unlocked,
                         ),
                         const SizedBox(height: 5),
                         _buildMonsterInfoRow(
@@ -1402,6 +1383,49 @@ class _BattleStagePageState extends State<BattleStagePage> {
     return '잠김';
   }
 
+  Widget _buildRecommendedPowerStrip(_StageData? selectedStage, bool locked) {
+    final value = selectedStage == null
+        ? '-'
+        : _formatNumber(_recommendedCombatPowerForStage(selectedStage.stageNo));
+    final valueColor = locked ? Colors.white60 : _kGold;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.24),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: Colors.white.withValues(alpha: 0.16),
+          width: 1,
+        ),
+      ),
+      child: Row(
+        children: [
+          Image.asset('assets/images/icon/atk.png', width: 16, height: 16),
+          const SizedBox(width: 6),
+          const Text(
+            '적정 전투력',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 13,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const Spacer(),
+          Text(
+            value,
+            style: TextStyle(
+              color: valueColor,
+              fontSize: 15,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildStartButton() {
     final selectedStage = _selectedStage;
     final locked =
@@ -1412,7 +1436,7 @@ class _BattleStagePageState extends State<BattleStagePage> {
         onTap: (locked || _isStarting) ? null : _startBattle,
         child: Container(
           width: double.infinity,
-          padding: const EdgeInsets.symmetric(vertical: 8),
+          padding: const EdgeInsets.fromLTRB(8, 8, 8, 9),
           decoration: BoxDecoration(
             color: (locked || _isStarting)
                 ? const Color(0xFF555555)
@@ -1425,48 +1449,57 @@ class _BattleStagePageState extends State<BattleStagePage> {
               width: 2,
             ),
           ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
+          child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Container(
-                width: 30,
-                height: 30,
-                decoration: BoxDecoration(
-                  color: Colors.black.withValues(alpha: 0.22),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(
-                    color: Colors.white.withValues(alpha: 0.18),
-                    width: 1,
-                  ),
-                ),
-                alignment: Alignment.center,
-                child: Image.asset(
-                  'assets/images/icon/battle.png',
-                  width: 20,
-                  height: 20,
-                ),
-              ),
-              const SizedBox(width: 10),
-              Flexible(
-                child: FittedBox(
-                  fit: BoxFit.scaleDown,
-                  child: Text(
-                    _isStageLoading
-                        ? '스테이지 불러오는 중...'
-                        : (_stageError != null
-                              ? '스테이지 불러오기 실패'
-                              : (locked
-                                    ? '잠금 해제 필요'
-                                    : (_isStarting ? '전투 준비 중...' : '전투 시작'))),
-                    maxLines: 1,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
+              _buildRecommendedPowerStrip(selectedStage, locked),
+              const SizedBox(height: 7),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 30,
+                    height: 30,
+                    decoration: BoxDecoration(
+                      color: Colors.black.withValues(alpha: 0.22),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: Colors.white.withValues(alpha: 0.18),
+                        width: 1,
+                      ),
+                    ),
+                    alignment: Alignment.center,
+                    child: Image.asset(
+                      'assets/images/icon/battle.png',
+                      width: 20,
+                      height: 20,
                     ),
                   ),
-                ),
+                  const SizedBox(width: 10),
+                  Flexible(
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text(
+                        _isStageLoading
+                            ? '스테이지 불러오는 중...'
+                            : (_stageError != null
+                                  ? '스테이지 불러오기 실패'
+                                  : (locked
+                                        ? '잠금 해제 필요'
+                                        : (_isStarting
+                                              ? '전투 준비 중...'
+                                              : '전투 시작'))),
+                        maxLines: 1,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 24,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
