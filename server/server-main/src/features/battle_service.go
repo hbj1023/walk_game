@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"math"
 	"math/rand"
 	"net/http"
 	"net/url"
@@ -331,8 +332,8 @@ func attackNormalBattle(ctx context.Context, token string, userID string, req No
 		if err != nil {
 			return NormalBattleResponse{}, err
 		}
-		rewardCoin = normalBattleCoinReward(rewardCoin, stage.StageNo, progress, progressFound, character.Level)
-		rewardExp = normalBattleExpReward(stage.StageNo, false, progress, progressFound, character.Level)
+		rewardCoin = normalBattleCoinReward(rewardCoin, stage.StageNo, progress, progressFound, combatPower(statContext.Stats))
+		rewardExp = normalBattleExpReward(stage.StageNo, false, progress, progressFound, combatPower(statContext.Stats))
 		monsterAttackGaugeM = 0
 	} else if monsterAttackGaugeM >= monsterAttackDistanceM {
 		monsterAttacked = true
@@ -521,8 +522,8 @@ func attackBossBattle(ctx context.Context, token string, userID string, req Norm
 		if err != nil {
 			return NormalBattleResponse{}, err
 		}
-		rewardCoin = normalBattleCoinReward(rewardCoin, stage.StageNo, progress, progressFound, character.Level)
-		rewardExp = normalBattleExpReward(stage.StageNo, true, progress, progressFound, character.Level)
+		rewardCoin = normalBattleCoinReward(rewardCoin, stage.StageNo, progress, progressFound, combatPower(statContext.Stats))
+		rewardExp = normalBattleExpReward(stage.StageNo, true, progress, progressFound, combatPower(statContext.Stats))
 		if bossClearRequiresTicket(progress, progressFound) {
 			if err := consumeBossEntranceTicket(ctx, token, character.ID); err != nil {
 				return NormalBattleResponse{}, err
@@ -1138,12 +1139,27 @@ func recordNormalBattleLogs(
 	}
 }
 
-func normalBattleExpReward(stageNo int, isBoss bool, progress stageProgressRecord, progressFound bool, characterLevel int) int {
+const (
+	rewardPowerThresholdPercent = 40
+	rewardPowerBracketPercent   = 20
+)
+
+var recommendedCombatPowerByStage = map[int]int{
+	1:  150,
+	2:  180,
+	3:  230,
+	4:  280,
+	5:  360,
+	6:  520,
+	7:  650,
+	8:  800,
+	9:  950,
+	10: 1100,
+}
+
+func normalBattleExpReward(stageNo int, isBoss bool, progress stageProgressRecord, progressFound bool, characterCombatPower int) int {
 	if stageNo < 1 {
 		stageNo = 1
-	}
-	if characterLevel < 1 {
-		characterLevel = 1
 	}
 	base := ceilDiv(stageNo*100, 3)
 	if isBoss {
@@ -1154,40 +1170,71 @@ func normalBattleExpReward(stageNo int, isBoss bool, progress stageProgressRecor
 		return ceilDiv(base*3, 2)
 	}
 
-	repeatPercent := 60
-	if levelGap := characterLevel - stageNo; levelGap >= 3 {
-		repeatPercent -= (levelGap - 2) * 10
-	}
-	if repeatPercent < 20 {
-		repeatPercent = 20
-	}
+	repeatPercent := combatPowerAdjustedRepeatPercent(60, 20, 10, stageNo, characterCombatPower)
 	return ceilDiv(base*repeatPercent, 100)
 }
 
-func normalBattleCoinReward(baseCoin int, stageNo int, progress stageProgressRecord, progressFound bool, characterLevel int) int {
+func normalBattleCoinReward(baseCoin int, stageNo int, progress stageProgressRecord, progressFound bool, characterCombatPower int) int {
 	if baseCoin <= 0 {
 		return 0
 	}
 	if stageNo < 1 {
 		stageNo = 1
 	}
-	if characterLevel < 1 {
-		characterLevel = 1
-	}
 	if !progressFound || progress.ClearCount <= 0 {
 		return baseCoin
 	}
 
-	repeatPercent := 50
-	if levelGap := characterLevel - stageNo; levelGap >= 3 {
-		repeatPercent -= (levelGap - 2) * 5
-	}
-	if repeatPercent < 15 {
-		repeatPercent = 15
-	}
+	repeatPercent := combatPowerAdjustedRepeatPercent(50, 15, 5, stageNo, characterCombatPower)
 	return ceilDiv(baseCoin*repeatPercent, 100)
 }
 
+func combatPowerAdjustedRepeatPercent(basePercent int, minPercent int, penaltyPerBracket int, stageNo int, characterCombatPower int) int {
+	if characterCombatPower <= 0 {
+		return basePercent
+	}
+	recommendedPower := recommendedCombatPowerForStage(stageNo)
+	if recommendedPower <= 0 || characterCombatPower <= recommendedPower {
+		return basePercent
+	}
+
+	overPercent := ((characterCombatPower - recommendedPower) * 100) / recommendedPower
+	if overPercent <= rewardPowerThresholdPercent {
+		return basePercent
+	}
+
+	brackets := ((overPercent - rewardPowerThresholdPercent - 1) / rewardPowerBracketPercent) + 1
+	repeatPercent := basePercent - (brackets * penaltyPerBracket)
+	if repeatPercent < minPercent {
+		return minPercent
+	}
+	return repeatPercent
+}
+
+func recommendedCombatPowerForStage(stageNo int) int {
+	if stageNo < 1 {
+		stageNo = 1
+	}
+	if power, ok := recommendedCombatPowerByStage[stageNo]; ok {
+		return power
+	}
+
+	chapter := ((stageNo - 1) / 5) + 1
+	chapterStageNo := ((stageNo - 1) % 5) + 1
+	power := 1100 + ((chapter - 2) * 550) + ((chapterStageNo - 1) * 140)
+	if power < 150 {
+		return 150
+	}
+	return power
+}
+
+func combatPower(stats statBlock) int {
+	power := math.Round(float64(stats.HP)/3 + float64(stats.Attack*8+stats.Defense*5+stats.Agility*4))
+	if power < 0 {
+		return 0
+	}
+	return int(power)
+}
 func ceilDiv(numerator int, denominator int) int {
 	if denominator <= 0 {
 		return 0
