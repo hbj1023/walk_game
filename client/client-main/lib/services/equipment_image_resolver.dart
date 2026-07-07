@@ -95,6 +95,10 @@ String _chapter2EquipmentImagePath({
   };
   if (pieceSuffix.isEmpty) return '';
 
+  if (rarity.trim().toLowerCase() == 'rare') {
+    return 'assets/images/equipment/chapter2/ch2_armor_rare_${inferredSetKey}_$pieceSuffix.png';
+  }
+
   final assetSetKey = switch (inferredSetKey) {
     'vanguard' => 'berserker',
     'berserker' => 'shadow',
@@ -201,7 +205,8 @@ String _inferWeaponTypeFromName(String name) {
 }
 
 String _chapter2WeaponImagePath(String weaponType, {String rarity = ''}) {
-  final isRare = rarity.trim().toLowerCase() == 'rare';
+  final normalizedRarity = rarity.trim().toLowerCase();
+  final isRare = normalizedRarity == 'rare' || normalizedRarity == 'epic';
   return switch (weaponType) {
     'sword' =>
       isRare
