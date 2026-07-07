@@ -172,24 +172,9 @@ func listAvailableShopItems(ctx context.Context, token string, shopID string, ch
 		}
 	}
 
-	query := url.Values{}
-	query.Set("filter", fmt.Sprintf("shop=%q && is_active=true", shopID))
-	query.Set("expand", "item_template")
-	query.Set("sort", "created")
-	query.Set("perPage", "100")
-
-	resp, err := pocketBaseRequest(ctx, http.MethodGet, pocketBaseCollectionURL(shopItemsCollection)+"?"+query.Encode(), token, nil)
+	list, err := listActiveShopItemMaps(ctx, token, shopID)
 	if err != nil {
 		return pocketBaseListResponse[map[string]any]{}, err
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		return pocketBaseListResponse[map[string]any]{}, mapPocketBaseError(resp, "failed to list shop items")
-	}
-
-	var list pocketBaseListResponse[map[string]any]
-	if err := json.NewDecoder(resp.Body).Decode(&list); err != nil {
-		return pocketBaseListResponse[map[string]any]{}, fmt.Errorf("failed to parse shop items response")
 	}
 	list.Items = filterShopItemsByAvailability(list.Items, now)
 	if characterID != "" {
@@ -199,13 +184,54 @@ func listAvailableShopItems(ctx context.Context, token string, shopID string, ch
 		}
 		list.Items = filtered
 	}
+	list.Page = 1
+	list.PerPage = len(list.Items)
 	list.TotalItems = len(list.Items)
-	if list.PerPage > 0 && list.TotalItems > 0 {
-		list.TotalPages = int(math.Ceil(float64(list.TotalItems) / float64(list.PerPage)))
+	if len(list.Items) > 0 {
+		list.TotalPages = 1
 	} else {
 		list.TotalPages = 0
 	}
 	return list, nil
+}
+
+func listActiveShopItemMaps(ctx context.Context, token string, shopID string) (pocketBaseListResponse[map[string]any], error) {
+	items := make([]map[string]any, 0)
+	query := url.Values{}
+	query.Set("filter", fmt.Sprintf("shop=%q && is_active=true", shopID))
+	query.Set("expand", "item_template")
+	query.Set("sort", "created")
+	query.Set("perPage", "100")
+
+	for page := 1; ; page++ {
+		query.Set("page", fmt.Sprintf("%d", page))
+		resp, err := pocketBaseRequest(ctx, http.MethodGet, pocketBaseCollectionURL(shopItemsCollection)+"?"+query.Encode(), token, nil)
+		if err != nil {
+			return pocketBaseListResponse[map[string]any]{}, err
+		}
+		if resp.StatusCode != http.StatusOK {
+			err := mapPocketBaseError(resp, "failed to list shop items")
+			resp.Body.Close()
+			return pocketBaseListResponse[map[string]any]{}, err
+		}
+
+		var list pocketBaseListResponse[map[string]any]
+		if err := json.NewDecoder(resp.Body).Decode(&list); err != nil {
+			resp.Body.Close()
+			return pocketBaseListResponse[map[string]any]{}, fmt.Errorf("failed to parse shop items response")
+		}
+		resp.Body.Close()
+		items = append(items, list.Items...)
+		if page >= list.TotalPages || len(list.Items) == 0 {
+			return pocketBaseListResponse[map[string]any]{
+				Page:       1,
+				PerPage:    len(items),
+				TotalItems: len(items),
+				TotalPages: 1,
+				Items:      items,
+			}, nil
+		}
+	}
 }
 
 type equipmentShopProgress struct {
