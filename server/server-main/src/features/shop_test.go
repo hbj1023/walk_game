@@ -145,6 +145,33 @@ func TestEquipmentTemplateShopPriceFallsBackWhenTemplatePriceIsEmpty(t *testing.
 	}
 }
 
+func TestEquipmentShopWeaponTemplateAcceptsSetWeapon(t *testing.T) {
+	template := testEquipmentTemplate("rare", "helmet", "vanguard", "weapon")
+	template.WeaponType = "sword"
+
+	if !isEquipmentShopWeaponTemplate(template) {
+		t.Fatal("set weapon should be treated as a weapon shop template")
+	}
+}
+
+func TestEquipmentShopWeaponTemplateAcceptsWeaponType(t *testing.T) {
+	template := testEquipmentTemplate("rare", "", "berserker", "")
+	template.WeaponType = "axe"
+
+	if !isEquipmentShopWeaponTemplate(template) {
+		t.Fatal("weapon_type should be enough to recover weapon shop templates")
+	}
+}
+
+func TestEquipmentShopWeaponTemplateRejectsArmor(t *testing.T) {
+	template := testEquipmentTemplate("rare", "armor", "vanguard", "armor")
+	template.WeaponType = ""
+
+	if isEquipmentShopWeaponTemplate(template) {
+		t.Fatal("armor template should not be treated as a weapon")
+	}
+}
+
 func testEquipmentTemplate(rarity string, slot string, setKey string, pieceType string) itemTemplateRecord {
 	id := rarity + "-" + slot
 	if setKey != "" {

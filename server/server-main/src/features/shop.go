@@ -265,9 +265,8 @@ func ensureStandardWeaponShopItems(ctx context.Context, token string, shopID str
 }
 
 func listStandardWeaponTemplates(ctx context.Context, token string) ([]itemTemplateRecord, error) {
-	filterValue := `item_type="equipment" && is_active=true && (equipment_slot="sword" || set_piece_type="weapon") && (rarity="common" || rarity="rare")`
 	query := url.Values{}
-	query.Set("filter", filterValue)
+	query.Set("filter", `item_type="equipment" && is_active=true`)
 	query.Set("sort", "set_key,rarity,price_coin,created")
 	query.Set("perPage", "1000")
 
@@ -284,7 +283,27 @@ func listStandardWeaponTemplates(ctx context.Context, token string) ([]itemTempl
 	if err := json.NewDecoder(resp.Body).Decode(&list); err != nil {
 		return nil, errors.New("failed to parse standard weapon template response")
 	}
-	return list.Items, nil
+	templates := make([]itemTemplateRecord, 0, len(list.Items))
+	for _, template := range list.Items {
+		if template.Rarity != "common" && template.Rarity != "rare" {
+			continue
+		}
+		if !isEquipmentShopWeaponTemplate(template) {
+			continue
+		}
+		templates = append(templates, template)
+	}
+	return templates, nil
+}
+
+func isEquipmentShopWeaponTemplate(template itemTemplateRecord) bool {
+	return template.EquipmentSlot == "sword" ||
+		template.SetPieceType == "weapon" ||
+		template.WeaponType == "sword" ||
+		template.WeaponType == "axe" ||
+		template.WeaponType == "spear" ||
+		template.WeaponType == "dagger" ||
+		template.WeaponType == "greatsword"
 }
 
 func buildEquipmentShopProgress(ownedHistory []ownedEquipmentRecord) equipmentShopProgress {
