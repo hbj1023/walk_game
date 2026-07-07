@@ -20,6 +20,59 @@ func TestBossRewardRarityForRoll(t *testing.T) {
 	}
 }
 
+func TestIsBossRewardTemplateForStage(t *testing.T) {
+	tests := []struct {
+		name     string
+		stageNo  int
+		template itemTemplateRecord
+		want     bool
+	}{
+		{
+			name:    "chapter 1 boss accepts tutorial epic equipment",
+			stageNo: 5,
+			template: itemTemplateRecord{
+				Name:          "에픽 검",
+				ItemType:      "equipment",
+				EquipmentSlot: "sword",
+				Rarity:        "epic",
+			},
+			want: true,
+		},
+		{
+			name:    "chapter 1 boss rejects chapter 2 set equipment",
+			stageNo: 5,
+			template: itemTemplateRecord{
+				Name:          "에픽 모험가 검",
+				ItemType:      "equipment",
+				EquipmentSlot: "sword",
+				SetKey:        "vanguard",
+				Rarity:        "epic",
+			},
+			want: false,
+		},
+		{
+			name:    "chapter 2 boss accepts chapter 2 set equipment",
+			stageNo: 10,
+			template: itemTemplateRecord{
+				Name:          "에픽 모험가 검",
+				ItemType:      "equipment",
+				EquipmentSlot: "sword",
+				SetKey:        "vanguard",
+				Rarity:        "epic",
+			},
+			want: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := isBossRewardTemplateForStage(tt.template, tt.stageNo); got != tt.want {
+				t.Fatalf("isBossRewardTemplateForStage(%+v, %d) = %v, want %v", tt.template, tt.stageNo, got, tt.want)
+			}
+		})
+	}
+}
+
 func TestBossClearRequiresTicket(t *testing.T) {
 	if bossClearRequiresTicket(stageProgressRecord{}, false) {
 		t.Fatal("missing progress should not require a boss ticket")

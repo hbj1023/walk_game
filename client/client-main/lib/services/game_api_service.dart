@@ -1530,6 +1530,8 @@ class GameApiService {
 
 String _localizeApiMessage(String message) {
   return switch (message) {
+    'Something went wrong while processing your request.' =>
+      '서버에서 요청을 처리하지 못했습니다. 잠시 후 다시 시도해주세요.',
     'Invalid value equipment_sell.' => '판매 완료!',
     'equipment is not sellable' => '판매할 수 없는 장비입니다.',
     'equipment is already equipped' => '이미 장착 중인 장비입니다.',

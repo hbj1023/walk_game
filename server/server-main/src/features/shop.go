@@ -165,7 +165,7 @@ func getActiveShop(ctx context.Context, token string, shopID string) (shopRecord
 func listAvailableShopItems(ctx context.Context, token string, shopID string, characterID string, now time.Time) (pocketBaseListResponse[map[string]any], error) {
 	if characterID != "" {
 		if err := ensureClearedBossEquipmentShopItems(ctx, token, shopID, characterID); err != nil {
-			return pocketBaseListResponse[map[string]any]{}, err
+			log.Printf("failed to ensure cleared boss equipment shop items: shop=%s character=%s err=%v", shopID, characterID, err)
 		}
 	}
 
@@ -223,7 +223,8 @@ func filterShopItemsByCharacterProgress(ctx context.Context, token string, chara
 	}
 	bossShopUnlocks, err := getClearedBossEquipmentShopUnlocks(ctx, token, characterID)
 	if err != nil {
-		return nil, err
+		log.Printf("failed to get cleared boss equipment shop unlocks: character=%s err=%v", characterID, err)
+		bossShopUnlocks = map[int]bool{}
 	}
 
 	filtered := make([]map[string]any, 0, len(items))

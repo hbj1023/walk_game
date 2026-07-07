@@ -1057,18 +1057,13 @@ func findItemTemplateByName(ctx context.Context, token string, name string) (ite
 
 func listBossRewardTemplates(ctx context.Context, token string, rarity string, stageNo int) ([]itemTemplateRecord, error) {
 	filterValue := fmt.Sprintf("item_type=%q && is_active=true", "equipment")
-	if stageNo >= 10 {
-		filterValue += " && set_key!=\"\""
-	} else {
-		filterValue += " && set_key=\"\""
-	}
 	if rarity != "" {
 		filterValue += fmt.Sprintf(" && rarity=%q", rarity)
 	} else {
 		filterValue += " && (rarity=\"common\" || rarity=\"rare\" || rarity=\"epic\")"
 	}
 	filter := url.QueryEscape(filterValue)
-	endpoint := pocketBaseCollectionURL(itemTemplatesCollection) + "?filter=" + filter + "&sort=rarity,equipment_slot,price_coin&perPage=100"
+	endpoint := pocketBaseCollectionURL(itemTemplatesCollection) + "?filter=" + filter + "&sort=rarity,equipment_slot,price_coin&perPage=200"
 	resp, err := pocketBaseRequest(ctx, http.MethodGet, endpoint, token, nil)
 	if err != nil {
 		return nil, err
@@ -1084,12 +1079,23 @@ func listBossRewardTemplates(ctx context.Context, token string, rarity string, s
 	}
 	rewards := make([]itemTemplateRecord, 0, len(list.Items))
 	for _, item := range list.Items {
+		if !isBossRewardTemplateForStage(item, stageNo) {
+			continue
+		}
 		switch item.EquipmentSlot {
 		case "sword", "helmet", "armor", "shoes":
 			rewards = append(rewards, item)
 		}
 	}
 	return rewards, nil
+}
+
+func isBossRewardTemplateForStage(template itemTemplateRecord, stageNo int) bool {
+	chapter := equipmentShopChapterForBossStageNo(stageNo)
+	if chapter <= 0 {
+		chapter = 1
+	}
+	return equipmentShopChapter(template) == chapter
 }
 
 func lockNormalBattle(battleID string) func() {
