@@ -821,25 +821,13 @@ class _InventoryPageState extends State<InventoryPage> {
     final color = _rarityColor(template);
     return Container(
       width: 18,
-      height: 13,
-      alignment: Alignment.center,
+      height: 6,
       decoration: BoxDecoration(
         color: Color.alphaBlend(
-          color.withValues(alpha: 0.26),
-          Colors.black.withValues(alpha: 0.44),
+          color.withValues(alpha: 0.62),
+          Colors.black.withValues(alpha: 0.18),
         ),
-        border: Border.all(color: color.withValues(alpha: 0.86), width: 1),
-      ),
-      child: FittedBox(
-        fit: BoxFit.scaleDown,
-        child: Text(
-          _rarityShortLabel(template),
-          style: TextStyle(
-            color: color,
-            fontSize: 8,
-            fontWeight: FontWeight.w900,
-          ),
-        ),
+        border: Border.all(color: color.withValues(alpha: 0.9), width: 1),
       ),
     );
   }
@@ -850,15 +838,6 @@ class _InventoryPageState extends State<InventoryPage> {
       'rare' => kRareColor,
       'epic' => kEpicColor,
       _ => kBorderColor,
-    };
-  }
-
-  String _rarityShortLabel(ItemTemplate template) {
-    return switch (template.rarity.trim().toLowerCase()) {
-      'common' => '일',
-      'rare' => '희',
-      'epic' => '에',
-      _ => '',
     };
   }
 
