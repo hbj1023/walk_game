@@ -37,6 +37,15 @@ migrate((app) => {
   ensureTextField("set_key", 80)
   ensureSelectField("set_piece_type", ["weapon", "helmet", "armor", "shoes"])
   ensureTextField("image_path", 255)
+  for (const fieldName of ["base_hp", "base_attack", "base_defense", "base_agility"]) {
+    try {
+      const field = itemTemplates.fields.getByName(fieldName)
+      if (field.min !== null) {
+        field.min = null
+        fieldsChanged = true
+      }
+    } catch (_) {}
+  }
   if (fieldsChanged) app.save(itemTemplates)
 
   const normalShops = app.findRecordsByFilter("shops", `shop_type="normal" && is_active=true`, "", 100, 0)
