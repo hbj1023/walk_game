@@ -163,6 +163,9 @@ func getActiveShop(ctx context.Context, token string, shopID string) (shopRecord
 }
 
 func listAvailableShopItems(ctx context.Context, token string, shopID string, characterID string, now time.Time) (pocketBaseListResponse[map[string]any], error) {
+	if err := ensureStandardWeaponShopItems(ctx, token, shopID); err != nil {
+		log.Printf("failed to ensure standard weapon shop items: shop=%s err=%v", shopID, err)
+	}
 	if characterID != "" {
 		if err := ensureClearedBossEquipmentShopItems(ctx, token, shopID, characterID); err != nil {
 			log.Printf("failed to ensure cleared boss equipment shop items: shop=%s character=%s err=%v", shopID, characterID, err)
@@ -243,6 +246,45 @@ func filterShopItemsByCharacterProgress(ctx context.Context, token string, chara
 		filtered = append(filtered, item)
 	}
 	return filtered, nil
+}
+
+func ensureStandardWeaponShopItems(ctx context.Context, token string, shopID string) error {
+	if shopID == "" {
+		return nil
+	}
+	templates, err := listStandardWeaponTemplates(ctx, token)
+	if err != nil {
+		return err
+	}
+	for _, template := range templates {
+		if _, err := ensureEquipmentTemplateShopItem(ctx, token, shopID, template, 0); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func listStandardWeaponTemplates(ctx context.Context, token string) ([]itemTemplateRecord, error) {
+	filterValue := `item_type="equipment" && is_active=true && (equipment_slot="sword" || set_piece_type="weapon") && (rarity="common" || rarity="rare")`
+	query := url.Values{}
+	query.Set("filter", filterValue)
+	query.Set("sort", "set_key,rarity,price_coin,created")
+	query.Set("perPage", "1000")
+
+	resp, err := pocketBaseRequest(ctx, http.MethodGet, pocketBaseCollectionURL(itemTemplatesCollection)+"?"+query.Encode(), token, nil)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return nil, mapPocketBaseError(resp, "failed to list standard weapon templates")
+	}
+
+	var list pocketBaseListResponse[itemTemplateRecord]
+	if err := json.NewDecoder(resp.Body).Decode(&list); err != nil {
+		return nil, errors.New("failed to parse standard weapon template response")
+	}
+	return list.Items, nil
 }
 
 func buildEquipmentShopProgress(ownedHistory []ownedEquipmentRecord) equipmentShopProgress {
