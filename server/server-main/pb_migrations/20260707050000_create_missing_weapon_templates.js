@@ -62,10 +62,24 @@ migrate((app) => {
     return record
   }
 
-  const findFirst = (filters) => {
-    for (const filter of filters) {
-      const records = app.findRecordsByFilter("item_templates", filter, "", 1, 0)
-      if (records.length > 0) return records[0]
+  const fieldString = (record, fieldName) => {
+    try {
+      return String(record.get(fieldName) || "")
+    } catch (_) {
+      return ""
+    }
+  }
+
+  const findTemplateByRarity = (rarity, predicate) => {
+    const records = app.findRecordsByFilter(
+      "item_templates",
+      `item_type="equipment" && rarity="${rarity}"`,
+      "",
+      1000,
+      0,
+    )
+    for (const record of records) {
+      if (predicate(record)) return record
     }
     return null
   }
@@ -120,11 +134,17 @@ migrate((app) => {
   ]
 
   for (const weapon of tutorialWeapons) {
-    const nameFilters = weapon.names.map((name) => `item_type="equipment" && rarity="${weapon.rarity}" && name="${name}"`)
-    const template = findFirst([
-      `item_type="equipment" && rarity="${weapon.rarity}" && set_key="" && equipment_slot="sword"`,
-      ...nameFilters,
-    ]) || new Record(itemTemplates)
+    const targetNames = weapon.names.map(compact)
+    const template = findTemplateByRarity(weapon.rarity, (record) => {
+      const nameKey = compact(record.get("name"))
+      const setKey = fieldString(record, "set_key")
+      const equipmentSlot = fieldString(record, "equipment_slot")
+      const weaponType = fieldString(record, "weapon_type")
+      return targetNames.includes(nameKey) ||
+        (setKey === "" &&
+          equipmentSlot === "sword" &&
+          (weaponType === "" || weaponType === "sword"))
+    }) || new Record(itemTemplates)
 
     template.set("name", weapon.name)
     template.set("item_type", "equipment")
@@ -223,10 +243,12 @@ migrate((app) => {
       const stats = rarityConfig.stats[set.weaponType]
       const oldName = `${rarityConfig.oldLabel} ${set.oldName} ${set.oldWeaponName}`
       const newName = `${rarityConfig.label} ${set.weaponName}`
-      const template = findFirst([
-        `item_type="equipment" && rarity="${rarity}" && set_key="${set.key}" && set_piece_type="weapon"`,
-        `item_type="equipment" && rarity="${rarity}" && name="${oldName}"`,
-      ]) || new Record(itemTemplates)
+      const template = findTemplateByRarity(rarity, (record) => {
+        const setKey = fieldString(record, "set_key")
+        const pieceType = fieldString(record, "set_piece_type")
+        const name = fieldString(record, "name")
+        return (setKey === set.key && pieceType === "weapon") || name === oldName
+      }) || new Record(itemTemplates)
 
       template.set("name", newName)
       template.set("item_type", "equipment")
