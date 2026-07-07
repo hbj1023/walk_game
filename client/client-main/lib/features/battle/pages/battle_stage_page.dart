@@ -1251,6 +1251,8 @@ class _BattleStagePageState extends State<BattleStagePage> {
                       ],
                     ),
                   ),
+                  const SizedBox(width: 8),
+                  _buildRecommendedPowerBadge(selectedStage),
                 ],
               ),
             const SizedBox(height: 7),
@@ -1383,41 +1385,39 @@ class _BattleStagePageState extends State<BattleStagePage> {
     return '잠김';
   }
 
-  Widget _buildRecommendedPowerStrip(_StageData? selectedStage, bool locked) {
-    final value = selectedStage == null
-        ? '-'
-        : _formatNumber(_recommendedCombatPowerForStage(selectedStage.stageNo));
-    final valueColor = locked ? Colors.white60 : _kGold;
+  Widget _buildRecommendedPowerBadge(_StageData stage) {
+    final value = _formatNumber(_recommendedCombatPowerForStage(stage.stageNo));
+    final valueColor = stage.unlocked ? _kGold : Colors.white60;
+    final borderColor = stage.unlocked
+        ? _kGold.withValues(alpha: 0.72)
+        : Colors.white.withValues(alpha: 0.16);
 
     return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
       decoration: BoxDecoration(
-        color: Colors.black.withValues(alpha: 0.24),
+        color: Colors.black.withValues(alpha: 0.26),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(
-          color: Colors.white.withValues(alpha: 0.16),
-          width: 1,
-        ),
+        border: Border.all(color: borderColor, width: 1),
       ),
       child: Row(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Image.asset('assets/images/icon/atk.png', width: 16, height: 16),
-          const SizedBox(width: 6),
+          Image.asset('assets/images/icon/atk.png', width: 14, height: 14),
+          const SizedBox(width: 5),
           const Text(
-            '적정 전투력',
+            '전투력',
             style: TextStyle(
               color: Colors.white,
-              fontSize: 13,
+              fontSize: 12,
               fontWeight: FontWeight.bold,
             ),
           ),
-          const Spacer(),
+          const SizedBox(width: 4),
           Text(
             value,
             style: TextStyle(
               color: valueColor,
-              fontSize: 15,
+              fontSize: 13,
               fontWeight: FontWeight.w900,
             ),
           ),
@@ -1432,29 +1432,27 @@ class _BattleStagePageState extends State<BattleStagePage> {
         _isStageLoading || selectedStage == null || !selectedStage.unlocked;
     return Padding(
       padding: const EdgeInsets.fromLTRB(6, 0, 6, 10),
-      child: GestureDetector(
-        onTap: (locked || _isStarting) ? null : _startBattle,
-        child: Container(
-          width: double.infinity,
-          padding: const EdgeInsets.fromLTRB(8, 8, 8, 9),
-          decoration: BoxDecoration(
-            color: (locked || _isStarting)
-                ? const Color(0xFF555555)
-                : _kStartBtn,
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(
-              color: (locked || _isStarting)
-                  ? const Color(0xFF6D6D6D)
-                  : _kStartBtnBorder,
-              width: 2,
-            ),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              _buildRecommendedPowerStrip(selectedStage, locked),
-              const SizedBox(height: 7),
-              Row(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          GestureDetector(
+            onTap: (locked || _isStarting) ? null : _startBattle,
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.fromLTRB(8, 8, 8, 9),
+              decoration: BoxDecoration(
+                color: (locked || _isStarting)
+                    ? const Color(0xFF555555)
+                    : _kStartBtn,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(
+                  color: (locked || _isStarting)
+                      ? const Color(0xFF6D6D6D)
+                      : _kStartBtnBorder,
+                  width: 2,
+                ),
+              ),
+              child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 mainAxisSize: MainAxisSize.min,
                 children: [
@@ -1501,9 +1499,9 @@ class _BattleStagePageState extends State<BattleStagePage> {
                   ),
                 ],
               ),
-            ],
+            ),
           ),
-        ),
+        ],
       ),
     );
   }
