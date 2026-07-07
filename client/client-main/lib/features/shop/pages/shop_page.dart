@@ -673,27 +673,19 @@ class _ShopPageState extends State<ShopPage> {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          SizedBox(
-            width: 42,
-            child: Column(
-              children: [
-                Icon(_rarityIcon(row.rarity), color: color, size: 16),
-                const SizedBox(height: 3),
-                FittedBox(
-                  fit: BoxFit.scaleDown,
-                  child: Text(
-                    _rarityLabel(row.rarity),
-                    style: TextStyle(
-                      color: color,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w900,
-                    ),
-                  ),
-                ),
-              ],
+          Container(
+            width: 8,
+            height: 58,
+            decoration: BoxDecoration(
+              color: Color.alphaBlend(
+                color.withValues(alpha: 0.68),
+                Colors.black.withValues(alpha: 0.18),
+              ),
+              borderRadius: BorderRadius.circular(4),
+              border: Border.all(color: color.withValues(alpha: 0.9)),
             ),
           ),
-          const SizedBox(width: 6),
+          const SizedBox(width: 8),
           for (final slot in _equipmentSlotOrder) ...[
             Expanded(child: _buildEquipmentSetTile(row.cells[slot], slot)),
             if (slot != _equipmentSlotOrder.last) const SizedBox(width: 6),
@@ -851,7 +843,7 @@ class _ShopPageState extends State<ShopPage> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          '${_slotLabel(slot)} · ${_rarityLabel(_equipmentRarity(template))}',
+                          _slotLabel(slot),
                           style: const TextStyle(
                             color: _kTextGray,
                             fontSize: 12,
@@ -1161,24 +1153,6 @@ class _ShopPageState extends State<ShopPage> {
       'rare' => _kRareColor,
       'epic' => _kEpicColor,
       _ => Colors.white24,
-    };
-  }
-
-  IconData _rarityIcon(String rarity) {
-    return switch (rarity) {
-      'common' => Icons.eco_rounded,
-      'rare' => Icons.auto_awesome_rounded,
-      'epic' => Icons.workspace_premium_rounded,
-      _ => Icons.lock_rounded,
-    };
-  }
-
-  String _rarityLabel(String rarity) {
-    return switch (rarity) {
-      'common' => '일반',
-      'rare' => '희귀',
-      'epic' => '에픽',
-      _ => '잠김',
     };
   }
 
