@@ -21,6 +21,9 @@ const kTextLight = Color(0xFFD9C9A8);
 const kTextGray = Color(0xFF7A6247);
 const kGreen = Color(0xFF4E8C4E);
 const kSlotColor = Color(0xFF190E07);
+const kCommonColor = Color(0xFF56B866);
+const kRareColor = Color(0xFF4C8DFF);
+const kEpicColor = Color(0xFFC177FF);
 
 const _statKeys = ['hp', 'attack', 'defense', 'agility'];
 const _statLabel = {
@@ -571,6 +574,9 @@ class _InventoryPageState extends State<InventoryPage> {
   Widget _buildEquipSlot(String slot) {
     final item = _equippedInSlot(slot);
     final isSelected = _selectedSlot == slot;
+    final rarityColor = item == null
+        ? kBorderColor
+        : _rarityColor(item.itemTemplate);
     return GestureDetector(
       onTap: () => setState(() => _selectedSlot = isSelected ? null : slot),
       onLongPress: item == null ? null : () => _openItemAction(item),
@@ -585,30 +591,49 @@ class _InventoryPageState extends State<InventoryPage> {
             width: 66,
             height: 66,
             decoration: BoxDecoration(
-              color: kSlotColor,
+              color: item == null
+                  ? kSlotColor
+                  : Color.alphaBlend(
+                      rarityColor.withValues(alpha: 0.08),
+                      kSlotColor,
+                    ),
               border: Border.all(
-                color: isSelected ? kGold : kBorderColor,
-                width: 1.5,
+                color: isSelected ? kGold : rarityColor,
+                width: item == null ? 1.5 : 2,
               ),
             ),
             padding: const EdgeInsets.all(6),
             child: item == null
                 ? Icon(_slotIcon(slot), color: kTextGray, size: 28)
-                : Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
+                : Stack(
                     children: [
-                      Image.asset(
-                        _inventoryItemImage(item.itemTemplate),
-                        width: 24,
-                        height: 24,
-                        fit: BoxFit.contain,
+                      Positioned(
+                        left: 0,
+                        top: 0,
+                        child: _buildRarityCornerBadge(item.itemTemplate),
                       ),
-                      const SizedBox(height: 3),
-                      Text(
-                        item.itemTemplate.name,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(color: kTextLight, fontSize: 9),
+                      Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Image.asset(
+                              _inventoryItemImage(item.itemTemplate),
+                              width: 24,
+                              height: 24,
+                              fit: BoxFit.contain,
+                            ),
+                            const SizedBox(height: 3),
+                            Text(
+                              item.itemTemplate.name,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                color: kTextLight,
+                                fontSize: 9,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ],
                   ),
@@ -728,18 +753,32 @@ class _InventoryPageState extends State<InventoryPage> {
         itemBuilder: (context, index) {
           if (index >= items.length) return _emptySlot();
           final item = items[index];
+          final rarityColor = item.itemTemplate.isEquipment
+              ? _rarityColor(item.itemTemplate)
+              : kBorderColor;
           return GestureDetector(
             onTap: () => _openItemAction(item),
             child: Container(
               decoration: BoxDecoration(
-                color: kSlotColor,
+                color: item.itemTemplate.isEquipment
+                    ? Color.alphaBlend(
+                        rarityColor.withValues(alpha: 0.08),
+                        kSlotColor,
+                      )
+                    : kSlotColor,
                 border: Border.all(
-                  color: item.isEquipped ? kGold : kBorderColor,
-                  width: 1.5,
+                  color: item.isEquipped ? kGold : rarityColor,
+                  width: item.itemTemplate.isEquipment ? 2 : 1.5,
                 ),
               ),
               child: Stack(
                 children: [
+                  if (item.itemTemplate.isEquipment)
+                    Positioned(
+                      left: 2,
+                      top: 2,
+                      child: _buildRarityCornerBadge(item.itemTemplate),
+                    ),
                   Center(
                     child: Image.asset(
                       _inventoryItemImage(item.itemTemplate),
@@ -776,6 +815,51 @@ class _InventoryPageState extends State<InventoryPage> {
         },
       ),
     );
+  }
+
+  Widget _buildRarityCornerBadge(ItemTemplate template) {
+    final color = _rarityColor(template);
+    return Container(
+      width: 18,
+      height: 13,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          color.withValues(alpha: 0.26),
+          Colors.black.withValues(alpha: 0.44),
+        ),
+        border: Border.all(color: color.withValues(alpha: 0.86), width: 1),
+      ),
+      child: FittedBox(
+        fit: BoxFit.scaleDown,
+        child: Text(
+          _rarityShortLabel(template),
+          style: TextStyle(
+            color: color,
+            fontSize: 8,
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Color _rarityColor(ItemTemplate template) {
+    return switch (template.rarity.trim().toLowerCase()) {
+      'common' => kCommonColor,
+      'rare' => kRareColor,
+      'epic' => kEpicColor,
+      _ => kBorderColor,
+    };
+  }
+
+  String _rarityShortLabel(ItemTemplate template) {
+    return switch (template.rarity.trim().toLowerCase()) {
+      'common' => '일',
+      'rare' => '희',
+      'epic' => '에',
+      _ => '',
+    };
   }
 
   Widget _emptySlot() {
