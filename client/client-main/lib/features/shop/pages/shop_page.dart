@@ -97,11 +97,16 @@ class _ShopPageState extends State<ShopPage> {
       final items = selected == null
           ? <ShopItem>[]
           : await GameApiService.fetchShopItems(selected.id);
-      final chapter2Unlocked = stages.any(
-        (stage) => stage.stageNo >= 6 && stage.isUnlocked,
-      );
+      final chapter2Unlocked =
+          stages.any((stage) => stage.stageNo >= 6 && stage.isUnlocked) ||
+          stages.any(
+            (stage) =>
+                stage.stageNo == 5 &&
+                stage.stageType == 'boss' &&
+                stage.isCleared,
+          );
       final ownedEquipmentTemplateIds = inventoryItems
-          .where((item) => item.itemTemplate.isEquipment)
+          .where((item) => item.itemTemplate.isEquipment && !item.isRemoved)
           .map((item) => item.itemTemplate.id)
           .where((id) => id.isNotEmpty)
           .toSet();
@@ -131,6 +136,7 @@ class _ShopPageState extends State<ShopPage> {
             .where(
               (item) =>
                   item.itemTemplate.isEquipment &&
+                  item.isActive &&
                   (_chapter2EquipmentUnlocked ||
                       !_isChapter2Equipment(item.itemTemplate)) &&
                   !_ownedEquipmentTemplateIds.contains(item.itemTemplate.id),
@@ -143,6 +149,14 @@ class _ShopPageState extends State<ShopPage> {
 
   Future<void> _purchase(ShopItem item) async {
     if (_selectedShop == null || _isBuying) return;
+    if (!item.isPurchaseUnlocked) {
+      showGameToast(
+        context,
+        item.lockedReason.isEmpty ? '아직 구매 조건이 열리지 않았습니다.' : item.lockedReason,
+        type: GameToastType.warning,
+      );
+      return;
+    }
     if (_gs.coins < item.priceCoin) {
       showGameToast(
         context,
@@ -179,7 +193,10 @@ class _ShopPageState extends State<ShopPage> {
         _items = items;
         _inventoryItems = inventoryItems;
         _ownedEquipmentTemplateIds = inventoryItems
-            .where((ownedItem) => ownedItem.itemTemplate.isEquipment)
+            .where(
+              (ownedItem) =>
+                  ownedItem.itemTemplate.isEquipment && !ownedItem.isRemoved,
+            )
             .map((ownedItem) => ownedItem.itemTemplate.id)
             .where((id) => id.isNotEmpty)
             .toSet();
@@ -691,7 +708,10 @@ class _ShopPageState extends State<ShopPage> {
     final shopItem = cell?.shopItem;
     final owned = cell?.owned ?? false;
     final canBuy =
-        shopItem != null && !_isBuying && _gs.coins >= shopItem.priceCoin;
+        shopItem != null &&
+        shopItem.isPurchaseUnlocked &&
+        !_isBuying &&
+        _gs.coins >= shopItem.priceCoin;
     final rarity = template == null ? 'locked' : _equipmentRarity(template);
     final borderColor = template == null
         ? Colors.white24
@@ -704,7 +724,9 @@ class _ShopPageState extends State<ShopPage> {
           );
 
     return GestureDetector(
-      onTap: shopItem == null || _isBuying ? null : () => _purchase(shopItem),
+      onTap: template == null || _isBuying
+          ? null
+          : () => _openEquipmentInfo(cell!, slot),
       child: Opacity(
         opacity: template == null ? 0.46 : 1,
         child: Container(
@@ -755,6 +777,172 @@ class _ShopPageState extends State<ShopPage> {
     );
   }
 
+  Future<void> _openEquipmentInfo(_EquipmentShopCell cell, String slot) async {
+    final template = cell.template;
+    final shopItem = cell.shopItem;
+    final owned = cell.owned;
+    final unlocked = shopItem?.isPurchaseUnlocked ?? false;
+    final canBuy =
+        shopItem != null &&
+        unlocked &&
+        !_isBuying &&
+        _gs.coins >= shopItem.priceCoin;
+    final statusText = owned
+        ? '이미 보유 중인 장비입니다.'
+        : shopItem == null
+        ? '아직 구매 조건이 열리지 않았습니다.'
+        : !unlocked
+        ? (shopItem.lockedReason.isEmpty
+              ? '아직 구매 조건이 열리지 않았습니다.'
+              : shopItem.lockedReason)
+        : canBuy
+        ? '구매할 수 있습니다.'
+        : '코인이 부족합니다.';
+    final statusColor = owned
+        ? _kGold
+        : canBuy
+        ? _kCommonColor
+        : _kTextGray;
+
+    final shouldBuy = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          backgroundColor: _kPanelColor,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+            side: BorderSide(color: _rarityColor(_equipmentRarity(template))),
+          ),
+          titlePadding: const EdgeInsets.fromLTRB(18, 16, 18, 0),
+          contentPadding: const EdgeInsets.fromLTRB(18, 12, 18, 8),
+          actionsPadding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+          title: Text(
+            template.name,
+            style: const TextStyle(
+              color: _kTextLight,
+              fontSize: 17,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    width: 72,
+                    height: 72,
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: _kSlotColor,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: _kBorderColor),
+                    ),
+                    child: Image.asset(
+                      _templateImage(template),
+                      fit: BoxFit.contain,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '${_slotLabel(slot)} · ${_rarityLabel(_equipmentRarity(template))}',
+                          style: const TextStyle(
+                            color: _kTextGray,
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          template.statSummary,
+                          style: const TextStyle(
+                            color: _kTextLight,
+                            fontSize: 13,
+                            height: 1.35,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              if (shopItem != null)
+                Row(
+                  children: [
+                    Image.asset(
+                      'assets/images/icon/coin_icon.png',
+                      width: 15,
+                      height: 15,
+                    ),
+                    const SizedBox(width: 5),
+                    Text(
+                      '${shopItem.priceCoin} 코인',
+                      style: const TextStyle(
+                        color: _kGold,
+                        fontSize: 13,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+              const SizedBox(height: 8),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 8,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.black.withValues(alpha: 0.28),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: statusColor.withValues(alpha: 0.6)),
+                ),
+                child: Text(
+                  statusText,
+                  style: TextStyle(
+                    color: statusColor,
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: const Text('닫기', style: TextStyle(color: _kTextGray)),
+            ),
+            if (shopItem != null)
+              TextButton(
+                onPressed: canBuy
+                    ? () => Navigator.pop(dialogContext, true)
+                    : null,
+                child: Text(
+                  '구매',
+                  style: TextStyle(
+                    color: canBuy ? _kGold : Colors.white30,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+          ],
+        );
+      },
+    );
+
+    if (shouldBuy == true && shopItem != null) {
+      await _purchase(shopItem);
+    }
+  }
+
   Widget _buildEquipmentTileState({
     required ItemTemplate? template,
     required ShopItem? shopItem,
@@ -768,7 +956,10 @@ class _ShopPageState extends State<ShopPage> {
       return _buildTinyStateChip('보유', _kGold);
     }
     if (shopItem == null) {
-      return _buildTinyStateChip('잠김', Colors.white24);
+      return _buildTinyStateChip('조건', Colors.white24);
+    }
+    if (!shopItem.isPurchaseUnlocked) {
+      return _buildTinyStateChip('조건', _kTextGray);
     }
     return Container(
       height: 17,
@@ -829,7 +1020,8 @@ class _ShopPageState extends State<ShopPage> {
   }
 
   Widget _buildShopItemCard(ShopItem item) {
-    final canBuy = !_isBuying && _gs.coins >= item.priceCoin;
+    final canBuy =
+        !_isBuying && item.isPurchaseUnlocked && _gs.coins >= item.priceCoin;
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.all(12),
@@ -873,7 +1065,11 @@ class _ShopPageState extends State<ShopPage> {
                 ),
                 const SizedBox(height: 5),
                 Text(
-                  _itemMeta(item),
+                  item.isPurchaseUnlocked
+                      ? _itemMeta(item)
+                      : (item.lockedReason.isEmpty
+                            ? _itemMeta(item)
+                            : item.lockedReason),
                   style: const TextStyle(color: Colors.white38, fontSize: 10),
                 ),
               ],

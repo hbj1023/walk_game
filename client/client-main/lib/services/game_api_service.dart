@@ -183,6 +183,8 @@ class ShopItem {
   final int stockLimit;
   final int purchaseLimitPerUser;
   final bool isActive;
+  final bool isPurchaseUnlocked;
+  final String lockedReason;
   final ItemTemplate itemTemplate;
 
   const ShopItem({
@@ -192,6 +194,8 @@ class ShopItem {
     required this.stockLimit,
     required this.purchaseLimitPerUser,
     required this.isActive,
+    this.isPurchaseUnlocked = true,
+    this.lockedReason = '',
     required this.itemTemplate,
   });
 
@@ -204,6 +208,8 @@ class ShopItem {
       stockLimit: _asInt(json['stock_limit']),
       purchaseLimitPerUser: _asInt(json['purchase_limit_per_user']),
       isActive: json['is_active'] == true,
+      isPurchaseUnlocked: json['is_purchase_unlocked'] != false,
+      lockedReason: _asString(json['locked_reason']),
       itemTemplate: ItemTemplate.fromJson(_asMap(expand['item_template'])),
     );
   }

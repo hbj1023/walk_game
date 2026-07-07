@@ -234,9 +234,13 @@ func filterShopItemsByCharacterProgress(ctx context.Context, token string, chara
 			filtered = append(filtered, item)
 			continue
 		}
-		if isEquipmentTemplateVisibleInShop(template, progress, chapter2Unlocked, bossShopUnlocks) {
-			filtered = append(filtered, item)
+		availability := equipmentShopAvailabilityForTemplate(template, progress, chapter2Unlocked, bossShopUnlocks)
+		if !availability.include {
+			continue
 		}
+		item["is_purchase_unlocked"] = availability.purchaseUnlocked
+		item["locked_reason"] = availability.lockedReason
+		filtered = append(filtered, item)
 	}
 	return filtered, nil
 }
@@ -269,6 +273,63 @@ func buildEquipmentShopProgress(ownedHistory []ownedEquipmentRecord) equipmentSh
 		}
 	}
 	return progress
+}
+
+type equipmentShopAvailabilityResult struct {
+	include          bool
+	purchaseUnlocked bool
+	lockedReason     string
+}
+
+func equipmentShopAvailabilityForTemplate(template itemTemplateRecord, progress equipmentShopProgress, chapter2Unlocked bool, bossShopUnlocks map[int]bool) equipmentShopAvailabilityResult {
+	locked := func(reason string) equipmentShopAvailabilityResult {
+		return equipmentShopAvailabilityResult{include: true, purchaseUnlocked: false, lockedReason: reason}
+	}
+	available := equipmentShopAvailabilityResult{include: true, purchaseUnlocked: true}
+
+	if !isEquipmentShopRarity(template.Rarity) {
+		return equipmentShopAvailabilityResult{}
+	}
+	if equipmentShopChapter(template) >= 2 && !chapter2Unlocked {
+		return equipmentShopAvailabilityResult{}
+	}
+
+	lineKey := equipmentShopLineKey(template)
+	if lineKey == "" {
+		return equipmentShopAvailabilityResult{}
+	}
+	rank, ok := equipmentShopRarityRank(template.Rarity)
+	if !ok {
+		return equipmentShopAvailabilityResult{}
+	}
+
+	reachedRank, hasReached := progress.reachedRankByLine[lineKey]
+	activeRank, hasActive := progress.activeRankByLine[lineKey]
+	if hasActive && activeRank > rank {
+		return equipmentShopAvailabilityResult{}
+	}
+	if hasActive && activeRank == rank {
+		return locked("이미 보유 중인 등급입니다.")
+	}
+	if rank == 2 && !isBossEquipmentShopUnlockedForTemplate(template, bossShopUnlocks) {
+		return locked("해당 장 보스를 클리어하면 판매됩니다.")
+	}
+	if !hasReached {
+		if rank == 0 {
+			return available
+		}
+		return locked("이전 등급 장비를 구매하면 판매됩니다.")
+	}
+	if rank == reachedRank && (!hasActive || activeRank < reachedRank) {
+		return available
+	}
+	if hasActive && activeRank == reachedRank && rank == reachedRank+1 {
+		return available
+	}
+	if rank > reachedRank {
+		return locked("이전 등급 장비를 구매하면 판매됩니다.")
+	}
+	return equipmentShopAvailabilityResult{}
 }
 
 func isEquipmentTemplateVisibleInShop(template itemTemplateRecord, progress equipmentShopProgress, chapter2Unlocked bool, bossShopUnlocks map[int]bool) bool {
