@@ -1,9 +1,12 @@
+import 'dart:math' as math;
+
 import 'package:capstone_app/services/game_api_service.dart';
 
 class RaidBoss {
   final String id;
   final String name;
   final int recommendedLevel;
+  final int recommendedCombatPower;
   final int difficulty;
   final bool isLocked;
   final int hp;
@@ -20,6 +23,7 @@ class RaidBoss {
     this.id = '',
     required this.name,
     required this.recommendedLevel,
+    this.recommendedCombatPower = _kMinimumRaidRecommendedCombatPower,
     required this.difficulty,
     required this.isLocked,
     this.hp = 0,
@@ -40,6 +44,7 @@ class RaidBoss {
       id: monster.id,
       name: normalizedName.isEmpty ? '레이드 보스' : normalizedName,
       recommendedLevel: _raidRecommendedLevel(monster),
+      recommendedCombatPower: _raidRecommendedCombatPower(monster),
       difficulty: _raidDifficulty(monster),
       isLocked: false,
       hp: monster.hp,
@@ -88,3 +93,18 @@ int _raidDifficulty(RaidMonsterInfo monster) {
 }
 
 int _raidRecommendedLevel(RaidMonsterInfo _) => 5;
+
+const _kMinimumRaidRecommendedCombatPower = 360;
+
+int _raidRecommendedCombatPower(RaidMonsterInfo monster) {
+  final monsterPower =
+      (monster.hp / 3 +
+              monster.attack * 8 +
+              monster.defense * 5 +
+              monster.agility * 4)
+          .round();
+
+  // Raid is party-facing, so expose a team-oriented target while keeping
+  // the first raid from reading weaker than the chapter 1 boss gate.
+  return math.max(_kMinimumRaidRecommendedCombatPower, monsterPower * 2);
+}

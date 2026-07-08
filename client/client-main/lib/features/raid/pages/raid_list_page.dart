@@ -28,6 +28,16 @@ const _kGold = Color(0xFFF0C040);
 const _kRedStar = Color(0xFFE03030);
 const _kRaidMinimumLevel = 5;
 
+String _formatRaidNumber(int value) {
+  final text = value.toString();
+  final parts = <String>[];
+  for (var end = text.length; end > 0; end -= 3) {
+    final start = end - 3 < 0 ? 0 : end - 3;
+    parts.add(text.substring(start, end));
+  }
+  return parts.reversed.join(',');
+}
+
 // ─── RaidListPage ─────────────────────────────────────────────────────────────
 
 class RaidListPage extends StatefulWidget {
@@ -787,6 +797,8 @@ class _RaidListPageState extends State<RaidListPage> {
               fontWeight: FontWeight.bold,
             ),
           ),
+          const SizedBox(height: 5),
+          _buildRecommendedPowerBadge(boss, isRed),
           const SizedBox(height: 8),
           _buildStatusRow(boss),
         ],
@@ -815,6 +827,45 @@ class _RaidListPageState extends State<RaidListPage> {
           }),
         ),
       ],
+    );
+  }
+
+  Widget _buildRecommendedPowerBadge(RaidBoss boss, bool muted) {
+    final color = muted ? Colors.white54 : _kGold;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.24),
+        borderRadius: BorderRadius.circular(7),
+        border: Border.all(
+          color: color.withValues(alpha: muted ? 0.22 : 0.58),
+          width: 1,
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Image.asset('assets/images/icon/atk.png', width: 13, height: 13),
+          const SizedBox(width: 5),
+          const Text(
+            '권장 전투력',
+            style: TextStyle(
+              color: Colors.white70,
+              fontSize: 11,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(width: 5),
+          Text(
+            _formatRaidNumber(boss.recommendedCombatPower),
+            style: TextStyle(
+              color: color,
+              fontSize: 12,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -1187,27 +1238,40 @@ class _PartySheetState extends State<_PartySheet> {
                 children: [
                   const Icon(Icons.group, color: Color(0xFF4DA6FF), size: 22),
                   const SizedBox(width: 8),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        '파티 구성',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 17,
-                          fontWeight: FontWeight.bold,
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          '파티 구성',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 17,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
-                      ),
-                      Text(
-                        '${widget.boss.name} · 최대 ${_maxPartySize + 1}인 (본인 포함)',
-                        style: const TextStyle(
-                          color: Colors.white38,
-                          fontSize: 11,
+                        Text(
+                          '${widget.boss.name} · 최대 ${_maxPartySize + 1}인 (본인 포함)',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: Colors.white38,
+                            fontSize: 11,
+                          ),
                         ),
-                      ),
-                    ],
+                        const SizedBox(height: 3),
+                        Text(
+                          '권장 전투력 ${_formatRaidNumber(widget.boss.recommendedCombatPower)}',
+                          style: const TextStyle(
+                            color: _kGold,
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                  const Spacer(),
+                  const SizedBox(width: 8),
                   GestureDetector(
                     onTap: _entering ? null : () => Navigator.pop(context),
                     child: const Icon(
