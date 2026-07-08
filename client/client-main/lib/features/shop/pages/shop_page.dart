@@ -673,19 +673,6 @@ class _ShopPageState extends State<ShopPage> {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          Container(
-            width: 8,
-            height: 58,
-            decoration: BoxDecoration(
-              color: Color.alphaBlend(
-                color.withValues(alpha: 0.68),
-                Colors.black.withValues(alpha: 0.18),
-              ),
-              borderRadius: BorderRadius.circular(4),
-              border: Border.all(color: color.withValues(alpha: 0.9)),
-            ),
-          ),
-          const SizedBox(width: 8),
           for (final slot in _equipmentSlotOrder) ...[
             Expanded(child: _buildEquipmentSetTile(row.cells[slot], slot)),
             if (slot != _equipmentSlotOrder.last) const SizedBox(width: 6),
@@ -729,38 +716,50 @@ class _ShopPageState extends State<ShopPage> {
             borderRadius: BorderRadius.circular(8),
             border: Border.all(color: borderColor, width: 1.1),
           ),
-          child: Column(
+          child: Stack(
             children: [
-              Expanded(
+              Positioned.fill(
+                bottom: 32,
                 child: Center(
                   child: template == null
-                      ? Icon(_slotIcon(slot), color: Colors.white24, size: 24)
+                      ? Icon(_slotIcon(slot), color: Colors.white24, size: 28)
                       : Image.asset(
                           _templateImage(template),
-                          width: 34,
-                          height: 34,
+                          width: 46,
+                          height: 46,
                           fit: BoxFit.contain,
                         ),
                 ),
               ),
-              const SizedBox(height: 3),
-              FittedBox(
-                fit: BoxFit.scaleDown,
-                child: Text(
-                  _slotLabel(slot),
-                  style: const TextStyle(
-                    color: _kTextGray,
-                    fontSize: 9,
-                    fontWeight: FontWeight.bold,
+              Positioned(
+                left: 2,
+                right: 2,
+                bottom: 20,
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text(
+                    template?.name ?? _slotLabel(slot),
+                    maxLines: 1,
+                    style: const TextStyle(
+                      color: _kTextGray,
+                      fontSize: 9,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ),
               ),
-              const SizedBox(height: 3),
-              _buildEquipmentTileState(
-                template: template,
-                shopItem: shopItem,
-                owned: owned,
-                canBuy: canBuy,
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: 0,
+                child: Center(
+                  child: _buildEquipmentTileState(
+                    template: template,
+                    shopItem: shopItem,
+                    owned: owned,
+                    canBuy: canBuy,
+                  ),
+                ),
               ),
             ],
           ),

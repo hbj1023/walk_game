@@ -607,32 +607,30 @@ class _InventoryPageState extends State<InventoryPage> {
                 ? Icon(_slotIcon(slot), color: kTextGray, size: 28)
                 : Stack(
                     children: [
-                      Positioned(
-                        left: 0,
-                        top: 0,
-                        child: _buildRarityCornerBadge(item.itemTemplate),
+                      Positioned.fill(
+                        bottom: 14,
+                        child: Center(
+                          child: Image.asset(
+                            _inventoryItemImage(item.itemTemplate),
+                            width: 36,
+                            height: 36,
+                            fit: BoxFit.contain,
+                          ),
+                        ),
                       ),
-                      Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Image.asset(
-                              _inventoryItemImage(item.itemTemplate),
-                              width: 24,
-                              height: 24,
-                              fit: BoxFit.contain,
-                            ),
-                            const SizedBox(height: 3),
-                            Text(
-                              item.itemTemplate.name,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                color: kTextLight,
-                                fontSize: 9,
-                              ),
-                            ),
-                          ],
+                      Positioned(
+                        left: 1,
+                        right: 1,
+                        bottom: 1,
+                        child: Text(
+                          item.itemTemplate.name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            color: kTextLight,
+                            fontSize: 9,
+                          ),
                         ),
                       ),
                     ],
@@ -773,18 +771,15 @@ class _InventoryPageState extends State<InventoryPage> {
               ),
               child: Stack(
                 children: [
-                  if (item.itemTemplate.isEquipment)
-                    Positioned(
-                      left: 2,
-                      top: 2,
-                      child: _buildRarityCornerBadge(item.itemTemplate),
-                    ),
-                  Center(
-                    child: Image.asset(
-                      _inventoryItemImage(item.itemTemplate),
-                      width: 28,
-                      height: 28,
-                      fit: BoxFit.contain,
+                  Positioned.fill(
+                    bottom: 15,
+                    child: Center(
+                      child: Image.asset(
+                        _inventoryItemImage(item.itemTemplate),
+                        width: 38,
+                        height: 38,
+                        fit: BoxFit.contain,
+                      ),
                     ),
                   ),
                   Positioned(
@@ -813,21 +808,6 @@ class _InventoryPageState extends State<InventoryPage> {
             ),
           );
         },
-      ),
-    );
-  }
-
-  Widget _buildRarityCornerBadge(ItemTemplate template) {
-    final color = _rarityColor(template);
-    return Container(
-      width: 18,
-      height: 6,
-      decoration: BoxDecoration(
-        color: Color.alphaBlend(
-          color.withValues(alpha: 0.62),
-          Colors.black.withValues(alpha: 0.18),
-        ),
-        border: Border.all(color: color.withValues(alpha: 0.9), width: 1),
       ),
     );
   }
