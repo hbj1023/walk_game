@@ -391,6 +391,9 @@ func searchUsers(ctx context.Context, token string, currentUserID string, query 
 	)
 	list, err := listCollectionRecords(ctx, token, usersCollection, filter, "profile_emote", "nickname,name,email")
 	if err != nil {
+		list, err = listCollectionRecords(ctx, token, usersCollection, filter, "", "nickname,name,email")
+	}
+	if err != nil {
 		return nil, err
 	}
 
@@ -438,7 +441,7 @@ func listBlockedFriendships(ctx context.Context, token string, userID string) (p
 }
 
 func friendshipUserExpand() string {
-	return "user_low,user_high,requested_by_user,user_low.profile_emote,user_high.profile_emote,requested_by_user.profile_emote"
+	return "user_low,user_high,requested_by_user"
 }
 
 func hydrateFriendshipUsers(ctx context.Context, token string, list pocketBaseListResponse[map[string]any]) (pocketBaseListResponse[map[string]any], error) {
@@ -474,6 +477,26 @@ func hydrateFriendshipUsers(ctx context.Context, token string, list pocketBaseLi
 
 func getFriendUserMap(ctx context.Context, token string, userID string) (map[string]any, error) {
 	resp, err := pocketBaseRequest(ctx, http.MethodGet, pocketBaseRecordURL(usersCollection, userID)+"?expand=profile_emote", token, nil)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode == http.StatusNotFound {
+		return nil, statusError{status: http.StatusNotFound, message: "user not found"}
+	}
+	if resp.StatusCode != http.StatusOK {
+		return getFriendUserMapWithoutProfileExpand(ctx, token, userID)
+	}
+
+	var user map[string]any
+	if err := json.NewDecoder(resp.Body).Decode(&user); err != nil {
+		return nil, errors.New("failed to parse user response")
+	}
+	return sanitizeFriendUser(user), nil
+}
+
+func getFriendUserMapWithoutProfileExpand(ctx context.Context, token string, userID string) (map[string]any, error) {
+	resp, err := pocketBaseRequest(ctx, http.MethodGet, pocketBaseRecordURL(usersCollection, userID), token, nil)
 	if err != nil {
 		return nil, err
 	}

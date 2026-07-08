@@ -107,20 +107,41 @@ class _FriendSheetState extends State<FriendSheet> {
 
   Future<void> _runAction(
     Future<void> Function() action,
-    String successMessage,
-  ) async {
+    String successMessage, {
+    VoidCallback? afterSuccess,
+  }) async {
     setState(() => _message = null);
 
     try {
       await action();
       if (!mounted) return;
-      await _loadAll();
+      try {
+        await _loadAll();
+      } catch (_) {
+        if (!mounted) return;
+      }
       if (!mounted) return;
-      setState(() => _message = successMessage);
+      setState(() {
+        afterSuccess?.call();
+        _message = successMessage;
+      });
     } catch (error) {
       if (!mounted) return;
       setState(() => _message = error.toString());
     }
+  }
+
+  Future<void> _sendFriendRequest(FriendUser user) {
+    return _runAction(
+      () => FriendshipService.sendRequest(user.id),
+      '친구 요청을 보냈습니다.',
+      afterSuccess: () {
+        _tabIndex = 2;
+        _searchResults = _searchResults
+            .where((candidate) => candidate.id != user.id)
+            .toList(growable: false);
+      },
+    );
   }
 
   @override
@@ -287,10 +308,7 @@ class _FriendSheetState extends State<FriendSheet> {
               _ActionButton(
                 label: '요청',
                 color: const Color(0xFF4DA6FF),
-                onTap: () => _runAction(
-                  () => FriendshipService.sendRequest(user.id),
-                  '친구 요청을 보냈습니다.',
-                ),
+                onTap: () => _sendFriendRequest(user),
               ),
             ],
           );
