@@ -134,18 +134,40 @@ class _InventoryPageState extends State<InventoryPage> {
   }
 
   List<OwnedInventoryItem> get _filteredItems {
-    return switch (_inventoryFilter) {
-      1 => _items.where((item) => item.itemTemplate.isEquipment).toList(),
-      2 => _items.where((item) => item.itemTemplate.isConsumable).toList(),
-      3 =>
-        _items
-            .where(
-              (item) =>
-                  !item.itemTemplate.isEquipment &&
-                  !item.itemTemplate.isConsumable,
-            )
-            .toList(),
+    final items = switch (_inventoryFilter) {
+      1 => _items.where((item) => item.itemTemplate.isEquipment),
+      2 => _items.where((item) => item.itemTemplate.isConsumable),
+      3 => _items.where(
+        (item) =>
+            !item.itemTemplate.isEquipment && !item.itemTemplate.isConsumable,
+      ),
       _ => _items,
+    };
+    return _sortInventoryItems(items);
+  }
+
+  List<OwnedInventoryItem> _sortInventoryItems(
+    Iterable<OwnedInventoryItem> source,
+  ) {
+    final indexedItems = source.toList().asMap().entries.toList();
+    indexedItems.sort((a, b) {
+      final rankCompare = _inventorySortRank(
+        a.value,
+      ).compareTo(_inventorySortRank(b.value));
+      if (rankCompare != 0) return rankCompare;
+      return a.key.compareTo(b.key);
+    });
+    return indexedItems.map((entry) => entry.value).toList();
+  }
+
+  int _inventorySortRank(OwnedInventoryItem item) {
+    if (!item.isEquipped || !item.itemTemplate.isEquipment) return 100;
+    return switch (item.itemTemplate.equipmentSlot) {
+      'sword' => 0,
+      'helmet' => 1,
+      'armor' => 2,
+      'shoes' => 3,
+      _ => 4,
     };
   }
 
@@ -607,11 +629,6 @@ class _InventoryPageState extends State<InventoryPage> {
                 ? Icon(_slotIcon(slot), color: kTextGray, size: 28)
                 : Stack(
                     children: [
-                      Positioned(
-                        top: 0,
-                        right: 0,
-                        child: _buildEquippedMarker(),
-                      ),
                       Positioned.fill(
                         bottom: 14,
                         child: Center(
@@ -622,6 +639,11 @@ class _InventoryPageState extends State<InventoryPage> {
                             fit: BoxFit.contain,
                           ),
                         ),
+                      ),
+                      Positioned(
+                        top: 0,
+                        left: 0,
+                        child: _buildEquippedMarker(),
                       ),
                       Positioned(
                         left: 1,
@@ -776,8 +798,6 @@ class _InventoryPageState extends State<InventoryPage> {
               ),
               child: Stack(
                 children: [
-                  if (item.isEquipped)
-                    Positioned(top: 2, right: 2, child: _buildEquippedMarker()),
                   Positioned.fill(
                     bottom: 15,
                     child: Center(
@@ -789,6 +809,8 @@ class _InventoryPageState extends State<InventoryPage> {
                       ),
                     ),
                   ),
+                  if (item.isEquipped)
+                    Positioned(top: 2, left: 2, child: _buildEquippedMarker()),
                   Positioned(
                     left: 2,
                     right: 2,
@@ -821,31 +843,17 @@ class _InventoryPageState extends State<InventoryPage> {
 
   Widget _buildEquippedMarker() {
     return Container(
-      height: 15,
-      padding: const EdgeInsets.symmetric(horizontal: 4),
+      width: 17,
+      height: 17,
       decoration: BoxDecoration(
         color: Color.alphaBlend(
           kGold.withValues(alpha: 0.24),
           Colors.black.withValues(alpha: 0.48),
         ),
-        borderRadius: BorderRadius.circular(4),
+        borderRadius: BorderRadius.circular(5),
         border: Border.all(color: kGold.withValues(alpha: 0.86), width: 1),
       ),
-      child: const Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(Icons.check_rounded, color: kGold, size: 10),
-          SizedBox(width: 1),
-          Text(
-            '장착',
-            style: TextStyle(
-              color: kGold,
-              fontSize: 8,
-              fontWeight: FontWeight.w900,
-            ),
-          ),
-        ],
-      ),
+      child: const Icon(Icons.check_rounded, color: kGold, size: 13),
     );
   }
 

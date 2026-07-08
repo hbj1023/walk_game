@@ -740,8 +740,6 @@ class _ShopPageState extends State<ShopPage> {
                         ),
                 ),
               ),
-              if (equipped)
-                Positioned(top: 1, right: 1, child: _buildEquippedMarker()),
               Positioned(
                 left: 2,
                 right: 2,
@@ -957,7 +955,7 @@ class _ShopPageState extends State<ShopPage> {
       return _buildTinyStateChip('잠김', Colors.white24);
     }
     if (equipped) {
-      return _buildTinyStateChip('장착', _kGold);
+      return _buildTinyStateChip('보유', _kGold);
     }
     if (owned) {
       return _buildTinyStateChip('보유', _kGold);
@@ -1022,36 +1020,6 @@ class _ShopPageState extends State<ShopPage> {
             fontWeight: FontWeight.bold,
           ),
         ),
-      ),
-    );
-  }
-
-  Widget _buildEquippedMarker() {
-    return Container(
-      height: 15,
-      padding: const EdgeInsets.symmetric(horizontal: 4),
-      decoration: BoxDecoration(
-        color: Color.alphaBlend(
-          _kGold.withValues(alpha: 0.24),
-          Colors.black.withValues(alpha: 0.48),
-        ),
-        borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: _kGold.withValues(alpha: 0.86), width: 1),
-      ),
-      child: const Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(Icons.check_rounded, color: _kGold, size: 10),
-          SizedBox(width: 1),
-          Text(
-            '장착',
-            style: TextStyle(
-              color: _kGold,
-              fontSize: 8,
-              fontWeight: FontWeight.w900,
-            ),
-          ),
-        ],
       ),
     );
   }
