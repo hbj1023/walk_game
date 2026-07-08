@@ -1156,11 +1156,11 @@ var recommendedCombatPowerByStage = map[int]int{
 	3:  230,
 	4:  280,
 	5:  360,
-	6:  520,
-	7:  650,
-	8:  800,
-	9:  950,
-	10: 1100,
+	6:  340,
+	7:  500,
+	8:  650,
+	9:  820,
+	10: 980,
 }
 
 func normalBattleExpReward(stageNo int, isBoss bool, progress stageProgressRecord, progressFound bool, characterCombatPower int) int {
