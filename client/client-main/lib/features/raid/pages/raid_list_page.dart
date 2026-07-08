@@ -802,7 +802,7 @@ class _RaidListPageState extends State<RaidListPage> {
   Widget _buildEntryRequirementText(RaidBoss boss) {
     final label = boss.isComingSoon
         ? '밸런스 준비중'
-        : '입장 기준 LV.${boss.recommendedLevel} · 4인 기준';
+        : '입장 LV.${boss.recommendedLevel} · 4인 · 클리어 주 1회';
     return Text(
       label,
       style: const TextStyle(

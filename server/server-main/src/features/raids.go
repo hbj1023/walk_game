@@ -21,6 +21,7 @@ const (
 	raidParticipantsCollection = "raid_participants"
 	raidInvitationsCollection  = "raid_invitations"
 	raidProgressCollection     = "raid_progress"
+	raidWeeklyClearsCollection = "raid_weekly_clears"
 	friendshipsCollection      = "friendships"
 	baseRaidAttackDistanceM    = 1000
 	baseRaidMonsterAttackM     = 1000
@@ -34,6 +35,8 @@ var raidParticipantHPMultipliers = map[int]float64{
 	3: 0.90,
 	4: 1.00,
 }
+
+var raidWeeklyLocation = time.FixedZone("Asia/Seoul", 9*60*60)
 
 var raidLocks sync.Map
 
@@ -484,6 +487,9 @@ func createRaid(ctx context.Context, token string, userID string, req raidCreate
 	if isRaidMonsterComingSoon(monster) {
 		return nil, statusError{status: http.StatusBadRequest, message: "raid monster is coming soon"}
 	}
+	if err := ensureRaidWeeklyClearAvailable(ctx, token, userID, monster.ID, time.Now()); err != nil {
+		return nil, err
+	}
 
 	payload := map[string]any{
 		"host_character":   req.HostCharacterID,
@@ -540,6 +546,9 @@ func joinRaid(ctx context.Context, token string, userID string, raidID string, c
 		return nil, err
 	}
 	if err := ensureRaidJoinable(ctx, token, raid, characterID); err != nil {
+		return nil, err
+	}
+	if err := ensureRaidWeeklyClearAvailable(ctx, token, character.User, raid.Monster, time.Now()); err != nil {
 		return nil, err
 	}
 
@@ -606,6 +615,9 @@ func startRaid(ctx context.Context, token string, userID string, raidID string, 
 	}
 	if len(activeParticipants.Items) == 0 {
 		return nil, statusError{status: http.StatusBadRequest, message: "raid has no active participants"}
+	}
+	if err := ensureRaidWeeklyClearAvailableForParticipants(ctx, token, raid.Monster, activeParticipants.Items, time.Now()); err != nil {
+		return nil, err
 	}
 	if raid.Status == "waiting" && len(activeParticipants.Items) != len(participants.Items) {
 		return nil, statusError{status: http.StatusBadRequest, message: "raid participants are not ready"}
@@ -799,6 +811,9 @@ func inviteRaidFriend(ctx context.Context, token string, userID string, raidID s
 	if err := ensureAcceptedFriend(ctx, token, userID, req.InvitedUserID); err != nil {
 		return nil, err
 	}
+	if err := ensureRaidWeeklyClearAvailable(ctx, token, req.InvitedUserID, raid.Monster, time.Now()); err != nil {
+		return nil, err
+	}
 	if exists, err := isUserAlreadyInRaid(ctx, token, raidID, req.InvitedUserID); err != nil {
 		return nil, err
 	} else if exists {
@@ -892,6 +907,9 @@ func acceptRaidInvitation(ctx context.Context, token string, userID string, invi
 		return nil, err
 	}
 	if err := ensureRaidJoinable(ctx, token, raid, characterID); err != nil {
+		return nil, err
+	}
+	if err := ensureRaidWeeklyClearAvailable(ctx, token, character.User, raid.Monster, time.Now()); err != nil {
 		return nil, err
 	}
 
@@ -1109,7 +1127,8 @@ func addRaidDistance(ctx context.Context, token string, userID string, raidID st
 	}
 	attackDistanceM := calculateRaidAttackDistance(teamAgility)
 
-	now := time.Now().UTC().Format(time.RFC3339)
+	nowTime := time.Now()
+	now := nowTime.UTC().Format(time.RFC3339)
 	nextTotalDistance := progress.TotalDistanceAccumulatedM + req.DistanceM
 	nextCycleDistance := progress.DistanceSinceLastAttackCycleM + req.DistanceM
 	attackCycles := int(math.Floor(nextCycleDistance / attackDistanceM))
@@ -1164,6 +1183,11 @@ func addRaidDistance(ctx context.Context, token string, userID string, raidID st
 	}
 	if nextProgressStatus == "cleared" || nextProgressStatus == "failed" {
 		if err := restoreRaidParticipantsHP(ctx, token, participants.Items); err != nil {
+			return nil, err
+		}
+	}
+	if nextProgressStatus == "cleared" {
+		if err := createRaidWeeklyClearsForParticipants(ctx, token, raid, participants.Items, nowTime); err != nil {
 			return nil, err
 		}
 	}
@@ -1626,6 +1650,141 @@ func ensureRaidEntryLevel(character battleCharacterRecord) error {
 		status:  http.StatusForbidden,
 		message: fmt.Sprintf("raid requires level %d", minRaidEntryLevel),
 	}
+}
+
+func raidWeekStartDate(now time.Time) string {
+	local := now.In(raidWeeklyLocation)
+	daysSinceMonday := (int(local.Weekday()) + 6) % 7
+	start := time.Date(local.Year(), local.Month(), local.Day(), 0, 0, 0, 0, raidWeeklyLocation).
+		AddDate(0, 0, -daysSinceMonday)
+	return start.Format("2006-01-02")
+}
+
+func ensureRaidWeeklyClearAvailable(
+	ctx context.Context,
+	token string,
+	userID string,
+	monsterID string,
+	now time.Time,
+) error {
+	cleared, err := hasRaidWeeklyClear(ctx, token, userID, monsterID, now)
+	if err != nil {
+		return err
+	}
+	if cleared {
+		return statusError{status: http.StatusConflict, message: "raid weekly clear already used"}
+	}
+	return nil
+}
+
+func ensureRaidWeeklyClearAvailableForParticipants(
+	ctx context.Context,
+	token string,
+	monsterID string,
+	participants []raidParticipantRecord,
+	now time.Time,
+) error {
+	for _, participant := range participants {
+		character, err := getBattleCharacterByID(ctx, token, participant.Character)
+		if err != nil {
+			return err
+		}
+		if err := ensureRaidWeeklyClearAvailable(ctx, token, character.User, monsterID, now); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func hasRaidWeeklyClear(ctx context.Context, token string, userID string, monsterID string, now time.Time) (bool, error) {
+	if strings.TrimSpace(userID) == "" || strings.TrimSpace(monsterID) == "" {
+		return false, nil
+	}
+	filter := fmt.Sprintf(
+		"user=%q && monster=%q && week_start=%q",
+		userID,
+		monsterID,
+		raidWeekStartDate(now),
+	)
+	query := url.Values{}
+	query.Set("filter", filter)
+	query.Set("perPage", "1")
+
+	resp, err := pocketBaseRequest(ctx, http.MethodGet, pocketBaseCollectionURL(raidWeeklyClearsCollection)+"?"+query.Encode(), token, nil)
+	if err != nil {
+		return false, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return false, mapPocketBaseError(resp, "failed to check raid weekly clear")
+	}
+
+	var list pocketBaseListResponse[raidWeeklyClearRecord]
+	if err := json.NewDecoder(resp.Body).Decode(&list); err != nil {
+		return false, errors.New("failed to parse raid weekly clear response")
+	}
+	return len(list.Items) > 0, nil
+}
+
+func createRaidWeeklyClearsForParticipants(
+	ctx context.Context,
+	token string,
+	raid raidRecord,
+	participants []raidParticipantRecord,
+	clearedAt time.Time,
+) error {
+	for _, participant := range participants {
+		if participant.JoinStatus != "joined" {
+			continue
+		}
+		character, err := getBattleCharacterByID(ctx, token, participant.Character)
+		if err != nil {
+			return err
+		}
+		if err := createRaidWeeklyClear(ctx, token, character.User, character.ID, raid.ID, raid.Monster, clearedAt); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func createRaidWeeklyClear(
+	ctx context.Context,
+	token string,
+	userID string,
+	characterID string,
+	raidID string,
+	monsterID string,
+	clearedAt time.Time,
+) error {
+	if strings.TrimSpace(userID) == "" || strings.TrimSpace(characterID) == "" || strings.TrimSpace(monsterID) == "" {
+		return nil
+	}
+	cleared, err := hasRaidWeeklyClear(ctx, token, userID, monsterID, clearedAt)
+	if err != nil {
+		return err
+	}
+	if cleared {
+		return nil
+	}
+
+	payload := map[string]any{
+		"user":       userID,
+		"character":  characterID,
+		"raid":       raidID,
+		"monster":    monsterID,
+		"week_start": raidWeekStartDate(clearedAt),
+		"cleared_at": clearedAt.UTC().Format(time.RFC3339),
+	}
+	resp, err := pocketBaseRequest(ctx, http.MethodPost, pocketBaseCollectionURL(raidWeeklyClearsCollection), token, payload)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return mapPocketBaseError(resp, "failed to create raid weekly clear")
+	}
+	return nil
 }
 
 func listRaidParticipantRecords(ctx context.Context, token string, raidID string) (pocketBaseListResponse[raidParticipantRecord], error) {

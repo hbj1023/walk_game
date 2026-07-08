@@ -50,6 +50,7 @@ type raidRecord = models.RaidRecord
 type raidParticipantRecord = models.RaidParticipantRecord
 type raidInvitationRecord = models.RaidInvitationRecord
 type raidProgressRecord = models.RaidProgressRecord
+type raidWeeklyClearRecord = models.RaidWeeklyClearRecord
 type missionRecord = models.MissionRecord
 type userMissionRecord = models.UserMissionRecord
 type statUpgradeRequest = models.StatUpgradeRequest

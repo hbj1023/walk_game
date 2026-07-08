@@ -67,3 +67,13 @@ type RaidProgressRecord struct {
 	StartedAt                       string  `json:"started_at"`
 	EndedAt                         string  `json:"ended_at"`
 }
+
+type RaidWeeklyClearRecord struct {
+	ID        string `json:"id"`
+	User      string `json:"user"`
+	Character string `json:"character"`
+	Raid      string `json:"raid"`
+	Monster   string `json:"monster"`
+	WeekStart string `json:"week_start"`
+	ClearedAt string `json:"cleared_at"`
+}
