@@ -499,6 +499,7 @@ class _ShopPageState extends State<ShopPage> {
       required ItemTemplate template,
       ShopItem? shopItem,
       required bool owned,
+      bool equipped = false,
     }) {
       if (!template.isEquipment) return;
       final slot = _equipmentPieceType(template);
@@ -522,18 +523,23 @@ class _ShopPageState extends State<ShopPage> {
         () => _EquipmentRarityRow(rarity: rarity),
       );
       final current = row.cells[slot];
-      if (current == null || owned || !current.owned) {
+      if (current == null || equipped || owned || !current.owned) {
         row.cells[slot] = _EquipmentShopCell(
           template: template,
           shopItem: shopItem,
           owned: owned,
+          equipped: equipped,
         );
       }
     }
 
     for (final item in _inventoryItems) {
       if (!item.itemTemplate.isEquipment || item.isRemoved) continue;
-      putCell(template: item.itemTemplate, owned: true);
+      putCell(
+        template: item.itemTemplate,
+        owned: true,
+        equipped: item.isEquipped,
+      );
     }
     for (final item in items) {
       if (_ownedEquipmentTemplateIds.contains(item.itemTemplate.id)) continue;
@@ -686,6 +692,7 @@ class _ShopPageState extends State<ShopPage> {
     final template = cell?.template;
     final shopItem = cell?.shopItem;
     final owned = cell?.owned ?? false;
+    final equipped = cell?.equipped ?? false;
     final canBuy =
         shopItem != null &&
         shopItem.isPurchaseUnlocked &&
@@ -694,6 +701,8 @@ class _ShopPageState extends State<ShopPage> {
     final rarity = template == null ? 'locked' : _equipmentRarity(template);
     final borderColor = template == null
         ? Colors.white24
+        : equipped
+        ? _kGold
         : _rarityColor(rarity).withValues(alpha: owned ? 0.45 : 0.9);
     final backgroundColor = template == null
         ? Colors.black.withValues(alpha: 0.30)
@@ -731,6 +740,8 @@ class _ShopPageState extends State<ShopPage> {
                         ),
                 ),
               ),
+              if (equipped)
+                Positioned(top: 1, right: 1, child: _buildEquippedMarker()),
               Positioned(
                 left: 2,
                 right: 2,
@@ -757,6 +768,7 @@ class _ShopPageState extends State<ShopPage> {
                     template: template,
                     shopItem: shopItem,
                     owned: owned,
+                    equipped: equipped,
                     canBuy: canBuy,
                   ),
                 ),
@@ -938,10 +950,14 @@ class _ShopPageState extends State<ShopPage> {
     required ItemTemplate? template,
     required ShopItem? shopItem,
     required bool owned,
+    required bool equipped,
     required bool canBuy,
   }) {
     if (template == null) {
       return _buildTinyStateChip('잠김', Colors.white24);
+    }
+    if (equipped) {
+      return _buildTinyStateChip('장착', _kGold);
     }
     if (owned) {
       return _buildTinyStateChip('보유', _kGold);
@@ -1006,6 +1022,36 @@ class _ShopPageState extends State<ShopPage> {
             fontWeight: FontWeight.bold,
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildEquippedMarker() {
+    return Container(
+      height: 15,
+      padding: const EdgeInsets.symmetric(horizontal: 4),
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          _kGold.withValues(alpha: 0.24),
+          Colors.black.withValues(alpha: 0.48),
+        ),
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(color: _kGold.withValues(alpha: 0.86), width: 1),
+      ),
+      child: const Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.check_rounded, color: _kGold, size: 10),
+          SizedBox(width: 1),
+          Text(
+            '장착',
+            style: TextStyle(
+              color: _kGold,
+              fontSize: 8,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -1399,10 +1445,12 @@ class _EquipmentShopCell {
   final ItemTemplate template;
   final ShopItem? shopItem;
   final bool owned;
+  final bool equipped;
 
   const _EquipmentShopCell({
     required this.template,
     required this.shopItem,
     required this.owned,
+    required this.equipped,
   });
 }

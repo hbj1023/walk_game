@@ -607,6 +607,11 @@ class _InventoryPageState extends State<InventoryPage> {
                 ? Icon(_slotIcon(slot), color: kTextGray, size: 28)
                 : Stack(
                     children: [
+                      Positioned(
+                        top: 0,
+                        right: 0,
+                        child: _buildEquippedMarker(),
+                      ),
                       Positioned.fill(
                         bottom: 14,
                         child: Center(
@@ -771,6 +776,8 @@ class _InventoryPageState extends State<InventoryPage> {
               ),
               child: Stack(
                 children: [
+                  if (item.isEquipped)
+                    Positioned(top: 2, right: 2, child: _buildEquippedMarker()),
                   Positioned.fill(
                     bottom: 15,
                     child: Center(
@@ -808,6 +815,36 @@ class _InventoryPageState extends State<InventoryPage> {
             ),
           );
         },
+      ),
+    );
+  }
+
+  Widget _buildEquippedMarker() {
+    return Container(
+      height: 15,
+      padding: const EdgeInsets.symmetric(horizontal: 4),
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          kGold.withValues(alpha: 0.24),
+          Colors.black.withValues(alpha: 0.48),
+        ),
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(color: kGold.withValues(alpha: 0.86), width: 1),
+      ),
+      child: const Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.check_rounded, color: kGold, size: 10),
+          SizedBox(width: 1),
+          Text(
+            '장착',
+            style: TextStyle(
+              color: kGold,
+              fontSize: 8,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+        ],
       ),
     );
   }
