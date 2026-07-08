@@ -7,6 +7,7 @@ import 'package:capstone_app/services/game_api_service.dart';
 import 'package:capstone_app/services/game_state.dart';
 import 'package:capstone_app/features/raid/pages/raid_battle_page.dart';
 import 'package:capstone_app/widgets/profile_icon_catalog.dart';
+import 'package:capstone_app/widgets/user_profile_avatar.dart';
 
 const _kLobbyBg = Color(0xFF1A1008);
 const _kLobbyBorder = Color(0xFF6B3A1F);
@@ -503,7 +504,11 @@ class _RaidLobbyPageState extends State<RaidLobbyPage> {
                           size: 32,
                         ),
                       )
-                    : null,
+                    : UserProfileAvatar(
+                        profileImage: participant.profileImage,
+                        size: 32,
+                        showFrame: false,
+                      ),
               );
             }),
         ],
@@ -532,6 +537,11 @@ class _RaidLobbyPageState extends State<RaidLobbyPage> {
                 subtitle: '초대 수락 대기중',
                 trailing: _isHost ? '취소' : '대기중',
                 color: _kLobbyGold,
+                leading: UserProfileAvatar(
+                  profileImage: invitation.invitedUserProfileImage,
+                  size: 32,
+                  showFrame: false,
+                ),
                 onTap: _isHost ? () => _cancelInvitation(invitation) : null,
               ),
             ),

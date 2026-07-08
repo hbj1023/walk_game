@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import 'package:capstone_app/models/raid_boss.dart';
+import 'package:capstone_app/models/profile_image_info.dart';
 import 'package:capstone_app/services/auth_service.dart';
 import 'package:capstone_app/services/friendship_service.dart';
 import 'package:capstone_app/services/game_api_service.dart';
@@ -17,6 +18,7 @@ import 'package:capstone_app/features/shop/pages/shop_page.dart';
 import 'package:capstone_app/widgets/character_stats_panel.dart';
 import 'package:capstone_app/widgets/player_level_badge.dart';
 import 'package:capstone_app/widgets/pixel_bottom_nav.dart';
+import 'package:capstone_app/widgets/user_profile_avatar.dart';
 
 // ─── 색상 상수 ────────────────────────────────────────────────────────────────
 
@@ -1365,6 +1367,9 @@ class _PartySheetState extends State<_PartySheet> {
               icon: Icons.person,
               color: const Color(0xFF4DA6FF),
               isMe: true,
+              fallbackIconKey: GameState.instance.profileIconKey,
+              fallbackCustomImageDataUrl:
+                  GameState.instance.profileImageDataUrl,
             );
           }
           final friendIndex = i - 1;
@@ -1374,6 +1379,7 @@ class _PartySheetState extends State<_PartySheet> {
               label: entry.value.displayName,
               icon: Icons.person,
               color: const Color(0xFFF0C040),
+              profileImage: entry.value.profileImage,
               onRemove: () => _toggle(entry.key),
             );
           }
@@ -1395,6 +1401,9 @@ class _PartySheetState extends State<_PartySheet> {
     required Color color,
     bool isMe = false,
     bool isEmpty = false,
+    ProfileImageInfo? profileImage,
+    String fallbackIconKey = 'vanguard',
+    String? fallbackCustomImageDataUrl,
     VoidCallback? onTap,
     VoidCallback? onRemove,
   }) {
@@ -1408,29 +1417,34 @@ class _PartySheetState extends State<_PartySheet> {
             Stack(
               clipBehavior: Clip.none,
               children: [
-                Container(
-                  width: 52,
-                  height: 52,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: isEmpty
-                        ? Colors.white.withValues(alpha: 0.05)
-                        : color.withValues(alpha: 0.15),
-                    border: Border.all(
-                      color: isEmpty && onTap != null
-                          ? const Color(0xFF4DA6FF).withValues(alpha: 0.55)
-                          : (isEmpty ? Colors.white12 : color),
-                      width: isEmpty ? 1 : 2,
+                if (isEmpty)
+                  Container(
+                    width: 52,
+                    height: 52,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: Colors.white.withValues(alpha: 0.05),
+                      border: Border.all(
+                        color: onTap != null
+                            ? const Color(0xFF4DA6FF).withValues(alpha: 0.55)
+                            : Colors.white12,
+                      ),
                     ),
+                    child: Icon(
+                      icon,
+                      color: onTap != null
+                          ? const Color(0xFF4DA6FF).withValues(alpha: 0.7)
+                          : Colors.white24,
+                      size: 26,
+                    ),
+                  )
+                else
+                  UserProfileAvatar(
+                    profileImage: profileImage,
+                    fallbackIconKey: fallbackIconKey,
+                    fallbackCustomImageDataUrl: fallbackCustomImageDataUrl,
+                    size: 52,
                   ),
-                  child: Icon(
-                    icon,
-                    color: isEmpty && onTap != null
-                        ? const Color(0xFF4DA6FF).withValues(alpha: 0.7)
-                        : (isEmpty ? Colors.white24 : color),
-                    size: 26,
-                  ),
-                ),
                 if (onRemove != null)
                   Positioned(
                     top: -4,
@@ -1614,7 +1628,7 @@ class _PartySheetState extends State<_PartySheet> {
         ),
         child: Row(
           children: [
-            const Icon(Icons.person, color: Color(0xFFF0C040), size: 22),
+            UserProfileAvatar(profileImage: friend.profileImage, size: 38),
             const SizedBox(width: 10),
             Expanded(
               child: Column(
@@ -1680,12 +1694,13 @@ class _PartySheetState extends State<_PartySheet> {
         ),
         child: Row(
           children: [
-            Icon(
-              Icons.person,
-              color: selected
-                  ? const Color(0xFFF0C040)
-                  : (atMax ? Colors.white24 : Colors.white54),
-              size: 20,
+            Opacity(
+              opacity: atMax ? 0.45 : 1,
+              child: UserProfileAvatar(
+                profileImage: friend.profileImage,
+                size: 38,
+                selected: selected,
+              ),
             ),
             const SizedBox(width: 10),
             Expanded(

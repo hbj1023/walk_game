@@ -4,6 +4,8 @@ import 'dart:io';
 
 import 'package:http/http.dart' as http;
 
+import 'package:capstone_app/models/profile_image_info.dart';
+
 import 'api_config.dart';
 import 'auth_service.dart';
 
@@ -13,6 +15,7 @@ class FriendUser {
   final String name;
   final String nickname;
   final String username;
+  final ProfileImageInfo? profileImage;
 
   const FriendUser({
     required this.id,
@@ -20,6 +23,7 @@ class FriendUser {
     required this.name,
     required this.nickname,
     required this.username,
+    this.profileImage,
   });
 
   factory FriendUser.fromJson(Map<String, dynamic> json) {
@@ -29,6 +33,7 @@ class FriendUser {
       name: _asString(json['name']),
       nickname: _asString(json['nickname']),
       username: _asString(json['username']),
+      profileImage: ProfileImageInfo.fromJson(json['profile_image']),
     );
   }
 

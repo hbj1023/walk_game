@@ -4,6 +4,8 @@ import 'dart:io';
 
 import 'package:http/http.dart' as http;
 
+import 'package:capstone_app/models/profile_image_info.dart';
+
 import 'api_config.dart';
 import 'auth_service.dart';
 import 'equipment_image_resolver.dart';
@@ -701,6 +703,7 @@ class RaidParticipantInfo {
   final String userNickname;
   final String userUsername;
   final String userEmail;
+  final ProfileImageInfo? profileImage;
   final int characterCurrentHp;
   final int characterMaxHp;
 
@@ -717,6 +720,7 @@ class RaidParticipantInfo {
     required this.userNickname,
     required this.userUsername,
     required this.userEmail,
+    this.profileImage,
     required this.characterCurrentHp,
     required this.characterMaxHp,
   });
@@ -754,6 +758,9 @@ class RaidParticipantInfo {
         _asString(json['user_email']),
         _asString(userMap['email']),
       ]),
+      profileImage: ProfileImageInfo.fromJson(
+        json['profile_image'] ?? userMap['profile_image'],
+      ),
       characterCurrentHp: _asInt(json['character_current_hp']),
       characterMaxHp: _asInt(json['character_max_hp']),
     );
@@ -904,6 +911,8 @@ class RaidInvitationInfo {
   final String inviterEmail;
   final String invitedUserName;
   final String invitedUserEmail;
+  final ProfileImageInfo? inviterProfileImage;
+  final ProfileImageInfo? invitedUserProfileImage;
 
   const RaidInvitationInfo({
     required this.id,
@@ -917,6 +926,8 @@ class RaidInvitationInfo {
     required this.inviterEmail,
     required this.invitedUserName,
     required this.invitedUserEmail,
+    this.inviterProfileImage,
+    this.invitedUserProfileImage,
   });
 
   factory RaidInvitationInfo.fromJson(Map<String, dynamic> json) {
@@ -963,6 +974,13 @@ class RaidInvitationInfo {
         _asString(invitedUserMap['username']),
       ]),
       invitedUserEmail: _asString(invitedUserMap['email']),
+      inviterProfileImage: ProfileImageInfo.fromJson(
+        inviterUserMap['profile_image'] ??
+            directInviterUserMap['profile_image'],
+      ),
+      invitedUserProfileImage: ProfileImageInfo.fromJson(
+        invitedUserMap['profile_image'],
+      ),
     );
   }
 

@@ -980,6 +980,10 @@ func listRaidInvitations(ctx context.Context, token string, userID string) (pock
 			activeInvitations = append(activeInvitations, invitation)
 		}
 	}
+	activeInvitations, err = hydrateRaidInvitationUsers(ctx, token, activeInvitations)
+	if err != nil {
+		return pocketBaseListResponse[map[string]any]{}, err
+	}
 	invitations.Items = activeInvitations
 	invitations.TotalItems = len(activeInvitations)
 	return invitations, nil
@@ -987,7 +991,15 @@ func listRaidInvitations(ctx context.Context, token string, userID string) (pock
 
 func listPendingRaidInvitationsByRaid(ctx context.Context, token string, raidID string) (pocketBaseListResponse[map[string]any], error) {
 	filter := fmt.Sprintf("raid=%q && status=%q", raidID, "pending")
-	return listCollectionRecords(ctx, token, raidInvitationsCollection, filter, "invited_user,inviter_character", "invited_at,created")
+	invitations, err := listCollectionRecords(ctx, token, raidInvitationsCollection, filter, "invited_user,inviter_character", "invited_at,created")
+	if err != nil {
+		return pocketBaseListResponse[map[string]any]{}, err
+	}
+	invitations.Items, err = hydrateRaidInvitationUsers(ctx, token, invitations.Items)
+	if err != nil {
+		return pocketBaseListResponse[map[string]any]{}, err
+	}
+	return invitations, nil
 }
 
 func ensureRaidInvitationStillActive(ctx context.Context, token string, invitation map[string]any) (bool, error) {
@@ -1364,6 +1376,7 @@ func raidParticipantSummaries(ctx context.Context, token string, participants []
 			"user_nickname":             stringField(user, "nickname"),
 			"user_username":             stringField(user, "username"),
 			"user_email":                stringField(user, "email"),
+			"profile_image":             user["profile_image"],
 			"character_name":            character.Name,
 			"character_current_hp":      character.CurrentHP,
 			"character_max_hp":          stats.HP,
@@ -1373,7 +1386,7 @@ func raidParticipantSummaries(ctx context.Context, token string, participants []
 }
 
 func getRaidParticipantUser(ctx context.Context, token string, userID string) (map[string]any, error) {
-	resp, err := pocketBaseRequest(ctx, http.MethodGet, pocketBaseRecordURL(usersCollection, userID), token, nil)
+	resp, err := pocketBaseRequest(ctx, http.MethodGet, pocketBaseRecordURL(usersCollection, userID)+"?expand=profile_emote", token, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -1385,7 +1398,63 @@ func getRaidParticipantUser(ctx context.Context, token string, userID string) (m
 	if err := json.NewDecoder(resp.Body).Decode(&user); err != nil {
 		return nil, errors.New("failed to parse raid participant user response")
 	}
-	return user, nil
+	return sanitizeProfileUser(user), nil
+}
+
+func hydrateRaidInvitationUsers(ctx context.Context, token string, items []map[string]any) ([]map[string]any, error) {
+	userCache := map[string]map[string]any{}
+	getUser := func(userID string) (map[string]any, error) {
+		userID = strings.TrimSpace(userID)
+		if userID == "" {
+			return map[string]any{}, nil
+		}
+		if user, ok := userCache[userID]; ok {
+			return user, nil
+		}
+		user, err := getRaidParticipantUser(ctx, token, userID)
+		if err != nil {
+			return nil, err
+		}
+		userCache[userID] = user
+		return user, nil
+	}
+
+	for i, item := range items {
+		expand, _ := item["expand"].(map[string]any)
+		if expand == nil {
+			expand = map[string]any{}
+		}
+
+		if invitedUserID := stringField(item, "invited_user"); invitedUserID != "" {
+			user, err := getUser(invitedUserID)
+			if err != nil {
+				return nil, err
+			}
+			expand["invited_user"] = user
+		}
+
+		inviterCharacter, _ := expand["inviter_character"].(map[string]any)
+		if inviterCharacter != nil {
+			if inviterUserID := stringField(inviterCharacter, "user"); inviterUserID != "" {
+				user, err := getUser(inviterUserID)
+				if err != nil {
+					return nil, err
+				}
+				characterExpand, _ := inviterCharacter["expand"].(map[string]any)
+				if characterExpand == nil {
+					characterExpand = map[string]any{}
+				}
+				characterExpand["user"] = user
+				inviterCharacter["expand"] = characterExpand
+				expand["inviter_character"] = inviterCharacter
+				expand["inviter_character.user"] = user
+			}
+		}
+
+		item["expand"] = expand
+		items[i] = item
+	}
+	return items, nil
 }
 
 func raidLobbyPath(raidID string) string {

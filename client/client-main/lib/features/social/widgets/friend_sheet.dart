@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'package:capstone_app/services/friendship_service.dart';
+import 'package:capstone_app/widgets/user_profile_avatar.dart';
 
 class FriendSheet extends StatefulWidget {
   const FriendSheet({super.key});
@@ -278,6 +279,7 @@ class _FriendSheetState extends State<FriendSheet> {
         itemBuilder: (context, index) {
           final user = _searchResults[index];
           return _FriendUserRow(
+            user: user,
             title: user.displayName,
             subtitle: user.subtitle,
             leadingIcon: Icons.person_add_alt_1,
@@ -363,6 +365,7 @@ class _FriendSheetState extends State<FriendSheet> {
           itemBuilder: (record) {
             final user = record.otherUser(userId);
             return _FriendUserRow(
+              user: user,
               title: user.displayName,
               subtitle: user.subtitle,
               leadingIcon: Icons.people_outline,
@@ -394,6 +397,7 @@ class _FriendSheetState extends State<FriendSheet> {
           itemBuilder: (record) {
             final user = record.requestSender;
             return _FriendUserRow(
+              user: user,
               title: user.displayName,
               subtitle: user.subtitle,
               leadingIcon: Icons.mark_email_unread_outlined,
@@ -433,6 +437,7 @@ class _FriendSheetState extends State<FriendSheet> {
           itemBuilder: (record) {
             final user = record.otherUser(userId);
             return _FriendUserRow(
+              user: user,
               title: user.displayName,
               subtitle: user.subtitle,
               leadingIcon: Icons.outgoing_mail,
@@ -456,6 +461,7 @@ class _FriendSheetState extends State<FriendSheet> {
           itemBuilder: (record) {
             final user = record.otherUser(userId);
             return _FriendUserRow(
+              user: user,
               title: user.displayName,
               subtitle: user.subtitle,
               leadingIcon: Icons.block,
@@ -546,12 +552,14 @@ class _FriendEmptyState extends StatelessWidget {
 
 class _FriendUserRow extends StatelessWidget {
   const _FriendUserRow({
+    required this.user,
     required this.title,
     required this.subtitle,
     required this.leadingIcon,
     required this.actions,
   });
 
+  final FriendUser user;
   final String title;
   final String subtitle;
   final IconData leadingIcon;
@@ -561,15 +569,14 @@ class _FriendUserRow extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        Container(
-          width: 34,
-          height: 34,
-          decoration: BoxDecoration(
-            color: const Color(0xFF4DA6FF).withValues(alpha: 0.14),
-            borderRadius: BorderRadius.circular(9),
-            border: Border.all(color: const Color(0xFF4DA6FF)),
-          ),
-          child: Icon(leadingIcon, color: const Color(0xFF4DA6FF), size: 18),
+        Stack(
+          alignment: Alignment.center,
+          children: [
+            UserProfileAvatar(profileImage: user.profileImage, size: 38),
+            if (user.profileImage == null ||
+                !user.profileImage!.hasDisplayImage)
+              Icon(leadingIcon, color: const Color(0xFF4DA6FF), size: 15),
+          ],
         ),
         const SizedBox(width: 10),
         Expanded(
