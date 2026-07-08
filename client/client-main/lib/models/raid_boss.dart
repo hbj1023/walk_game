@@ -18,6 +18,7 @@ class RaidBoss {
   final String? imagePath;
   final String? iconPath;
   final String? bgPath;
+  final bool isComingSoon;
 
   const RaidBoss({
     this.id = '',
@@ -35,18 +36,20 @@ class RaidBoss {
     this.imagePath,
     this.iconPath,
     this.bgPath,
+    this.isComingSoon = false,
   });
 
   factory RaidBoss.fromMonster(RaidMonsterInfo monster) {
     final normalizedName = monster.name.trim();
     final asset = _raidBossAsset(normalizedName);
+    final comingSoon = _raidBossComingSoon(normalizedName);
     return RaidBoss(
       id: monster.id,
       name: normalizedName.isEmpty ? '레이드 보스' : normalizedName,
       recommendedLevel: _raidRecommendedLevel(monster),
       recommendedCombatPower: _raidRecommendedCombatPower(monster),
       difficulty: _raidDifficulty(monster),
-      isLocked: false,
+      isLocked: comingSoon,
       hp: monster.hp,
       attack: monster.attack,
       defense: monster.defense,
@@ -55,6 +58,7 @@ class RaidBoss {
       rewardCoinMax: monster.rewardCoinMax,
       iconPath: asset.iconPath,
       bgPath: asset.bgPath,
+      isComingSoon: comingSoon,
     );
   }
 }
@@ -94,9 +98,14 @@ int _raidDifficulty(RaidMonsterInfo monster) {
 
 int _raidRecommendedLevel(RaidMonsterInfo _) => 5;
 
-const _kMinimumRaidRecommendedCombatPower = 360;
+const _kMinimumRaidRecommendedCombatPower = 980;
+const _kGolemRaidRecommendedCombatPower = 1100;
 
 int _raidRecommendedCombatPower(RaidMonsterInfo monster) {
+  final name = monster.name.trim();
+  if (name.contains('와이번')) return 0;
+  if (name.contains('골렘')) return _kGolemRaidRecommendedCombatPower;
+
   final monsterPower =
       (monster.hp / 3 +
               monster.attack * 8 +
@@ -108,3 +117,5 @@ int _raidRecommendedCombatPower(RaidMonsterInfo monster) {
   // the first raid from reading weaker than the chapter 1 boss gate.
   return math.max(_kMinimumRaidRecommendedCombatPower, monsterPower * 2);
 }
+
+bool _raidBossComingSoon(String name) => name.contains('와이번');

@@ -1574,6 +1574,7 @@ String _localizeApiMessage(String message) {
     'raid progress is already finished' => '이미 종료된 레이드입니다.',
     'raid is not waiting for invitations' => '초대 가능한 레이드 상태가 아닙니다.',
     'raid is not waiting for participants' => '이미 시작되었거나 참가할 수 없는 레이드입니다.',
+    'raid monster is coming soon' => '해당 레이드는 준비중입니다.',
     'raid host left' => '파티장이 나가 레이드 방이 해체되었습니다.',
     'only raid host can invite users' => '레이드 방장만 초대할 수 있습니다.',
     'only raid host can start raids' => '파티장만 전투를 시작할 수 있습니다.',

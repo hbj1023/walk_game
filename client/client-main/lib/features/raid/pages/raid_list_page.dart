@@ -772,7 +772,7 @@ class _RaidListPageState extends State<RaidListPage> {
   }
 
   Widget _buildBossInfo(RaidBoss boss) {
-    final isRed = boss.isLocked;
+    final isRed = boss.isLocked || boss.isComingSoon;
     return Padding(
       padding: const EdgeInsets.fromLTRB(12, 10, 10, 10),
       child: Column(
@@ -789,19 +789,26 @@ class _RaidListPageState extends State<RaidListPage> {
           const SizedBox(height: 6),
           _buildDifficultyRow(boss.difficulty, isRed),
           const SizedBox(height: 5),
-          Text(
-            '입장 기준 LV.${boss.recommendedLevel}',
-            style: const TextStyle(
-              color: Colors.white54,
-              fontSize: 11,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
+          _buildEntryRequirementText(boss),
           const SizedBox(height: 5),
           _buildRecommendedPowerBadge(boss, isRed),
           const SizedBox(height: 8),
           _buildStatusRow(boss),
         ],
+      ),
+    );
+  }
+
+  Widget _buildEntryRequirementText(RaidBoss boss) {
+    final label = boss.isComingSoon
+        ? '밸런스 준비중'
+        : '입장 기준 LV.${boss.recommendedLevel} · 4인 기준';
+    return Text(
+      label,
+      style: const TextStyle(
+        color: Colors.white54,
+        fontSize: 11,
+        fontWeight: FontWeight.bold,
       ),
     );
   }
@@ -832,6 +839,9 @@ class _RaidListPageState extends State<RaidListPage> {
 
   Widget _buildRecommendedPowerBadge(RaidBoss boss, bool muted) {
     final color = muted ? Colors.white54 : _kGold;
+    final label = boss.isComingSoon
+        ? '전투력 측정 준비중'
+        : '권장 전투력 ${_formatRaidNumber(boss.recommendedCombatPower)}';
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
@@ -847,21 +857,12 @@ class _RaidListPageState extends State<RaidListPage> {
         children: [
           Image.asset('assets/images/icon/atk.png', width: 13, height: 13),
           const SizedBox(width: 5),
-          const Text(
-            '권장 전투력',
+          Text(
+            label,
             style: TextStyle(
               color: Colors.white70,
               fontSize: 11,
               fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(width: 5),
-          Text(
-            _formatRaidNumber(boss.recommendedCombatPower),
-            style: TextStyle(
-              color: color,
-              fontSize: 12,
-              fontWeight: FontWeight.w900,
             ),
           ),
         ],
@@ -870,6 +871,23 @@ class _RaidListPageState extends State<RaidListPage> {
   }
 
   Widget _buildStatusRow(RaidBoss boss) {
+    if (boss.isComingSoon) {
+      return Container(
+        decoration: BoxDecoration(
+          color: Colors.black.withValues(alpha: 0.4),
+          borderRadius: BorderRadius.circular(4),
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+        child: const Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.construction, color: Colors.white54, size: 13),
+            SizedBox(width: 4),
+            Text('준비중', style: TextStyle(color: Colors.white54, fontSize: 11)),
+          ],
+        ),
+      );
+    }
     if (_gs.level < boss.recommendedLevel) {
       return Container(
         decoration: BoxDecoration(
@@ -937,6 +955,10 @@ class _RaidListPageState extends State<RaidListPage> {
       _showMessage('레이드 보스 정보를 불러오는 중입니다.');
       return;
     }
+    if (boss.isComingSoon) {
+      _showMessage('${boss.name} 레이드는 준비중입니다.');
+      return;
+    }
     if (_gs.level < _kRaidMinimumLevel) {
       _showMessage('레이드는 $_kRaidMinimumLevel레벨부터 입장할 수 있습니다.');
       return;
@@ -992,6 +1014,8 @@ class _RaidListPageState extends State<RaidListPage> {
               Text(
                 _startingRaid
                     ? '레이드 생성 중'
+                    : boss?.isComingSoon == true
+                    ? '준비중'
                     : levelLocked
                     ? '입장 Lv.$_kRaidMinimumLevel 필요'
                     : '파티 구성',

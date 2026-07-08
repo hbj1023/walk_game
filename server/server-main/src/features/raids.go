@@ -28,6 +28,13 @@ const (
 	minRaidEntryLevel          = 5
 )
 
+var raidParticipantHPMultipliers = map[int]float64{
+	1: 0.70,
+	2: 0.80,
+	3: 0.90,
+	4: 1.00,
+}
+
 var raidLocks sync.Map
 
 func raidsHandler(w http.ResponseWriter, r *http.Request) {
@@ -474,6 +481,9 @@ func createRaid(ctx context.Context, token string, userID string, req raidCreate
 	if monster.MonsterType != "raid" {
 		return nil, statusError{status: http.StatusBadRequest, message: "monster is not raid type"}
 	}
+	if isRaidMonsterComingSoon(monster) {
+		return nil, statusError{status: http.StatusBadRequest, message: "raid monster is coming soon"}
+	}
 
 	payload := map[string]any{
 		"host_character":   req.HostCharacterID,
@@ -613,10 +623,20 @@ func startRaid(ctx context.Context, token string, userID string, raidID string, 
 	if progress.Status == "waiting" || raid.Status == "waiting" {
 		now := time.Now().UTC().Format(time.RFC3339)
 		if progress.Status == "waiting" {
-			updatedProgress, err = patchRaidProgress(ctx, token, progress.ID, map[string]any{
-				"status":     "in_progress",
-				"started_at": now,
-			})
+			monster, err := getMonsterByID(ctx, token, raid.Monster)
+			if err != nil {
+				return nil, err
+			}
+			if isRaidMonsterComingSoon(monster) {
+				return nil, statusError{status: http.StatusBadRequest, message: "raid monster is coming soon"}
+			}
+			participantsScaledHP := raidMonsterScaledHP(monster, len(activeParticipants.Items))
+			progressPayload := map[string]any{
+				"monster_current_hp": participantsScaledHP,
+				"status":             "in_progress",
+				"started_at":         now,
+			}
+			updatedProgress, err = patchRaidProgress(ctx, token, progress.ID, progressPayload)
 			if err != nil {
 				return nil, err
 			}
@@ -1900,6 +1920,25 @@ func raidMonsterInitialHP(monster monsterRecord) int {
 	}
 	// TODO: Remove this fallback after every raid monster has hp configured in PocketBase.
 	return defaultRaidMonsterHP
+}
+
+func raidMonsterScaledHP(monster monsterRecord, participantCount int) int {
+	baseHP := raidMonsterInitialHP(monster)
+	if participantCount <= 1 {
+		return int(math.Round(float64(baseHP) * raidParticipantHPMultipliers[1]))
+	}
+	if participantCount >= 4 {
+		return baseHP
+	}
+	multiplier, ok := raidParticipantHPMultipliers[participantCount]
+	if !ok {
+		return baseHP
+	}
+	return int(math.Round(float64(baseHP) * multiplier))
+}
+
+func isRaidMonsterComingSoon(monster monsterRecord) bool {
+	return strings.Contains(strings.TrimSpace(monster.Name), "와이번")
 }
 
 func calculateRaidCycleDamage(
