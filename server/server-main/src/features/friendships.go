@@ -213,6 +213,9 @@ func createFriendRequest(ctx context.Context, token string, requesterUserID stri
 	if requesterUserID == targetUserID {
 		return nil, statusError{status: http.StatusBadRequest, message: "cannot request friendship with yourself"}
 	}
+	if _, err := getFriendRequestTargetUser(ctx, token, targetUserID); err != nil {
+		return nil, err
+	}
 
 	low, high := orderedUserPair(requesterUserID, targetUserID)
 	friendship, exists, err := getFriendshipBetweenUsers(ctx, token, low, high)
@@ -257,7 +260,7 @@ func createFriendRequest(ctx context.Context, token string, requesterUserID stri
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return nil, mapPocketBaseError(resp, "failed to create friendship")
+		return nil, friendRequestPocketBaseError(resp, "friend request could not be saved")
 	}
 
 	var record map[string]any
@@ -266,6 +269,29 @@ func createFriendRequest(ctx context.Context, token string, requesterUserID stri
 	}
 	createNotificationBestEffort(ctx, token, friendRequestNotification(requesterUserID, targetUserID, mapString(record["id"])))
 	return record, nil
+}
+
+func getFriendRequestTargetUser(ctx context.Context, token string, userID string) (map[string]any, error) {
+	user, err := getFriendUserMap(ctx, token, userID)
+	if err != nil {
+		var statusErr statusError
+		if errors.As(err, &statusErr) && statusErr.status == http.StatusNotFound {
+			return nil, statusError{status: http.StatusNotFound, message: "target user not found"}
+		}
+		return nil, err
+	}
+	if stringField(user, "id") == "" {
+		return nil, statusError{status: http.StatusNotFound, message: "target user not found"}
+	}
+	return user, nil
+}
+
+func friendRequestPocketBaseError(resp *http.Response, fallback string) error {
+	err := mapPocketBaseError(resp, fallback)
+	if err.Error() == "Something went wrong while processing your request." {
+		return statusError{status: statusCodeForError(err, http.StatusBadRequest), message: fallback}
+	}
+	return err
 }
 
 func updateFriendshipRequest(ctx context.Context, token string, userID string, friendshipID string, status string, mustBeReceiver bool) (map[string]any, error) {
@@ -382,16 +408,25 @@ func searchUsers(ctx context.Context, token string, currentUserID string, query 
 		return []map[string]any{}, nil
 	}
 
-	filter := fmt.Sprintf(
+	nicknameFilter := fmt.Sprintf(
 		"id!=%q && (email~%q || name~%q || nickname~%q)",
 		currentUserID,
 		query,
 		query,
 		query,
 	)
-	list, err := listCollectionRecords(ctx, token, usersCollection, filter, "profile_emote", "nickname,name,email")
+	list, err := listCollectionRecords(ctx, token, usersCollection, nicknameFilter, "profile_emote", "nickname,name,email")
 	if err != nil {
-		list, err = listCollectionRecords(ctx, token, usersCollection, filter, "", "nickname,name,email")
+		list, err = listCollectionRecords(ctx, token, usersCollection, nicknameFilter, "", "nickname,name,email")
+	}
+	if err != nil {
+		baseFilter := fmt.Sprintf(
+			"id!=%q && (email~%q || name~%q)",
+			currentUserID,
+			query,
+			query,
+		)
+		list, err = listCollectionRecords(ctx, token, usersCollection, baseFilter, "", "name,email")
 	}
 	if err != nil {
 		return nil, err

@@ -313,6 +313,11 @@ String _asString(dynamic value) {
 
 String _friendlyMessage(String message) {
   switch (message) {
+    case 'Something went wrong while processing your request.':
+    case 'friend request could not be saved':
+      return '친구 요청을 처리하지 못했습니다. 잠시 후 다시 시도해주세요.';
+    case 'target user not found':
+      return '친구 요청을 보낼 사용자를 찾지 못했습니다.';
     case 'cannot request friendship with yourself':
       return '자기 자신에게는 친구 요청을 보낼 수 없습니다.';
     case 'friend request already pending':
