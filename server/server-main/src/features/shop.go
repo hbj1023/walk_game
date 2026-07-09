@@ -184,6 +184,9 @@ func listAvailableShopItems(ctx context.Context, token string, shopID string, ch
 		}
 		list.Items = filtered
 	}
+	if err := enrichItemTemplatesWithSetBonuses(ctx, token, list.Items); err != nil {
+		return pocketBaseListResponse[map[string]any]{}, err
+	}
 	list.Page = 1
 	list.PerPage = len(list.Items)
 	list.TotalItems = len(list.Items)

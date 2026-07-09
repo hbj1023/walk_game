@@ -28,6 +28,7 @@ class ItemTemplate {
   final String setKey;
   final String setPieceType;
   final String imagePath;
+  final String description;
   final String rarity;
   final int recoverHp;
   final int baseHp;
@@ -36,6 +37,7 @@ class ItemTemplate {
   final int baseAgility;
   final int priceCoin;
   final bool isActive;
+  final List<EquipmentSetBonusInfo> setBonuses;
 
   const ItemTemplate({
     required this.id,
@@ -46,6 +48,7 @@ class ItemTemplate {
     required this.setKey,
     required this.setPieceType,
     required this.imagePath,
+    required this.description,
     required this.rarity,
     required this.recoverHp,
     required this.baseHp,
@@ -54,6 +57,7 @@ class ItemTemplate {
     required this.baseAgility,
     required this.priceCoin,
     required this.isActive,
+    required this.setBonuses,
   });
 
   factory ItemTemplate.fromJson(Map<String, dynamic> json) {
@@ -66,6 +70,7 @@ class ItemTemplate {
       setKey: _asString(json['set_key']),
       setPieceType: _asString(json['set_piece_type']),
       imagePath: _asString(json['image_path']),
+      description: _asString(json['description']),
       rarity: _asString(json['rarity']),
       recoverHp: _asInt(json['recover_hp']),
       baseHp: _asInt(json['base_hp']),
@@ -74,12 +79,26 @@ class ItemTemplate {
       baseAgility: _asInt(json['base_agility']),
       priceCoin: _asInt(json['price_coin']),
       isActive: json['is_active'] == true,
+      setBonuses: _asListOfMaps(
+        json['set_bonuses'],
+      ).map(EquipmentSetBonusInfo.fromJson).toList(),
     );
   }
 
   bool get isEquipment => itemType == 'equipment';
   bool get isConsumable => itemType == 'consumable';
   bool get isWeapon => equipmentSlot == 'sword';
+
+  String get displayName {
+    if (!isEquipment) return name;
+    final cleaned = name
+        .replaceFirst(
+          RegExp(r'^\s*(일반|희귀|에픽|common|rare|epic)\s*', caseSensitive: false),
+          '',
+        )
+        .trim();
+    return cleaned.isEmpty ? name : cleaned;
+  }
 
   String get displayImagePath => resolveEquipmentImagePath(
     imagePath: imagePath,
@@ -168,10 +187,32 @@ class ItemTemplate {
     return parts.isEmpty ? '기본 아이템' : parts.join(' / ');
   }
 
-  String get setNameLabel => equipmentSetNameForKey(inferredSetKey);
+  String get setNameLabel {
+    if (setBonuses.isNotEmpty) return setBonuses.first.displaySetName;
+    return equipmentSetNameForKey(inferredSetKey);
+  }
 
-  List<String> get setEffectLines =>
-      equipmentSetEffectLinesForKey(inferredSetKey);
+  List<String> get setEffectLines {
+    if (setBonuses.isNotEmpty) {
+      return setBonuses.map((bonus) => bonus.displayDescription).toList();
+    }
+    final descriptionLines = descriptionSetEffectLines;
+    if (descriptionLines.isNotEmpty) return descriptionLines;
+    return equipmentSetEffectLinesForKey(inferredSetKey);
+  }
+
+  List<String> get descriptionSetEffectLines {
+    const marker = '세트효과 -';
+    final markerIndex = description.indexOf(marker);
+    if (markerIndex < 0) return const [];
+    final text = description.substring(markerIndex + marker.length).trim();
+    if (text.isEmpty) return const [];
+    return text
+        .split('|')
+        .map((line) => line.trim())
+        .where((line) => line.isNotEmpty)
+        .toList();
+  }
 
   String get setEffectSummary {
     final lines = setEffectLines;

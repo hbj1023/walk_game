@@ -248,7 +248,14 @@ func listItems(ctx context.Context, token string, itemType string) (pocketBaseLi
 
 func listOwnedEquipments(ctx context.Context, token string, characterID string) (pocketBaseListResponse[map[string]any], error) {
 	filter := fmt.Sprintf("character=%q && status!=\"sold\" && status!=\"deleted\"", characterID)
-	return listCollectionRecords(ctx, token, ownedEquipmentsCollection, filter, "item_template", "-created")
+	list, err := listCollectionRecords(ctx, token, ownedEquipmentsCollection, filter, "item_template", "-created")
+	if err != nil {
+		return pocketBaseListResponse[map[string]any]{}, err
+	}
+	if err := enrichItemTemplatesWithSetBonuses(ctx, token, list.Items); err != nil {
+		return pocketBaseListResponse[map[string]any]{}, err
+	}
+	return list, nil
 }
 
 func listCharacterConsumables(ctx context.Context, token string, characterID string) (pocketBaseListResponse[map[string]any], error) {

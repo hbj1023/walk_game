@@ -142,7 +142,7 @@ class _InventoryPageState extends State<InventoryPage> {
     final afterPower = _calculateCombatPower(after.finalStats);
     final feedback = _EquipmentStatFeedback(
       id: DateTime.now().microsecondsSinceEpoch,
-      title: '${item.itemTemplate.name} $action 완료',
+      title: '${item.itemTemplate.displayName} $action 완료',
       combatPower: afterPower,
       combatPowerDelta: afterPower - beforePower,
       statDeltas: statDeltas,
@@ -252,7 +252,7 @@ class _InventoryPageState extends State<InventoryPage> {
           side: const BorderSide(color: kBorderColor, width: 1.5),
         ),
         title: Text(
-          item.itemTemplate.name,
+          item.itemTemplate.displayName,
           style: const TextStyle(color: Colors.white, fontSize: 15),
         ),
         content: Column(
@@ -393,12 +393,12 @@ class _InventoryPageState extends State<InventoryPage> {
             after: afterStats,
           );
         } else if (mounted) {
-          _showMessage('${item.itemTemplate.name} $action 완료');
+          _showMessage('${item.itemTemplate.displayName} $action 완료');
         }
         return;
       }
       await _loadInventory();
-      if (mounted) _showMessage('${item.itemTemplate.name} $action 완료');
+      if (mounted) _showMessage('${item.itemTemplate.displayName} $action 완료');
     } catch (e) {
       if (mounted) _showMessage(e.toString());
     } finally {
@@ -414,8 +414,8 @@ class _InventoryPageState extends State<InventoryPage> {
         setState(() => _removeSoldItemLocally(item, quantity: 1));
         _showMessage(
           earned > 0
-              ? '${item.itemTemplate.name} 판매 완료! +$earned 코인'
-              : '${item.itemTemplate.name} 판매 완료',
+              ? '${item.itemTemplate.displayName} 판매 완료! +$earned 코인'
+              : '${item.itemTemplate.displayName} 판매 완료',
         );
       }
     } catch (e) {
@@ -885,7 +885,7 @@ class _InventoryPageState extends State<InventoryPage> {
                         right: 1,
                         bottom: 1,
                         child: Text(
-                          item.itemTemplate.name,
+                          item.itemTemplate.displayName,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           textAlign: TextAlign.center,
@@ -1051,7 +1051,7 @@ class _InventoryPageState extends State<InventoryPage> {
                     right: 2,
                     bottom: 2,
                     child: Text(
-                      item.itemTemplate.name,
+                      item.itemTemplate.displayName,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       textAlign: TextAlign.center,

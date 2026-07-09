@@ -202,8 +202,8 @@ class _ShopPageState extends State<ShopPage> {
       showGameToast(
         context,
         item.itemTemplate.isConsumable
-            ? '${item.itemTemplate.name} $quantity개 구매 완료. 남은 코인: ${_gs.coins}'
-            : '${item.itemTemplate.name} 구매 완료. 남은 코인: ${_gs.coins}',
+            ? '${item.itemTemplate.displayName} $quantity개 구매 완료. 남은 코인: ${_gs.coins}'
+            : '${item.itemTemplate.displayName} 구매 완료. 남은 코인: ${_gs.coins}',
         type: GameToastType.success,
       );
     } catch (e) {
@@ -219,7 +219,7 @@ class _ShopPageState extends State<ShopPage> {
     final setEffect = item.itemTemplate.setEffectSummary;
     final confirmed = await showGameConfirmDialog(
       context: context,
-      title: item.itemTemplate.name,
+      title: item.itemTemplate.displayName,
       message: [
         item.itemTemplate.statSummary,
         if (setEffect.isNotEmpty) setEffect,
@@ -299,7 +299,7 @@ class _ShopPageState extends State<ShopPage> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                item.itemTemplate.name,
+                                item.itemTemplate.displayName,
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                                 style: const TextStyle(
@@ -1097,7 +1097,7 @@ class _ShopPageState extends State<ShopPage> {
                 child: FittedBox(
                   fit: BoxFit.scaleDown,
                   child: Text(
-                    template?.name ?? _slotLabel(slot),
+                    template?.displayName ?? _slotLabel(slot),
                     maxLines: 1,
                     style: const TextStyle(
                       color: _kTextGray,
@@ -1168,7 +1168,7 @@ class _ShopPageState extends State<ShopPage> {
           contentPadding: const EdgeInsets.fromLTRB(18, 12, 18, 8),
           actionsPadding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
           title: Text(
-            template.name,
+            template.displayName,
             style: const TextStyle(
               color: _kTextLight,
               fontSize: 17,
@@ -1446,7 +1446,7 @@ class _ShopPageState extends State<ShopPage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  item.itemTemplate.name,
+                  item.itemTemplate.displayName,
                   style: const TextStyle(
                     color: _kTextLight,
                     fontSize: 14,

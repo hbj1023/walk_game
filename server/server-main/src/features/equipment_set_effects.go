@@ -161,6 +161,84 @@ func listEquipmentSetBonusesByKey(ctx context.Context, token string, setKey stri
 	return list.Items, nil
 }
 
+func enrichItemTemplatesWithSetBonuses(ctx context.Context, token string, items []map[string]any) error {
+	if len(items) == 0 {
+		return nil
+	}
+
+	cache := map[string][]equipmentSetBonusRecord{}
+	for _, item := range items {
+		template, ok := expandedItemTemplateMap(item)
+		if !ok {
+			continue
+		}
+
+		setKey := inferEquipmentSetKeyFromMap(template)
+		if setKey == "" {
+			continue
+		}
+
+		bonuses, cached := cache[setKey]
+		if !cached {
+			var err error
+			bonuses, err = listEquipmentSetBonusesByKey(ctx, token, setKey)
+			if err != nil {
+				return err
+			}
+			cache[setKey] = bonuses
+		}
+		template["set_bonuses"] = bonuses
+	}
+	return nil
+}
+
+func expandedItemTemplateMap(item map[string]any) (map[string]any, bool) {
+	expand, ok := item["expand"].(map[string]any)
+	if !ok {
+		return nil, false
+	}
+	template, ok := expand["item_template"].(map[string]any)
+	if ok {
+		return template, true
+	}
+	return nil, false
+}
+
+func inferEquipmentSetKeyFromMap(template map[string]any) string {
+	if setKey := mapString(template["set_key"]); setKey != "" {
+		return setKey
+	}
+
+	source := strings.ToLower(
+		mapString(template["image_path"]) + " " +
+			mapString(template["name"]) + " " +
+			mapString(template["description"]),
+	)
+	for _, setKey := range []string{"vanguard", "berserker", "sentinel", "shadow", "colossus"} {
+		if strings.Contains(source, setKey) {
+			return setKey
+		}
+	}
+
+	pieceType := mapString(template["set_piece_type"])
+	slot := mapString(template["equipment_slot"])
+	if pieceType == "weapon" || slot == "sword" {
+		switch mapString(template["weapon_type"]) {
+		case "sword":
+			return "vanguard"
+		case "axe":
+			return "berserker"
+		case "spear":
+			return "sentinel"
+		case "dagger":
+			return "shadow"
+		case "greatsword":
+			return "colossus"
+		}
+	}
+	return ""
+}
+
 func summarizeSetBonuses(rawStats statBlock, bonuses []equipmentSetBonusRecord) (statBlock, battleSetEffects) {
 	stats := statBlock{}
 	effects := battleSetEffects{}
