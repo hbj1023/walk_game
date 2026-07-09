@@ -163,8 +163,8 @@ func getActiveShop(ctx context.Context, token string, shopID string) (shopRecord
 }
 
 func listAvailableShopItems(ctx context.Context, token string, shopID string, characterID string, now time.Time) (pocketBaseListResponse[map[string]any], error) {
-	if err := ensureStandardWeaponShopItems(ctx, token, shopID); err != nil {
-		log.Printf("failed to ensure standard weapon shop items: shop=%s err=%v", shopID, err)
+	if err := ensureStandardEquipmentShopItems(ctx, token, shopID); err != nil {
+		log.Printf("failed to ensure standard equipment shop items: shop=%s err=%v", shopID, err)
 	}
 	if characterID != "" {
 		if err := ensureClearedBossEquipmentShopItems(ctx, token, shopID, characterID); err != nil {
@@ -274,11 +274,11 @@ func filterShopItemsByCharacterProgress(ctx context.Context, token string, chara
 	return filtered, nil
 }
 
-func ensureStandardWeaponShopItems(ctx context.Context, token string, shopID string) error {
+func ensureStandardEquipmentShopItems(ctx context.Context, token string, shopID string) error {
 	if shopID == "" {
 		return nil
 	}
-	templates, err := listStandardWeaponTemplates(ctx, token)
+	templates, err := listStandardEquipmentTemplates(ctx, token)
 	if err != nil {
 		return err
 	}
@@ -290,7 +290,7 @@ func ensureStandardWeaponShopItems(ctx context.Context, token string, shopID str
 	return nil
 }
 
-func listStandardWeaponTemplates(ctx context.Context, token string) ([]itemTemplateRecord, error) {
+func listStandardEquipmentTemplates(ctx context.Context, token string) ([]itemTemplateRecord, error) {
 	query := url.Values{}
 	query.Set("filter", `item_type="equipment" && is_active=true`)
 	query.Set("sort", "set_key,rarity,price_coin,created")
@@ -302,19 +302,16 @@ func listStandardWeaponTemplates(ctx context.Context, token string) ([]itemTempl
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		return nil, mapPocketBaseError(resp, "failed to list standard weapon templates")
+		return nil, mapPocketBaseError(resp, "failed to list standard equipment templates")
 	}
 
 	var list pocketBaseListResponse[itemTemplateRecord]
 	if err := json.NewDecoder(resp.Body).Decode(&list); err != nil {
-		return nil, errors.New("failed to parse standard weapon template response")
+		return nil, errors.New("failed to parse standard equipment template response")
 	}
 	templates := make([]itemTemplateRecord, 0, len(list.Items))
 	for _, template := range list.Items {
 		if template.Rarity != "common" && template.Rarity != "rare" {
-			continue
-		}
-		if !isEquipmentShopWeaponTemplate(template) {
 			continue
 		}
 		templates = append(templates, template)
@@ -398,23 +395,20 @@ func equipmentShopAvailabilityForTemplate(template itemTemplateRecord, progress 
 	if hasActive && activeRank == rank {
 		return locked("이미 보유 중인 등급입니다.")
 	}
+	if hasReached && reachedRank > rank {
+		return equipmentShopAvailabilityResult{}
+	}
 	if rank == 2 && !isBossEquipmentShopUnlockedForTemplate(template, bossShopUnlocks) {
 		return locked("해당 장 보스를 클리어하면 판매됩니다.")
 	}
-	if !hasReached {
-		if rank == 0 {
-			return available
-		}
-		return locked("이전 등급 장비를 구매하면 판매됩니다.")
+	if rank == 2 {
+		return available
+	}
+	if rank <= 1 {
+		return available
 	}
 	if rank == reachedRank && (!hasActive || activeRank < reachedRank) {
 		return available
-	}
-	if hasActive && activeRank == reachedRank && rank == reachedRank+1 {
-		return available
-	}
-	if rank > reachedRank {
-		return locked("이전 등급 장비를 구매하면 판매됩니다.")
 	}
 	return equipmentShopAvailabilityResult{}
 }
@@ -451,13 +445,10 @@ func isEquipmentTemplateVisibleInShop(template itemTemplateRecord, progress equi
 	if hasActive && activeRank >= rank {
 		return false
 	}
-	if !hasReached {
-		return rank == 0
+	if hasReached && reachedRank > rank {
+		return false
 	}
-	if hasActive && activeRank == reachedRank && rank == reachedRank+1 {
-		return true
-	}
-	if rank == reachedRank && (!hasActive || activeRank < reachedRank) {
+	if rank <= 1 {
 		return true
 	}
 	return false

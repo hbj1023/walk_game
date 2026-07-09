@@ -29,7 +29,7 @@ func TestIsShopItemWindowActiveDoesNotHideOnInvalidDate(t *testing.T) {
 	}
 }
 
-func TestEquipmentShopProgressShowsOnlyCommonBeforePurchase(t *testing.T) {
+func TestEquipmentShopProgressShowsCommonAndRareBeforePurchase(t *testing.T) {
 	progress := buildEquipmentShopProgress(nil)
 	common := testEquipmentTemplate("common", "helmet", "", "")
 	rare := testEquipmentTemplate("rare", "helmet", "", "")
@@ -37,12 +37,12 @@ func TestEquipmentShopProgressShowsOnlyCommonBeforePurchase(t *testing.T) {
 	if !isEquipmentTemplateVisibleInShop(common, progress, false, nil) {
 		t.Fatal("common equipment should be visible before purchase")
 	}
-	if isEquipmentTemplateVisibleInShop(rare, progress, false, nil) {
-		t.Fatal("rare equipment should stay hidden until common is reached")
+	if !isEquipmentTemplateVisibleInShop(rare, progress, false, nil) {
+		t.Fatal("rare equipment should be visible without requiring common purchase")
 	}
 }
 
-func TestEquipmentShopProgressShowsRareAfterCommonOwned(t *testing.T) {
+func TestEquipmentShopProgressHidesOwnedCommonButKeepsRareVisible(t *testing.T) {
 	common := testEquipmentTemplate("common", "helmet", "", "")
 	rare := testEquipmentTemplate("rare", "helmet", "", "")
 	progress := buildEquipmentShopProgress([]ownedEquipmentRecord{
@@ -53,7 +53,7 @@ func TestEquipmentShopProgressShowsRareAfterCommonOwned(t *testing.T) {
 		t.Fatal("owned common equipment should not remain visible")
 	}
 	if !isEquipmentTemplateVisibleInShop(rare, progress, false, nil) {
-		t.Fatal("rare equipment should become visible after owning common")
+		t.Fatal("rare equipment should remain visible after owning common")
 	}
 }
 
@@ -73,7 +73,7 @@ func TestEquipmentShopProgressReopensHighestSoldTierOnly(t *testing.T) {
 	}
 }
 
-func TestEquipmentShopProgressDoesNotShowNextTierWhenHighestWasSold(t *testing.T) {
+func TestEquipmentShopProgressShowsRareEvenWhenCommonWasSold(t *testing.T) {
 	common := testEquipmentTemplate("common", "helmet", "", "")
 	rare := testEquipmentTemplate("rare", "helmet", "", "")
 	progress := buildEquipmentShopProgress([]ownedEquipmentRecord{
@@ -83,8 +83,23 @@ func TestEquipmentShopProgressDoesNotShowNextTierWhenHighestWasSold(t *testing.T
 	if !isEquipmentTemplateVisibleInShop(common, progress, false, nil) {
 		t.Fatal("sold highest common tier should be visible for repurchase")
 	}
-	if isEquipmentTemplateVisibleInShop(rare, progress, false, nil) {
-		t.Fatal("rare should not show while the highest reached common tier is sold")
+	if !isEquipmentTemplateVisibleInShop(rare, progress, false, nil) {
+		t.Fatal("rare should stay visible even when common was sold")
+	}
+}
+
+func TestEquipmentShopProgressKeepsDifferentSetsIndependent(t *testing.T) {
+	shadowRare := testEquipmentTemplate("rare", "helmet", "shadow", "helmet")
+	vanguardRare := testEquipmentTemplate("rare", "helmet", "vanguard", "helmet")
+	progress := buildEquipmentShopProgress([]ownedEquipmentRecord{
+		testOwnedEquipment(shadowRare, "owned"),
+	})
+
+	if isEquipmentTemplateVisibleInShop(shadowRare, progress, true, nil) {
+		t.Fatal("owned rare item in the same set should stay hidden")
+	}
+	if !isEquipmentTemplateVisibleInShop(vanguardRare, progress, true, nil) {
+		t.Fatal("owning one rare set should not block a different rare set")
 	}
 }
 
@@ -113,6 +128,19 @@ func TestEquipmentShopProgressShowsEpicAfterBossClear(t *testing.T) {
 
 	if !isEquipmentTemplateVisibleInShop(epic, buildEquipmentShopProgress(nil), false, bossShopUnlocks) {
 		t.Fatal("boss epic equipment should show after its chapter boss is cleared")
+	}
+}
+
+func TestEquipmentShopAvailabilityUnlocksEpicAfterBossClear(t *testing.T) {
+	epic := testEquipmentTemplate("epic", "helmet", "", "")
+	bossShopUnlocks := map[int]bool{1: true}
+
+	availability := equipmentShopAvailabilityForTemplate(epic, buildEquipmentShopProgress(nil), false, bossShopUnlocks)
+	if !availability.include {
+		t.Fatal("boss epic equipment should be included after its chapter boss is cleared")
+	}
+	if !availability.purchaseUnlocked {
+		t.Fatal("boss epic equipment should be purchasable after its chapter boss is cleared")
 	}
 }
 
