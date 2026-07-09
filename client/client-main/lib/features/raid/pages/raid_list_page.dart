@@ -16,6 +16,7 @@ import 'package:capstone_app/features/inventory/pages/inventory_page.dart';
 import 'package:capstone_app/features/raid/pages/raid_lobby_page.dart';
 import 'package:capstone_app/features/shop/pages/shop_page.dart';
 import 'package:capstone_app/widgets/character_stats_panel.dart';
+import 'package:capstone_app/widgets/friend_request_badge_button.dart';
 import 'package:capstone_app/widgets/player_level_badge.dart';
 import 'package:capstone_app/widgets/pixel_bottom_nav.dart';
 import 'package:capstone_app/widgets/user_profile_avatar.dart';
@@ -280,8 +281,11 @@ class _RaidListPageState extends State<RaidListPage> {
       ..showSnackBar(SnackBar(content: Text(message)));
   }
 
-  void _openFriendDialog() {
-    showDialog(context: context, builder: (_) => const FriendSheet());
+  Future<void> _openFriendDialog() {
+    return showDialog<void>(
+      context: context,
+      builder: (_) => const FriendSheet(),
+    );
   }
 
   @override
@@ -413,26 +417,7 @@ class _RaidListPageState extends State<RaidListPage> {
               ),
               const SizedBox(height: 6),
               // 친구 버튼
-              GestureDetector(
-                onTap: _openFriendDialog,
-                child: Container(
-                  width: 40,
-                  height: 40,
-                  decoration: BoxDecoration(
-                    color: Colors.black.withValues(alpha: 0.6),
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(
-                      color: const Color(0xFF6B3A1F),
-                      width: 2,
-                    ),
-                  ),
-                  padding: const EdgeInsets.all(6),
-                  child: Image.asset(
-                    'assets/images/icon/friend_icon.png',
-                    fit: BoxFit.contain,
-                  ),
-                ),
-              ),
+              FriendRequestBadgeButton(onTap: _openFriendDialog),
             ],
           ),
         ],

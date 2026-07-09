@@ -11,6 +11,7 @@ import 'package:capstone_app/features/auth/pages/login_page.dart';
 import 'package:capstone_app/features/raid/pages/raid_list_page.dart';
 import 'package:capstone_app/features/shop/pages/shop_page.dart';
 import 'package:capstone_app/widgets/character_stats_panel.dart';
+import 'package:capstone_app/widgets/friend_request_badge_button.dart';
 import 'package:capstone_app/widgets/player_level_badge.dart';
 import 'package:capstone_app/widgets/pixel_bottom_nav.dart';
 
@@ -415,23 +416,7 @@ class _HomePageState extends State<HomePage>
   }
 
   Widget _buildFriendButton() {
-    return GestureDetector(
-      onTap: _openFriendSheet,
-      child: Container(
-        width: 40,
-        height: 40,
-        decoration: BoxDecoration(
-          color: Colors.black.withValues(alpha: 0.6),
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: const Color(0xFF6B3A1F), width: 2),
-        ),
-        padding: const EdgeInsets.all(6),
-        child: Image.asset(
-          'assets/images/icon/friend_icon.png',
-          fit: BoxFit.contain,
-        ),
-      ),
-    );
+    return FriendRequestBadgeButton(onTap: _openFriendSheet);
   }
 
   Widget _buildSettingsButton() {
@@ -454,8 +439,11 @@ class _HomePageState extends State<HomePage>
     );
   }
 
-  void _openFriendSheet() {
-    showDialog(context: context, builder: (context) => const FriendSheet());
+  Future<void> _openFriendSheet() {
+    return showDialog<void>(
+      context: context,
+      builder: (context) => const FriendSheet(),
+    );
   }
 
   void _openCharacterStatsDialog() {
