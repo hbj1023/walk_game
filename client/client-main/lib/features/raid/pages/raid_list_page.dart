@@ -101,7 +101,7 @@ class _RaidListPageState extends State<RaidListPage> {
       if (!mounted) return;
       setState(() {
         _bosses = monsters.map(RaidBoss.fromMonster).toList()
-          ..sort((a, b) => a.difficulty.compareTo(b.difficulty));
+          ..sort(_compareRaidBosses);
         _selectedIndex = _bosses.isEmpty
             ? 0
             : _selectedIndex.clamp(0, _bosses.length - 1).toInt();
@@ -115,6 +115,20 @@ class _RaidListPageState extends State<RaidListPage> {
         _loadingBosses = false;
       });
     }
+  }
+
+  int _compareRaidBosses(RaidBoss a, RaidBoss b) {
+    final priorityCompare = _raidBossDisplayPriority(
+      a,
+    ).compareTo(_raidBossDisplayPriority(b));
+    if (priorityCompare != 0) return priorityCompare;
+    return a.difficulty.compareTo(b.difficulty);
+  }
+
+  int _raidBossDisplayPriority(RaidBoss boss) {
+    if (boss.name.contains('골렘')) return 0;
+    if (boss.isComingSoon) return 2;
+    return 1;
   }
 
   Future<void> _loadRaidInvitations() async {
