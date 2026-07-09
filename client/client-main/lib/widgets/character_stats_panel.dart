@@ -375,6 +375,14 @@ class _CharacterStatsDialogState extends State<CharacterStatsDialog> {
     });
     try {
       await ProfileIconService.saveIconKey(key);
+    } catch (error) {
+      final savedKey = await ProfileIconService.loadSavedIconKey();
+      if (mounted) {
+        setState(() {
+          _selectedProfileIconKey = savedKey;
+          _profileImageError = _profileImageErrorText(error);
+        });
+      }
     } finally {
       if (mounted) setState(() => _isSavingProfileIcon = false);
     }

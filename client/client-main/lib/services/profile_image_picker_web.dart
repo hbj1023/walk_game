@@ -8,7 +8,7 @@ class ProfileImagePicker {
 
   static Future<String?> pickProfileImageDataUrl() {
     final input = html.FileUploadInputElement()
-      ..accept = 'image/png,image/jpeg,image/webp,image/gif'
+      ..accept = 'image/png,image/jpeg,image/webp'
       ..multiple = false;
     final completer = Completer<String?>();
 
@@ -23,6 +23,14 @@ class ProfileImagePicker {
       if (!file.type.startsWith('image/')) {
         if (!completer.isCompleted) {
           completer.completeError(Exception('이미지 파일만 선택할 수 있습니다.'));
+        }
+        return;
+      }
+      if (file.type != 'image/png' &&
+          file.type != 'image/jpeg' &&
+          file.type != 'image/webp') {
+        if (!completer.isCompleted) {
+          completer.completeError(Exception('PNG, JPG, WEBP 이미지만 사용할 수 있습니다.'));
         }
         return;
       }

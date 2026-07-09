@@ -434,7 +434,7 @@ func searchUsers(ctx context.Context, token string, currentUserID string, query 
 
 	users := make([]map[string]any, 0, len(list.Items))
 	for _, item := range list.Items {
-		users = append(users, sanitizeFriendUser(item))
+		users = append(users, buildFriendUserMap(ctx, token, item))
 	}
 	return users, nil
 }

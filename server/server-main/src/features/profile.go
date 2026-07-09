@@ -257,14 +257,14 @@ func buildProfileImage(record map[string]any) map[string]any {
 	if source == "custom" && userID != "" && avatar != "" {
 		return map[string]any{
 			"source": "custom",
-			"url":    pocketBaseFileURL(usersCollection, userID, avatar),
+			"url":    profileImageFileURL(record, avatar),
 			"avatar": avatar,
 		}
 	}
 	if userID != "" && avatar != "" {
 		return map[string]any{
 			"source": "custom",
-			"url":    pocketBaseFileURL(usersCollection, userID, avatar),
+			"url":    profileImageFileURL(record, avatar),
 			"avatar": avatar,
 		}
 	}
@@ -294,6 +294,16 @@ func profileEmoteImage(record map[string]any) map[string]any {
 		}
 	}
 	return nil
+}
+
+func profileImageFileURL(record map[string]any, filename string) string {
+	userID := stringField(record, "id")
+	fileURL := pocketBaseFileURL(usersCollection, userID, filename)
+	cacheToken := strings.TrimSpace(stringField(record, "updated"))
+	if cacheToken == "" {
+		return fileURL
+	}
+	return fileURL + "?v=" + url.QueryEscape(cacheToken)
 }
 
 func pocketBaseFileURL(collection string, recordID string, filename string) string {
