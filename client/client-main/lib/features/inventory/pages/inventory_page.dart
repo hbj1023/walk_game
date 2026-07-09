@@ -206,17 +206,51 @@ class _InventoryPageState extends State<InventoryPage> {
   ) {
     final indexedItems = source.toList().asMap().entries.toList();
     indexedItems.sort((a, b) {
-      final rankCompare = _inventorySortRank(
+      final categoryCompare = _inventoryCategoryRank(
         a.value,
-      ).compareTo(_inventorySortRank(b.value));
-      if (rankCompare != 0) return rankCompare;
+      ).compareTo(_inventoryCategoryRank(b.value));
+      if (categoryCompare != 0) return categoryCompare;
+      final setCompare = _inventorySetRank(
+        a.value,
+      ).compareTo(_inventorySetRank(b.value));
+      if (setCompare != 0) return setCompare;
+      final slotCompare = _inventorySlotRank(
+        a.value,
+      ).compareTo(_inventorySlotRank(b.value));
+      if (slotCompare != 0) return slotCompare;
+      final rarityCompare = _inventoryRarityRank(
+        a.value,
+      ).compareTo(_inventoryRarityRank(b.value));
+      if (rarityCompare != 0) return rarityCompare;
+      final equippedCompare = _inventoryEquippedRank(
+        a.value,
+      ).compareTo(_inventoryEquippedRank(b.value));
+      if (equippedCompare != 0) return equippedCompare;
       return a.key.compareTo(b.key);
     });
     return indexedItems.map((entry) => entry.value).toList();
   }
 
-  int _inventorySortRank(OwnedInventoryItem item) {
-    if (!item.isEquipped || !item.itemTemplate.isEquipment) return 100;
+  int _inventoryCategoryRank(OwnedInventoryItem item) {
+    if (item.itemTemplate.isEquipment) return 0;
+    if (item.itemTemplate.isConsumable) return 1;
+    return 2;
+  }
+
+  int _inventorySetRank(OwnedInventoryItem item) {
+    if (!item.itemTemplate.isEquipment) return 99;
+    return switch (item.itemTemplate.inferredSetKey) {
+      'vanguard' => 0,
+      'berserker' => 1,
+      'sentinel' => 2,
+      'shadow' => 3,
+      'colossus' => 4,
+      _ => 90,
+    };
+  }
+
+  int _inventorySlotRank(OwnedInventoryItem item) {
+    if (!item.itemTemplate.isEquipment) return 99;
     return switch (item.itemTemplate.equipmentSlot) {
       'sword' => 0,
       'helmet' => 1,
@@ -225,6 +259,19 @@ class _InventoryPageState extends State<InventoryPage> {
       _ => 4,
     };
   }
+
+  int _inventoryRarityRank(OwnedInventoryItem item) {
+    return switch (item.itemTemplate.rarity) {
+      'common' => 0,
+      'rare' => 1,
+      'epic' => 2,
+      'legendary' => 3,
+      _ => 9,
+    };
+  }
+
+  int _inventoryEquippedRank(OwnedInventoryItem item) =>
+      item.isEquipped ? 0 : 1;
 
   OwnedInventoryItem? _equippedInSlot(String slot) {
     for (final item in _items) {

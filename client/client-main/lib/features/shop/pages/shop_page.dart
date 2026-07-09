@@ -147,7 +147,10 @@ class _ShopPageState extends State<ShopPage> {
     };
   }
 
-  Future<void> _purchase(ShopItem item) async {
+  Future<void> _purchase(
+    ShopItem item, {
+    bool skipEquipmentConfirm = false,
+  }) async {
     if (_selectedShop == null || _isBuying) return;
     if (!item.isPurchaseUnlocked) {
       showGameToast(
@@ -157,9 +160,14 @@ class _ShopPageState extends State<ShopPage> {
       );
       return;
     }
-    final quantity = item.itemTemplate.isConsumable
-        ? await _showConsumablePurchaseDialog(item)
-        : await _confirmEquipmentPurchase(item);
+    final int? quantity;
+    if (item.itemTemplate.isConsumable) {
+      quantity = await _showConsumablePurchaseDialog(item);
+    } else if (skipEquipmentConfirm) {
+      quantity = 1;
+    } else {
+      quantity = await _confirmEquipmentPurchase(item);
+    }
     if (!mounted) return;
     if (quantity == null || quantity <= 0) return;
 
@@ -1294,7 +1302,7 @@ class _ShopPageState extends State<ShopPage> {
     );
 
     if (shouldBuy == true && shopItem != null) {
-      await _purchase(shopItem);
+      await _purchase(shopItem, skipEquipmentConfirm: true);
     }
   }
 
@@ -1462,7 +1470,7 @@ class _ShopPageState extends State<ShopPage> {
                   const SizedBox(height: 4),
                   Text(
                     item.itemTemplate.setEffectCompactSummary,
-                    maxLines: 2,
+                    maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(color: _kGold, fontSize: 10),
                   ),

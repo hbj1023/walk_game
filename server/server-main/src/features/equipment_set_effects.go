@@ -73,17 +73,11 @@ func buildBattleStatContext(
 func countEquippedSetPieces(items []equippedStatItem) map[string]int {
 	piecesBySet := map[string]map[string]bool{}
 	for _, item := range items {
-		setKey := strings.TrimSpace(item.SetKey)
+		setKey := equippedItemSetKey(item)
 		if setKey == "" {
 			continue
 		}
-		piece := strings.TrimSpace(item.SetPieceType)
-		if piece == "" {
-			piece = strings.TrimSpace(item.Slot)
-		}
-		if piece == "" {
-			piece = strings.TrimSpace(item.TemplateID)
-		}
+		piece := equippedItemPieceType(item)
 		if piece == "" {
 			continue
 		}
@@ -98,6 +92,66 @@ func countEquippedSetPieces(items []equippedStatItem) map[string]int {
 		counts[setKey] = len(pieces)
 	}
 	return counts
+}
+
+func equippedItemSetKey(item equippedStatItem) string {
+	if setKey := strings.TrimSpace(item.SetKey); setKey != "" {
+		return setKey
+	}
+	source := strings.ToLower(strings.Join([]string{
+		item.Name,
+		item.WeaponType,
+		item.Slot,
+	}, " "))
+	for _, setKey := range []string{"vanguard", "berserker", "sentinel", "shadow", "colossus"} {
+		if strings.Contains(source, setKey) {
+			return setKey
+		}
+	}
+	if strings.Contains(item.Name, "모험가") {
+		return "vanguard"
+	}
+	if strings.Contains(item.Name, "광전사") {
+		return "berserker"
+	}
+	if strings.Contains(item.Name, "창술사") {
+		return "sentinel"
+	}
+	if strings.Contains(item.Name, "도적") {
+		return "shadow"
+	}
+	if strings.Contains(item.Name, "견습기사") {
+		return "colossus"
+	}
+	switch strings.TrimSpace(item.WeaponType) {
+	case "axe":
+		return "berserker"
+	case "spear":
+		return "sentinel"
+	case "dagger":
+		return "shadow"
+	case "greatsword":
+		return "colossus"
+	default:
+		return ""
+	}
+}
+
+func equippedItemPieceType(item equippedStatItem) string {
+	piece := strings.TrimSpace(item.SetPieceType)
+	if piece == "sword" {
+		return "weapon"
+	}
+	if piece != "" {
+		return piece
+	}
+	if strings.TrimSpace(item.Slot) == "sword" || strings.TrimSpace(item.WeaponType) != "" {
+		return "weapon"
+	}
+	if slot := strings.TrimSpace(item.Slot); slot != "" {
+		return slot
+	}
+	return strings.TrimSpace(item.TemplateID)
 }
 
 func listActiveEquipmentSetBonuses(

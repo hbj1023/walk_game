@@ -179,7 +179,10 @@ class ItemTemplate {
   String get statSummary {
     final parts = <String>[];
     if (isWeapon && weaponTypeLabel.isNotEmpty) parts.add(weaponTypeLabel);
-    if (baseHp > 0) parts.add('HP +$baseHp');
+    if (baseHp != 0) parts.add('HP ${_signedStat(baseHp)}');
+    if (baseAttack < 0) parts.add('공격 $baseAttack');
+    if (baseDefense < 0) parts.add('방어 $baseDefense');
+    if (baseAgility < 0) parts.add('민첩 $baseAgility');
     if (baseAttack > 0) parts.add('공격 +$baseAttack');
     if (baseDefense > 0) parts.add('방어 +$baseDefense');
     if (baseAgility > 0) parts.add('민첩 +$baseAgility');
@@ -194,7 +197,7 @@ class ItemTemplate {
 
   List<String> get setEffectLines {
     if (setBonuses.isNotEmpty) {
-      return setBonuses.map((bonus) => bonus.displayDescription).toList();
+      return compactSetBonusLines(setBonuses);
     }
     final descriptionLines = descriptionSetEffectLines;
     if (descriptionLines.isNotEmpty) return descriptionLines;
@@ -223,8 +226,35 @@ class ItemTemplate {
   String get setEffectCompactSummary {
     final lines = setEffectLines;
     if (lines.isEmpty) return '';
-    return lines.join(' · ');
+    return lines.join(' / ');
   }
+}
+
+String _signedStat(int value) => value > 0 ? '+$value' : '$value';
+
+List<String> compactSetBonusLines(List<EquipmentSetBonusInfo> bonuses) {
+  final grouped = <int, List<String>>{};
+  for (final bonus in bonuses) {
+    grouped.putIfAbsent(bonus.requiredCount, () => []);
+    grouped[bonus.requiredCount]!.add(
+      _stripSetCountPrefix(bonus.displayDescription, bonus.requiredCount),
+    );
+  }
+
+  final counts = grouped.keys.toList()..sort();
+  return counts.map((count) {
+    final effects = grouped[count]!
+        .map((line) => line.trim())
+        .where((line) => line.isNotEmpty)
+        .join(' / ');
+    return '$count세트: $effects';
+  }).toList();
+}
+
+String _stripSetCountPrefix(String description, int count) {
+  final trimmed = description.trim();
+  final pattern = RegExp('^$count[^:：]*[:：]\\s*');
+  return trimmed.replaceFirst(pattern, '').trim();
 }
 
 String equipmentSetNameForKey(String setKey) {
