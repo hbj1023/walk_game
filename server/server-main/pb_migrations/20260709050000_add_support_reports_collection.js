@@ -21,6 +21,8 @@ migrate((app) => {
       { name: "screen", type: "text", required: false, max: 80 },
       { name: "message", type: "text", required: true, max: 1000 },
       { name: "status", type: "select", required: true, maxSelect: 1, values: ["open", "reviewing", "resolved"] },
+      { name: "created", type: "autodate", onCreate: true, onUpdate: false },
+      { name: "updated", type: "autodate", onCreate: true, onUpdate: true },
     ],
     indexes: [
       "CREATE INDEX idx_support_reports_user_created ON support_reports (user, created)",
