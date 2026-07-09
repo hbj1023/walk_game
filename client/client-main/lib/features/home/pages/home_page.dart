@@ -458,7 +458,10 @@ class _HomePageState extends State<HomePage>
   void _openSettingsDialog() {
     showDialog<void>(
       context: context,
-      builder: (dialogContext) => AppSettingsDialog(onLogout: _confirmLogout),
+      builder: (dialogContext) => AppSettingsDialog(
+        onLogout: _confirmLogout,
+        onAccountDeleted: _logout,
+      ),
     );
   }
 

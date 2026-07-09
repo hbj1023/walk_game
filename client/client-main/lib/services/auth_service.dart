@@ -202,6 +202,37 @@ class AuthService {
     return displayName.isEmpty ? '환영합니다.' : '환영합니다, $displayName 님';
   }
 
+  static Future<void> deleteAccount({
+    required String password,
+    String? email,
+  }) async {
+    final token = await getSavedToken();
+    if (token == null || token.isEmpty) {
+      throw const AuthException('로그인 정보가 없습니다.');
+    }
+
+    final response = await _sendWithTimeout(
+      http.post(
+        _apiUri('/api/users/delete-account'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode({'email': email?.trim() ?? '', 'password': password}),
+      ),
+      timeoutMessage: '계정 삭제 요청 시간이 초과되었습니다. 잠시 후 다시 시도해주세요.',
+    );
+    final body = await _decodeBody(
+      response,
+      fallbackMessage: '계정을 삭제하지 못했습니다.',
+    );
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw AuthException(_extractErrorMessage(body, '계정을 삭제하지 못했습니다.'));
+    }
+
+    await logout();
+  }
+
   static Future<void> logout() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_tokenKey);
@@ -280,6 +311,18 @@ class AuthService {
 
   static String _localizeAuthMessage(String message) {
     final normalized = message.trim().toLowerCase();
+    if (normalized == 'email confirmation does not match current account') {
+      return '입력한 이메일이 현재 계정과 다릅니다.';
+    }
+    if (normalized == 'password is required') {
+      return '비밀번호를 입력해주세요.';
+    }
+    if (normalized == 'invalid password') {
+      return '비밀번호가 올바르지 않습니다.';
+    }
+    if (normalized == 'failed to delete account') {
+      return '계정을 삭제하지 못했습니다. 잠시 후 다시 시도해주세요.';
+    }
     return switch (normalized) {
       'unauthorized' ||
       'invalid credentials' ||
