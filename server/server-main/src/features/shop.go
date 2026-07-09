@@ -487,14 +487,46 @@ func equipmentShopLineKey(template itemTemplateRecord) string {
 	if pieceType == "" {
 		return ""
 	}
-	if strings.TrimSpace(template.SetKey) != "" {
-		return fmt.Sprintf("chapter:%d:set:%s:piece:%s", chapter, template.SetKey, pieceType)
+	if setKey := equipmentShopInferredSetKey(template); setKey != "" {
+		return fmt.Sprintf("chapter:%d:set:%s:piece:%s", chapter, setKey, pieceType)
 	}
 	weaponType := template.WeaponType
 	if weaponType == "" && template.EquipmentSlot == "sword" {
 		weaponType = "sword"
 	}
+	if chapter >= 2 && pieceType != "weapon" && template.ID != "" {
+		return fmt.Sprintf("chapter:%d:template:%s:piece:%s", chapter, template.ID, pieceType)
+	}
 	return fmt.Sprintf("chapter:%d:slot:%s:weapon:%s:piece:%s", chapter, template.EquipmentSlot, weaponType, pieceType)
+}
+
+func equipmentShopInferredSetKey(template itemTemplateRecord) string {
+	if setKey := strings.TrimSpace(template.SetKey); setKey != "" {
+		return setKey
+	}
+
+	source := strings.ToLower(template.ImagePath + " " + template.Name)
+	for _, setKey := range []string{"vanguard", "berserker", "sentinel", "shadow", "colossus"} {
+		if strings.Contains(source, setKey) {
+			return setKey
+		}
+	}
+
+	if equipmentShopPieceType(template) == "weapon" {
+		switch template.WeaponType {
+		case "sword":
+			return "vanguard"
+		case "axe":
+			return "berserker"
+		case "spear":
+			return "sentinel"
+		case "dagger":
+			return "shadow"
+		case "greatsword":
+			return "colossus"
+		}
+	}
+	return ""
 }
 
 func equipmentShopPieceType(template itemTemplateRecord) string {

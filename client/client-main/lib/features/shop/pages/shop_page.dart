@@ -1646,6 +1646,14 @@ class _ShopPageState extends State<ShopPage> {
 
   String _equipmentBaseSetKey(ItemTemplate template) {
     if (template.setKey.trim().isNotEmpty) return template.setKey.trim();
+    final source =
+        '${template.imagePath} ${template.displayImagePath} ${template.name} ${template.weaponType}'
+            .toLowerCase();
+    if (source.contains('vanguard')) return 'vanguard';
+    if (source.contains('berserker')) return 'berserker';
+    if (source.contains('sentinel')) return 'sentinel';
+    if (source.contains('shadow')) return 'shadow';
+    if (source.contains('colossus')) return 'colossus';
     final name = template.name.toLowerCase();
     if (name.contains('모험가') || name.contains('vanguard')) return 'vanguard';
     if (name.contains('광전사') || name.contains('berserker')) {

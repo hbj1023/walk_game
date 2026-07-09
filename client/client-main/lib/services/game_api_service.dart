@@ -94,6 +94,13 @@ class ItemTemplate {
 
   String get inferredSetKey {
     if (setKey.isNotEmpty) return setKey;
+    final source = '$imagePath $displayImagePath $name $weaponType'
+        .toLowerCase();
+    if (source.contains('vanguard')) return 'vanguard';
+    if (source.contains('berserker')) return 'berserker';
+    if (source.contains('sentinel')) return 'sentinel';
+    if (source.contains('shadow')) return 'shadow';
+    if (source.contains('colossus')) return 'colossus';
     final lowerName = name.toLowerCase();
     if (lowerName.contains('vanguard') || name.contains('모험가')) {
       return 'vanguard';

@@ -103,6 +103,26 @@ func TestEquipmentShopProgressKeepsDifferentSetsIndependent(t *testing.T) {
 	}
 }
 
+func TestEquipmentShopProgressKeepsDifferentFallbackArmorSetsIndependent(t *testing.T) {
+	shadowRare := testEquipmentTemplate("rare", "helmet", "", "helmet")
+	shadowRare.WeaponType = ""
+	shadowRare.ImagePath = "assets/images/equipment/chapter2/ch2_armor_rare_shadow_helmet.png"
+	vanguardRare := testEquipmentTemplate("rare", "helmet", "", "helmet")
+	vanguardRare.WeaponType = ""
+	vanguardRare.ID = "rare-helmet-vanguard"
+	vanguardRare.ImagePath = "assets/images/equipment/chapter2/ch2_armor_rare_vanguard_helmet.png"
+	progress := buildEquipmentShopProgress([]ownedEquipmentRecord{
+		testOwnedEquipment(shadowRare, "owned"),
+	})
+
+	if isEquipmentTemplateVisibleInShop(shadowRare, progress, true, nil) {
+		t.Fatal("owned fallback armor set item should stay hidden")
+	}
+	if !isEquipmentTemplateVisibleInShop(vanguardRare, progress, true, nil) {
+		t.Fatal("fallback armor set key should keep different armor sets purchasable")
+	}
+}
+
 func TestEquipmentShopProgressHidesChapter2UntilUnlocked(t *testing.T) {
 	template := testEquipmentTemplate("common", "sword", "vanguard", "weapon")
 
