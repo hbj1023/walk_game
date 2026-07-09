@@ -160,6 +160,57 @@ class ItemTemplate {
     if (recoverHp > 0) parts.add('회복 +$recoverHp');
     return parts.isEmpty ? '기본 아이템' : parts.join(' / ');
   }
+
+  String get setNameLabel => equipmentSetNameForKey(inferredSetKey);
+
+  List<String> get setEffectLines =>
+      equipmentSetEffectLinesForKey(inferredSetKey);
+
+  String get setEffectSummary {
+    final lines = setEffectLines;
+    if (lines.isEmpty || setNameLabel.isEmpty) return '';
+    return '$setNameLabel\n${lines.join('\n')}';
+  }
+
+  String get setEffectCompactSummary {
+    final lines = setEffectLines;
+    if (lines.isEmpty) return '';
+    return lines.join(' · ');
+  }
+}
+
+String equipmentSetNameForKey(String setKey) {
+  return switch (setKey.trim()) {
+    'vanguard' => '모험가 세트',
+    'berserker' => '광전사 세트',
+    'sentinel' => '창술사 세트',
+    'shadow' => '도적 세트',
+    'colossus' => '견습기사 세트',
+    _ => '',
+  };
+}
+
+List<String> equipmentSetEffectLinesForKey(String setKey) {
+  return switch (setKey.trim()) {
+    'vanguard' => const [
+      '3세트: 최대 HP +8% / 방어력 +8%',
+      '4세트: 공격력 +6% / 받는 피해 -4%',
+    ],
+    'berserker' => const [
+      '3세트: 공격력 +12% / 최대 HP +5%',
+      '4세트: 보스 피해 +15% / 받는 피해 +5%',
+    ],
+    'sentinel' => const [
+      '3세트: 방어력 +10% / 민첩 +6%',
+      '4세트: 몬스터 공격 게이지 -10% / 보스 피해 +6%',
+    ],
+    'shadow' => const ['3세트: 민첩 +12% / 공격력 +5%', '4세트: 공격 필요 거리 -10%'],
+    'colossus' => const [
+      '3세트: 방어력 +15% / 최대 HP +10%',
+      '4세트: 받는 피해 -8% / 보스 피해 +8%',
+    ],
+    _ => const [],
+  };
 }
 
 class Shop {
@@ -318,6 +369,49 @@ class StatUpgradeSummary {
   }
 }
 
+class EquipmentSetBonusInfo {
+  final String setKey;
+  final String setName;
+  final int requiredCount;
+  final String bonusType;
+  final double bonusValue;
+  final String description;
+
+  const EquipmentSetBonusInfo({
+    required this.setKey,
+    required this.setName,
+    required this.requiredCount,
+    required this.bonusType,
+    required this.bonusValue,
+    required this.description,
+  });
+
+  factory EquipmentSetBonusInfo.fromJson(Map<String, dynamic> json) {
+    return EquipmentSetBonusInfo(
+      setKey: _asString(json['set_key']),
+      setName: _asString(json['set_name']),
+      requiredCount: _asInt(json['required_count']),
+      bonusType: _asString(json['bonus_type']),
+      bonusValue: _asDouble(json['bonus_value']),
+      description: _asString(json['description']),
+    );
+  }
+
+  String get displaySetName {
+    final localized = equipmentSetNameForKey(setKey);
+    if (localized.isNotEmpty) return localized;
+    return setName;
+  }
+
+  String get displayDescription {
+    if (description.isNotEmpty) return description;
+    final value = bonusValue == bonusValue.roundToDouble()
+        ? bonusValue.toInt().toString()
+        : bonusValue.toStringAsFixed(1);
+    return '$requiredCount세트: $bonusType $value%';
+  }
+}
+
 class CharacterStatsSummary {
   final Map<String, int> baseStats;
   final Map<String, int> upgradeStats;
@@ -326,6 +420,7 @@ class CharacterStatsSummary {
   final Map<String, int> finalStats;
   final int equippedItemCount;
   final int activeSetBonusCount;
+  final List<EquipmentSetBonusInfo> activeSetBonuses;
 
   const CharacterStatsSummary({
     required this.baseStats,
@@ -335,9 +430,13 @@ class CharacterStatsSummary {
     required this.finalStats,
     required this.equippedItemCount,
     required this.activeSetBonusCount,
+    required this.activeSetBonuses,
   });
 
   factory CharacterStatsSummary.fromJson(Map<String, dynamic> json) {
+    final activeSetBonuses = _asListOfMaps(
+      json['active_set_bonuses'],
+    ).map(EquipmentSetBonusInfo.fromJson).toList();
     return CharacterStatsSummary(
       baseStats: _intMap(_asMap(json['base_stats'])),
       upgradeStats: _intMap(_asMap(json['upgrade_stats'])),
@@ -345,7 +444,8 @@ class CharacterStatsSummary {
       setBonusStats: _intMap(_asMap(json['set_bonus_stats'])),
       finalStats: _intMap(_asMap(json['final_stats'])),
       equippedItemCount: _asListOfMaps(json['equipped_items']).length,
-      activeSetBonusCount: _asListOfMaps(json['active_set_bonuses']).length,
+      activeSetBonusCount: activeSetBonuses.length,
+      activeSetBonuses: activeSetBonuses,
     );
   }
 }
@@ -414,6 +514,16 @@ class UserMission {
       _ => 300000 + target,
     };
   }
+}
+
+class MissionClaimResult {
+  final int rewardCoin;
+  final int coinBalance;
+
+  const MissionClaimResult({
+    required this.rewardCoin,
+    required this.coinBalance,
+  });
 }
 
 class StepSyncResult {
@@ -1215,12 +1325,20 @@ class GameApiService {
     return missions;
   }
 
-  static Future<void> claimMission(String userMissionId) async {
+  static Future<MissionClaimResult> claimMission(String userMissionId) async {
     final response = await _post('/api/user-missions/$userMissionId/claim', {});
-    final character = _asMap(_asMap(response['data'])['character']);
+    final data = _asMap(response['data']);
+    final character = _asMap(data['character']);
+    final result = MissionClaimResult(
+      rewardCoin: _asInt(data['reward_coin']),
+      coinBalance: character.containsKey('coin_balance')
+          ? _asInt(character['coin_balance'])
+          : GameState.instance.coins,
+    );
     if (character.containsKey('coin_balance')) {
-      GameState.instance.setCoins(_asInt(character['coin_balance']));
+      GameState.instance.setCoins(result.coinBalance);
     }
+    return result;
   }
 
   static Future<StepSyncResult> syncSteps({

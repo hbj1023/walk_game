@@ -160,23 +160,14 @@ class _HomePageState extends State<HomePage>
     }
   }
 
-  Future<void> _claimMission(String userMissionId) async {
+  Future<MissionClaimResult> _claimMission(String userMissionId) async {
+    final result = await GameApiService.claimMission(userMissionId);
     try {
-      await GameApiService.claimMission(userMissionId);
       await AuthService.fetchMainMessage();
-      await _loadMissions();
-      if (mounted) {
-        ScaffoldMessenger.of(context)
-          ..removeCurrentSnackBar()
-          ..showSnackBar(const SnackBar(content: Text('미션 보상을 수령했습니다.')));
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context)
-          ..removeCurrentSnackBar()
-          ..showSnackBar(SnackBar(content: Text(e.toString())));
-      }
+    } catch (_) {
+      // 보상 수령은 이미 성공했으므로 홈 메시지 갱신 실패는 수령 실패로 취급하지 않는다.
     }
+    return result;
   }
 
   void _showSnackBar(String message) {
@@ -1031,7 +1022,7 @@ class _QuestDetailDialog extends StatefulWidget {
   final List<UserMission> missions;
   final bool isLoading;
   final String? error;
-  final Future<void> Function(String userMissionId) onClaim;
+  final Future<MissionClaimResult> Function(String userMissionId) onClaim;
   final Future<List<UserMission>> Function() onRefresh;
 
   const _QuestDetailDialog({
@@ -1052,6 +1043,8 @@ class _QuestDetailDialogState extends State<_QuestDetailDialog> {
   late List<UserMission> _missions;
   late bool _isLoading;
   String? _error;
+  String? _claimMessage;
+  bool _claimMessageSuccess = true;
 
   @override
   void initState() {
@@ -1164,6 +1157,7 @@ class _QuestDetailDialogState extends State<_QuestDetailDialog> {
       mainAxisSize: MainAxisSize.min,
       children: [
         _buildQuestTabBar(),
+        if (_claimMessage != null) _buildClaimNotice(),
         Flexible(
           child: selectedMissions.isEmpty
               ? Padding(
@@ -1181,6 +1175,41 @@ class _QuestDetailDialogState extends State<_QuestDetailDialog> {
                 ),
         ),
       ],
+    );
+  }
+
+  Widget _buildClaimNotice() {
+    final color = _claimMessageSuccess
+        ? const Color(0xFFF0C040)
+        : const Color(0xFFFF6B5A);
+    return Container(
+      margin: const EdgeInsets.fromLTRB(14, 4, 14, 6),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: color.withValues(alpha: 0.65)),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            _claimMessageSuccess ? Icons.payments : Icons.error_outline,
+            color: color,
+            size: 18,
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              _claimMessage!,
+              style: TextStyle(
+                color: color,
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -1234,6 +1263,7 @@ class _QuestDetailDialogState extends State<_QuestDetailDialog> {
       setState(() {
         _missions = missions;
         _isLoading = false;
+        _claimMessage = null;
       });
     } catch (e) {
       if (!mounted) return;
@@ -1246,9 +1276,30 @@ class _QuestDetailDialogState extends State<_QuestDetailDialog> {
 
   Future<void> _claim(UserMission mission) async {
     if (_isClaiming || !mission.canClaim) return;
-    setState(() => _isClaiming = true);
-    await widget.onClaim(mission.id);
-    if (mounted) Navigator.pop(context);
+    setState(() {
+      _isClaiming = true;
+      _claimMessage = null;
+    });
+    try {
+      final result = await widget.onClaim(mission.id);
+      final missions = await widget.onRefresh();
+      if (!mounted) return;
+      setState(() {
+        _missions = missions;
+        _isClaiming = false;
+        _claimMessageSuccess = true;
+        _claimMessage = result.rewardCoin > 0
+            ? '${mission.title} 보상 +${result.rewardCoin} 골드 획득'
+            : '${mission.title} 보상을 수령했습니다.';
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _isClaiming = false;
+        _claimMessageSuccess = false;
+        _claimMessage = e.toString();
+      });
+    }
   }
 
   Widget _buildQuestItem(UserMission mission) {

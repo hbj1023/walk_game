@@ -157,7 +157,14 @@ class _ShopPageState extends State<ShopPage> {
       );
       return;
     }
-    if (_gs.coins < item.priceCoin) {
+    final quantity = item.itemTemplate.isConsumable
+        ? await _showConsumablePurchaseDialog(item)
+        : await _confirmEquipmentPurchase(item);
+    if (!mounted) return;
+    if (quantity == null || quantity <= 0) return;
+
+    final totalPrice = item.priceCoin * quantity;
+    if (_gs.coins < totalPrice) {
       showGameToast(
         context,
         '코인이 부족합니다. 전투 보상으로 코인을 모아주세요.',
@@ -166,21 +173,12 @@ class _ShopPageState extends State<ShopPage> {
       return;
     }
 
-    final confirmed = await showGameConfirmDialog(
-      context: context,
-      title: item.itemTemplate.name,
-      message:
-          '${item.itemTemplate.statSummary}\n가격 ${item.priceCoin} 코인\n구매 후 인벤토리에서 장착할 수 있습니다.',
-      confirmLabel: '구매',
-      type: GameToastType.warning,
-    );
-    if (!confirmed) return;
-
     setState(() => _isBuying = true);
     try {
       await GameApiService.purchaseShopItem(
         shopId: _selectedShop!.id,
         shopItemId: item.id,
+        quantity: quantity,
       );
       final results = await Future.wait<Object>([
         GameApiService.fetchShopItems(_selectedShop!.id),
@@ -203,7 +201,9 @@ class _ShopPageState extends State<ShopPage> {
       });
       showGameToast(
         context,
-        '${item.itemTemplate.name} 구매 완료. 남은 코인: ${_gs.coins}',
+        item.itemTemplate.isConsumable
+            ? '${item.itemTemplate.name} $quantity개 구매 완료. 남은 코인: ${_gs.coins}'
+            : '${item.itemTemplate.name} 구매 완료. 남은 코인: ${_gs.coins}',
         type: GameToastType.success,
       );
     } catch (e) {
@@ -213,6 +213,356 @@ class _ShopPageState extends State<ShopPage> {
     } finally {
       if (mounted) setState(() => _isBuying = false);
     }
+  }
+
+  Future<int?> _confirmEquipmentPurchase(ShopItem item) async {
+    final setEffect = item.itemTemplate.setEffectSummary;
+    final confirmed = await showGameConfirmDialog(
+      context: context,
+      title: item.itemTemplate.name,
+      message: [
+        item.itemTemplate.statSummary,
+        if (setEffect.isNotEmpty) setEffect,
+        '가격 ${item.priceCoin} 코인',
+        '구매 후 인벤토리에서 장착할 수 있습니다.',
+      ].join('\n'),
+      confirmLabel: '구매',
+      type: GameToastType.warning,
+    );
+    return confirmed ? 1 : null;
+  }
+
+  Future<int?> _showConsumablePurchaseDialog(ShopItem item) async {
+    final maxByCoin = item.priceCoin <= 0 ? 99 : _gs.coins ~/ item.priceCoin;
+    final maxQuantity = maxByCoin.clamp(1, 99).toInt();
+    final ownedQuantity = _ownedConsumableQuantity(item.itemTemplate.id);
+    int quantity = 1;
+
+    return showDialog<int>(
+      context: context,
+      barrierColor: Colors.black.withValues(alpha: 0.62),
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            final totalPrice = item.priceCoin * quantity;
+            final canBuy = item.priceCoin <= 0 || _gs.coins >= totalPrice;
+
+            void setQuantity(int next) {
+              setDialogState(() {
+                quantity = next.clamp(1, maxQuantity);
+              });
+            }
+
+            return Dialog(
+              backgroundColor: Colors.transparent,
+              insetPadding: const EdgeInsets.symmetric(horizontal: 22),
+              child: Container(
+                padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+                decoration: BoxDecoration(
+                  color: const Color(0xF21B1008),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: _kBorderColor, width: 2),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.75),
+                      offset: const Offset(0, 6),
+                      blurRadius: 0,
+                    ),
+                  ],
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          width: 48,
+                          height: 48,
+                          decoration: BoxDecoration(
+                            color: _kSlotColor,
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(
+                              color: _kBorderColor,
+                              width: 1.5,
+                            ),
+                          ),
+                          padding: const EdgeInsets.all(7),
+                          child: Image.asset(
+                            _shopItemImage(item),
+                            fit: BoxFit.contain,
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                item.itemTemplate.name,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  color: _kGold,
+                                  fontSize: 17,
+                                  fontWeight: FontWeight.w900,
+                                ),
+                              ),
+                              const SizedBox(height: 3),
+                              Text(
+                                '보유 $ownedQuantity개',
+                                style: const TextStyle(
+                                  color: _kTextGray,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.34),
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(
+                          color: _kGold.withValues(alpha: 0.35),
+                          width: 1.5,
+                        ),
+                      ),
+                      child: Column(
+                        children: [
+                          Row(
+                            children: [
+                              const Text(
+                                '수량',
+                                style: TextStyle(
+                                  color: _kTextLight,
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w900,
+                                ),
+                              ),
+                              const Spacer(),
+                              _buildQuantityButton(
+                                '-',
+                                quantity > 1,
+                                () => setQuantity(quantity - 1),
+                              ),
+                              Container(
+                                width: 58,
+                                height: 34,
+                                margin: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: _kPanelColor,
+                                  border: Border.all(
+                                    color: _kBorderColor,
+                                    width: 1.5,
+                                  ),
+                                ),
+                                child: Center(
+                                  child: Text(
+                                    '$quantity',
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w900,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              _buildQuantityButton(
+                                '+',
+                                quantity < maxQuantity,
+                                () => setQuantity(quantity + 1),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 10),
+                          Row(
+                            children: [
+                              _buildQuickQuantityButton(
+                                '+5',
+                                quantity < maxQuantity,
+                                () => setQuantity(quantity + 5),
+                              ),
+                              const SizedBox(width: 8),
+                              _buildQuickQuantityButton(
+                                '최대',
+                                quantity < maxQuantity,
+                                () => setQuantity(maxQuantity),
+                              ),
+                              const Spacer(),
+                              Image.asset(
+                                'assets/images/icon/coin_icon.png',
+                                width: 16,
+                                height: 16,
+                              ),
+                              const SizedBox(width: 5),
+                              Text(
+                                '$totalPrice',
+                                style: TextStyle(
+                                  color: canBuy ? _kGold : Colors.redAccent,
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w900,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _buildDialogButton(
+                            label: '취소',
+                            color: const Color(0xFF352419),
+                            borderColor: _kBorderColor,
+                            onTap: () => Navigator.pop(dialogContext),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: _buildDialogButton(
+                            label: '구매',
+                            color: canBuy ? _kAccentRed : Colors.grey.shade800,
+                            borderColor: const Color(0xFFB56838),
+                            onTap: canBuy
+                                ? () => Navigator.pop(dialogContext, quantity)
+                                : null,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  int _ownedConsumableQuantity(String itemTemplateId) {
+    for (final item in _inventoryItems) {
+      if (item.itemTemplate.id == itemTemplateId &&
+          item.itemTemplate.isConsumable) {
+        return item.quantity;
+      }
+    }
+    return 0;
+  }
+
+  Widget _buildQuantityButton(String label, bool enabled, VoidCallback onTap) {
+    return GestureDetector(
+      onTap: enabled ? onTap : null,
+      child: Container(
+        width: 34,
+        height: 34,
+        decoration: BoxDecoration(
+          color: enabled ? _kPanelColor : Colors.grey.shade900,
+          border: Border.all(
+            color: enabled ? _kBorderColor : Colors.white12,
+            width: 1.5,
+          ),
+          boxShadow: enabled
+              ? [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.45),
+                    offset: const Offset(0, 3),
+                    blurRadius: 0,
+                  ),
+                ]
+              : null,
+        ),
+        child: Center(
+          child: Text(
+            label,
+            style: TextStyle(
+              color: enabled ? _kTextLight : _kTextGray,
+              fontSize: 18,
+              height: 1,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildQuickQuantityButton(
+    String label,
+    bool enabled,
+    VoidCallback onTap,
+  ) {
+    return GestureDetector(
+      onTap: enabled ? onTap : null,
+      child: Container(
+        height: 30,
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        decoration: BoxDecoration(
+          color: enabled ? const Color(0xFF352419) : Colors.grey.shade900,
+          borderRadius: BorderRadius.circular(6),
+          border: Border.all(
+            color: enabled ? _kBorderColor : Colors.white12,
+            width: 1.2,
+          ),
+        ),
+        child: Center(
+          child: Text(
+            label,
+            style: TextStyle(
+              color: enabled ? _kGold : _kTextGray,
+              fontSize: 12,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDialogButton({
+    required String label,
+    required Color color,
+    required Color borderColor,
+    required VoidCallback? onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        height: 42,
+        decoration: BoxDecoration(
+          color: onTap == null ? Colors.grey.shade800 : color,
+          borderRadius: BorderRadius.circular(7),
+          border: Border.all(color: borderColor, width: 1.5),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.55),
+              offset: const Offset(0, 4),
+              blurRadius: 0,
+            ),
+          ],
+        ),
+        child: Center(
+          child: Text(
+            label,
+            style: TextStyle(
+              color: onTap == null ? _kTextGray : Colors.white,
+              fontSize: 14,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+        ),
+      ),
+    );
   }
 
   @override
@@ -868,6 +1218,10 @@ class _ShopPageState extends State<ShopPage> {
                             height: 1.35,
                           ),
                         ),
+                        if (template.setEffectLines.isNotEmpty) ...[
+                          const SizedBox(height: 8),
+                          _buildSetEffectInfo(template),
+                        ],
                       ],
                     ),
                   ),
@@ -942,6 +1296,42 @@ class _ShopPageState extends State<ShopPage> {
     if (shouldBuy == true && shopItem != null) {
       await _purchase(shopItem);
     }
+  }
+
+  Widget _buildSetEffectInfo(ItemTemplate template) {
+    final lines = template.setEffectLines;
+    if (lines.isEmpty) return const SizedBox.shrink();
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(9),
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.30),
+        borderRadius: BorderRadius.circular(7),
+        border: Border.all(color: _kGold.withValues(alpha: 0.42), width: 1),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            template.setNameLabel,
+            style: const TextStyle(
+              color: _kGold,
+              fontSize: 12,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 4),
+          for (final line in lines)
+            Padding(
+              padding: const EdgeInsets.only(top: 2),
+              child: Text(
+                line,
+                style: const TextStyle(color: _kTextLight, fontSize: 11),
+              ),
+            ),
+        ],
+      ),
+    );
   }
 
   Widget _buildEquipmentTileState({
@@ -1068,6 +1458,15 @@ class _ShopPageState extends State<ShopPage> {
                   item.itemTemplate.statSummary,
                   style: const TextStyle(color: _kTextGray, fontSize: 11),
                 ),
+                if (item.itemTemplate.setEffectCompactSummary.isNotEmpty) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    item.itemTemplate.setEffectCompactSummary,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(color: _kGold, fontSize: 10),
+                  ),
+                ],
                 const SizedBox(height: 5),
                 Text(
                   item.isPurchaseUnlocked

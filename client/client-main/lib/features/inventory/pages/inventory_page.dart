@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import 'package:capstone_app/services/auth_service.dart';
@@ -64,6 +66,9 @@ class _InventoryPageState extends State<InventoryPage> {
   List<OwnedInventoryItem> _items = const [];
   StatUpgradeSummary? _statSummary;
   ExplorationUpgradeSummary? _explorationSummary;
+  CharacterStatsSummary? _characterStatsSummary;
+  _EquipmentStatFeedback? _equipmentFeedback;
+  Timer? _equipmentFeedbackTimer;
 
   final _gs = GameState.instance;
 
@@ -77,6 +82,7 @@ class _InventoryPageState extends State<InventoryPage> {
 
   @override
   void dispose() {
+    _equipmentFeedbackTimer?.cancel();
     _gs.removeListener(_onGameStateChanged);
     super.dispose();
   }
@@ -102,12 +108,14 @@ class _InventoryPageState extends State<InventoryPage> {
         GameApiService.fetchInventoryItems(),
         GameApiService.fetchStatUpgradeSummary(),
         GameApiService.fetchExplorationUpgradeSummary(),
+        GameApiService.fetchCharacterStatsSummary(),
       ]);
       if (!mounted) return;
       setState(() {
         _items = results[0] as List<OwnedInventoryItem>;
         _statSummary = results[1] as StatUpgradeSummary;
         _explorationSummary = results[2] as ExplorationUpgradeSummary;
+        _characterStatsSummary = results[3] as CharacterStatsSummary;
         _isLoading = false;
       });
     } catch (e) {
@@ -121,6 +129,53 @@ class _InventoryPageState extends State<InventoryPage> {
 
   void _showMessage(String message) {
     showGameToast(context, message);
+  }
+
+  void _showEquipmentStatFeedback({
+    required OwnedInventoryItem item,
+    required String action,
+    required CharacterStatsSummary before,
+    required CharacterStatsSummary after,
+  }) {
+    final statDeltas = _buildStatDeltas(before.finalStats, after.finalStats);
+    final beforePower = _calculateCombatPower(before.finalStats);
+    final afterPower = _calculateCombatPower(after.finalStats);
+    final feedback = _EquipmentStatFeedback(
+      id: DateTime.now().microsecondsSinceEpoch,
+      title: '${item.itemTemplate.name} $action 완료',
+      combatPower: afterPower,
+      combatPowerDelta: afterPower - beforePower,
+      statDeltas: statDeltas,
+    );
+
+    _equipmentFeedbackTimer?.cancel();
+    setState(() => _equipmentFeedback = feedback);
+    _equipmentFeedbackTimer = Timer(const Duration(milliseconds: 2600), () {
+      if (!mounted || _equipmentFeedback?.id != feedback.id) return;
+      setState(() => _equipmentFeedback = null);
+    });
+  }
+
+  List<_StatDelta> _buildStatDeltas(
+    Map<String, int> before,
+    Map<String, int> after,
+  ) {
+    final deltas = <_StatDelta>[];
+    for (final key in _statKeys) {
+      final delta = (after[key] ?? 0) - (before[key] ?? 0);
+      if (delta == 0) continue;
+      deltas.add(_StatDelta(label: _statLabel[key] ?? key, value: delta));
+    }
+    return deltas;
+  }
+
+  int _calculateCombatPower(Map<String, int>? stats) {
+    if (stats == null || stats.isEmpty) return 0;
+    final hp = stats['hp'] ?? 0;
+    final attack = stats['attack'] ?? 0;
+    final defense = stats['defense'] ?? 0;
+    final agility = stats['agility'] ?? 0;
+    return (hp / 3 + attack * 8 + defense * 5 + agility * 4).round();
   }
 
   int get _statPointBalance => _statSummary?.statExp ?? _gs.statExp;
@@ -208,6 +263,10 @@ class _InventoryPageState extends State<InventoryPage> {
               item.itemTemplate.statSummary,
               style: const TextStyle(color: kTextLight, fontSize: 13),
             ),
+            if (item.itemTemplate.setEffectLines.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              _buildSetEffectInfo(item.itemTemplate),
+            ],
             const SizedBox(height: 8),
             Row(
               children: [
@@ -243,6 +302,42 @@ class _InventoryPageState extends State<InventoryPage> {
     );
   }
 
+  Widget _buildSetEffectInfo(ItemTemplate template) {
+    final lines = template.setEffectLines;
+    if (lines.isEmpty) return const SizedBox.shrink();
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(9),
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.28),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: kGold.withValues(alpha: 0.42), width: 1),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            template.setNameLabel,
+            style: const TextStyle(
+              color: kGold,
+              fontSize: 12,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 4),
+          for (final line in lines)
+            Padding(
+              padding: const EdgeInsets.only(top: 2),
+              child: Text(
+                line,
+                style: const TextStyle(color: kTextLight, fontSize: 11),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
   Future<void> _openItemAction(OwnedInventoryItem item) async {
     final result = await _showItemDialog(item);
     if (result == null) return;
@@ -266,10 +361,41 @@ class _InventoryPageState extends State<InventoryPage> {
     try {
       if (item.itemTemplate.isConsumable) {
         await GameApiService.useConsumable(item.itemTemplate.id);
-      } else if (item.isEquipped) {
-        await GameApiService.unequipItem(item.id);
       } else {
-        await GameApiService.equipItem(item.id);
+        CharacterStatsSummary? beforeStats;
+        try {
+          beforeStats = await GameApiService.fetchCharacterStatsSummary();
+        } catch (_) {
+          beforeStats = null;
+        }
+
+        if (item.isEquipped) {
+          await GameApiService.unequipItem(item.id);
+        } else {
+          await GameApiService.equipItem(item.id);
+        }
+        await _loadInventory();
+
+        CharacterStatsSummary? afterStats;
+        if (beforeStats != null) {
+          try {
+            afterStats = await GameApiService.fetchCharacterStatsSummary();
+          } catch (_) {
+            afterStats = null;
+          }
+        }
+
+        if (mounted && beforeStats != null && afterStats != null) {
+          _showEquipmentStatFeedback(
+            item: item,
+            action: action,
+            before: beforeStats,
+            after: afterStats,
+          );
+        } else if (mounted) {
+          _showMessage('${item.itemTemplate.name} $action 완료');
+        }
+        return;
       }
       await _loadInventory();
       if (mounted) _showMessage('${item.itemTemplate.name} $action 완료');
@@ -391,6 +517,7 @@ class _InventoryPageState extends State<InventoryPage> {
                 children: [
                   _buildTopBar(),
                   _buildEquipmentSection(),
+                  _buildActiveSetEffectsPanel(),
                   _buildTabBar(),
                   if (_isLoading)
                     const Padding(
@@ -414,7 +541,43 @@ class _InventoryPageState extends State<InventoryPage> {
                 ),
               ),
             ),
+          _buildEquipmentStatFeedbackOverlay(),
         ],
+      ),
+    );
+  }
+
+  Widget _buildEquipmentStatFeedbackOverlay() {
+    return Positioned(
+      top: 104,
+      left: 14,
+      right: 14,
+      child: IgnorePointer(
+        child: AnimatedSwitcher(
+          duration: const Duration(milliseconds: 220),
+          reverseDuration: const Duration(milliseconds: 180),
+          transitionBuilder: (child, animation) {
+            final curved = CurvedAnimation(
+              parent: animation,
+              curve: Curves.easeOutCubic,
+              reverseCurve: Curves.easeInCubic,
+            );
+            final slide = Tween<Offset>(
+              begin: const Offset(0, -0.22),
+              end: Offset.zero,
+            ).animate(curved);
+            return FadeTransition(
+              opacity: curved,
+              child: SlideTransition(position: slide, child: child),
+            );
+          },
+          child: _equipmentFeedback == null
+              ? const SizedBox.shrink(key: ValueKey('empty-equipment-feedback'))
+              : _EquipmentStatFeedbackCard(
+                  key: ValueKey(_equipmentFeedback!.id),
+                  feedback: _equipmentFeedback!,
+                ),
+        ),
       ),
     );
   }
@@ -589,6 +752,78 @@ class _InventoryPageState extends State<InventoryPage> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildActiveSetEffectsPanel() {
+    final bonuses = _characterStatsSummary?.activeSetBonuses ?? const [];
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.fromLTRB(8, 2, 8, 8),
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.24),
+        border: Border.all(color: kBorderColor, width: 1.2),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.auto_awesome, color: kGold, size: 17),
+              const SizedBox(width: 6),
+              const Text(
+                '활성 세트효과',
+                style: TextStyle(
+                  color: kTextLight,
+                  fontSize: 13,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const Spacer(),
+              Text(
+                '${bonuses.length}',
+                style: const TextStyle(
+                  color: kGold,
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 7),
+          if (bonuses.isEmpty)
+            const Text(
+              '같은 세트 방어구 3개부터 효과가 활성화됩니다.',
+              style: TextStyle(color: kTextGray, fontSize: 11),
+            )
+          else
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: bonuses.map(_buildActiveSetEffectChip).toList(),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildActiveSetEffectChip(EquipmentSetBonusInfo bonus) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+      decoration: BoxDecoration(
+        color: kGold.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(7),
+        border: Border.all(color: kGold.withValues(alpha: 0.45), width: 1),
+      ),
+      child: Text(
+        '${bonus.displaySetName} ${bonus.displayDescription}',
+        style: const TextStyle(
+          color: kTextLight,
+          fontSize: 10.5,
+          fontWeight: FontWeight.bold,
+        ),
       ),
     );
   }
@@ -1513,6 +1748,159 @@ class _InventoryPageState extends State<InventoryPage> {
       ),
     );
   }
+}
+
+class _EquipmentStatFeedback {
+  final int id;
+  final String title;
+  final int combatPower;
+  final int combatPowerDelta;
+  final List<_StatDelta> statDeltas;
+
+  const _EquipmentStatFeedback({
+    required this.id,
+    required this.title,
+    required this.combatPower,
+    required this.combatPowerDelta,
+    required this.statDeltas,
+  });
+}
+
+class _StatDelta {
+  final String label;
+  final int value;
+
+  const _StatDelta({required this.label, required this.value});
+}
+
+class _EquipmentStatFeedbackCard extends StatelessWidget {
+  final _EquipmentStatFeedback feedback;
+
+  const _EquipmentStatFeedbackCard({super.key, required this.feedback});
+
+  @override
+  Widget build(BuildContext context) {
+    final isPowerUp = feedback.combatPowerDelta >= 0;
+    final accent = isPowerUp
+        ? const Color(0xFF68D46E)
+        : const Color(0xFFFF7563);
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+      decoration: BoxDecoration(
+        color: const Color(0xF21B1008),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: accent, width: 2),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.75),
+            offset: const Offset(0, 5),
+            blurRadius: 0,
+          ),
+        ],
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 34,
+                height: 34,
+                decoration: BoxDecoration(
+                  color: accent.withValues(alpha: 0.18),
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(color: accent, width: 1.5),
+                ),
+                child: Icon(
+                  isPowerUp ? Icons.trending_up : Icons.trending_down,
+                  color: accent,
+                  size: 22,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  feedback.title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: kTextLight,
+                    fontSize: 13,
+                    height: 1.1,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  const Text(
+                    '전투력',
+                    style: TextStyle(
+                      color: kTextGray,
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  Text(
+                    '${feedback.combatPower} (${_signed(feedback.combatPowerDelta)})',
+                    style: TextStyle(
+                      color: accent,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          if (feedback.statDeltas.isEmpty)
+            const Text(
+              '스탯 변화 없음',
+              style: TextStyle(
+                color: kTextGray,
+                fontSize: 11,
+                fontWeight: FontWeight.bold,
+              ),
+            )
+          else
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: feedback.statDeltas.map(_buildDeltaChip).toList(),
+            ),
+        ],
+      ),
+    );
+  }
+
+  static Widget _buildDeltaChip(_StatDelta delta) {
+    final isUp = delta.value >= 0;
+    final color = isUp ? const Color(0xFF68D46E) : const Color(0xFFFF7563);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.13),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: color.withValues(alpha: 0.75), width: 1),
+      ),
+      child: Text(
+        '${delta.label} ${_signed(delta.value)}',
+        style: TextStyle(
+          color: color,
+          fontSize: 11,
+          fontWeight: FontWeight.w900,
+        ),
+      ),
+    );
+  }
+
+  static String _signed(int value) => value > 0 ? '+$value' : '$value';
 }
 
 class _ExplorationLabels {

@@ -14,6 +14,7 @@ import 'package:capstone_app/features/raid/pages/raid_list_page.dart';
 import 'package:capstone_app/features/shop/pages/shop_page.dart';
 import 'package:capstone_app/widgets/game_feedback.dart';
 import 'package:capstone_app/widgets/character_stats_panel.dart';
+import 'package:capstone_app/widgets/pixel_bottom_nav.dart';
 import 'package:capstone_app/widgets/player_level_badge.dart';
 
 const _kPanelBorder = Color(0xFF6B3A1F);
@@ -798,6 +799,19 @@ class _BattlePageState extends State<BattlePage> with WidgetsBindingObserver {
                     fontWeight: FontWeight.w600,
                   ),
                 ),
+                if (template.setEffectCompactSummary.isNotEmpty) ...[
+                  const SizedBox(height: 3),
+                  Text(
+                    template.setEffectCompactSummary,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: accent,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
               ],
             ),
           ),
@@ -1018,7 +1032,7 @@ class _BattlePageState extends State<BattlePage> with WidgetsBindingObserver {
                   _buildTopHud(),
                   _buildStageTitle(),
                   Expanded(child: _buildBattleField()),
-                  const SizedBox(height: 88),
+                  const SizedBox(height: 124),
                 ],
               ),
             ),
@@ -1803,110 +1817,58 @@ class _BattlePageState extends State<BattlePage> with WidgetsBindingObserver {
 
   Widget _buildBottomNav() {
     final items = [
-      _NavItem(icon: 'assets/images/nav/nav_shop.png', label: '상점', index: 0),
-      _NavItem(
+      PixelBottomNavItem(
+        icon: 'assets/images/nav/nav_shop.png',
+        label: '상점',
+        index: 0,
+      ),
+      PixelBottomNavItem(
         icon: 'assets/images/nav/nav_character.png',
         label: '캐릭터',
         index: 1,
       ),
-      _NavItem(icon: 'assets/images/nav/nav_home.png', label: '홈', index: 2),
-      _NavItem(icon: 'assets/images/nav/nav_battle.png', label: '전투', index: 3),
-      _NavItem(icon: 'assets/images/nav/nav_raid.png', label: '레이드', index: 4),
+      PixelBottomNavItem(
+        icon: 'assets/images/nav/nav_home.png',
+        label: '홈',
+        index: 2,
+      ),
+      PixelBottomNavItem(
+        icon: 'assets/images/nav/nav_battle.png',
+        label: '전투',
+        index: 3,
+      ),
+      PixelBottomNavItem(
+        icon: 'assets/images/nav/nav_raid.png',
+        label: '레이드',
+        index: 4,
+      ),
     ];
 
-    return Container(
-      color: Colors.transparent,
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.end,
-        children: items.map((item) {
-          const currentIndex = 3;
-          final isSelected = currentIndex == item.index;
-          return Expanded(
-            child: GestureDetector(
-              onTap: () {
-                if (!_battleEnded && item.index != 3) {
-                  _showBattleLockedMessage();
-                  return;
-                }
-                switch (item.index) {
-                  case 0:
-                    _pushReplacement(const ShopPage());
-                    break;
-                  case 1:
-                    _pushReplacement(const InventoryPage());
-                    break;
-                  case 2:
-                    _pushReplacement(const HomePage());
-                    break;
-                  case 3:
-                    break;
-                  case 4:
-                    _pushReplacement(const RaidListPage());
-                    break;
-                }
-              },
-              child: Container(
-                padding: const EdgeInsets.symmetric(vertical: 10),
-                decoration: BoxDecoration(
-                  color: isSelected
-                      ? const Color(0xFF2E2E2E)
-                      : const Color(0xFF232323),
-                  borderRadius: const BorderRadius.vertical(
-                    top: Radius.circular(28),
-                  ),
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    isSelected
-                        ? Image.asset(item.icon, width: 36, height: 36)
-                        : ColorFiltered(
-                            colorFilter: const ColorFilter.matrix([
-                              0.3,
-                              0,
-                              0,
-                              0,
-                              0,
-                              0,
-                              0.3,
-                              0,
-                              0,
-                              0,
-                              0,
-                              0,
-                              0.3,
-                              0,
-                              0,
-                              0,
-                              0,
-                              0,
-                              1,
-                              0,
-                            ]),
-                            child: Image.asset(
-                              item.icon,
-                              width: 36,
-                              height: 36,
-                            ),
-                          ),
-                    const SizedBox(height: 6),
-                    Text(
-                      item.label,
-                      style: TextStyle(
-                        color: isSelected ? _kGold : Colors.white38,
-                        fontSize: 11,
-                        fontWeight: isSelected
-                            ? FontWeight.bold
-                            : FontWeight.normal,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          );
-        }).toList(),
-      ),
+    return PixelBottomNav(
+      items: items,
+      currentIndex: 3,
+      onTap: (item) async {
+        if (!_battleEnded && item.index != 3) {
+          _showBattleLockedMessage();
+          return;
+        }
+        switch (item.index) {
+          case 0:
+            _pushReplacement(const ShopPage());
+            break;
+          case 1:
+            _pushReplacement(const InventoryPage());
+            break;
+          case 2:
+            _pushReplacement(const HomePage());
+            break;
+          case 3:
+            break;
+          case 4:
+            _pushReplacement(const RaidListPage());
+            break;
+        }
+      },
     );
   }
 
@@ -1938,16 +1900,4 @@ class _BattlePageState extends State<BattlePage> with WidgetsBindingObserver {
     }
     return buf.toString();
   }
-}
-
-class _NavItem {
-  final String icon;
-  final String label;
-  final int index;
-
-  const _NavItem({
-    required this.icon,
-    required this.label,
-    required this.index,
-  });
 }

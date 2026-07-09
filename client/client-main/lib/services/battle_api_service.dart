@@ -283,6 +283,35 @@ class BattleRewardItemTemplate {
     if (baseAgility > 0) parts.add('민첩 +$baseAgility');
     return parts.isEmpty ? slotLabel : parts.join(' / ');
   }
+
+  List<String> get setEffectLines {
+    return switch (setKey.trim()) {
+      'vanguard' => const [
+        '3세트: 최대 HP +8% / 방어력 +8%',
+        '4세트: 공격력 +6% / 받는 피해 -4%',
+      ],
+      'berserker' => const [
+        '3세트: 공격력 +12% / 최대 HP +5%',
+        '4세트: 보스 피해 +15% / 받는 피해 +5%',
+      ],
+      'sentinel' => const [
+        '3세트: 방어력 +10% / 민첩 +6%',
+        '4세트: 몬스터 공격 게이지 -10% / 보스 피해 +6%',
+      ],
+      'shadow' => const ['3세트: 민첩 +12% / 공격력 +5%', '4세트: 공격 필요 거리 -10%'],
+      'colossus' => const [
+        '3세트: 방어력 +15% / 최대 HP +10%',
+        '4세트: 받는 피해 -8% / 보스 피해 +8%',
+      ],
+      _ => const [],
+    };
+  }
+
+  String get setEffectCompactSummary {
+    final lines = setEffectLines;
+    if (lines.isEmpty) return '';
+    return lines.join(' · ');
+  }
 }
 
 class NormalStageInfo {
