@@ -10,6 +10,7 @@ import 'package:capstone_app/features/inventory/pages/inventory_page.dart';
 import 'package:capstone_app/features/auth/pages/login_page.dart';
 import 'package:capstone_app/features/raid/pages/raid_list_page.dart';
 import 'package:capstone_app/features/shop/pages/shop_page.dart';
+import 'package:capstone_app/widgets/app_settings_dialog.dart';
 import 'package:capstone_app/widgets/character_stats_panel.dart';
 import 'package:capstone_app/widgets/friend_request_badge_button.dart';
 import 'package:capstone_app/widgets/player_level_badge.dart';
@@ -457,79 +458,7 @@ class _HomePageState extends State<HomePage>
   void _openSettingsDialog() {
     showDialog<void>(
       context: context,
-      builder: (dialogContext) => Dialog(
-        backgroundColor: Colors.transparent,
-        child: Container(
-          padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
-          decoration: BoxDecoration(
-            color: const Color(0xFF1A1A1A),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: const Color(0xFF6B3A1F), width: 2),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Row(
-                children: [
-                  const Text(
-                    '설정',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 17,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const Spacer(),
-                  GestureDetector(
-                    onTap: () => Navigator.pop(dialogContext),
-                    child: const Icon(
-                      Icons.close,
-                      color: Colors.white54,
-                      size: 20,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 10),
-              GestureDetector(
-                onTap: () {
-                  Navigator.pop(dialogContext);
-                  _confirmLogout();
-                },
-                child: Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 12,
-                  ),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF7A1A1A),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(
-                      color: const Color(0xFF4A0E0E),
-                      width: 1.5,
-                    ),
-                  ),
-                  child: Row(
-                    children: const [
-                      Icon(Icons.logout, color: Colors.white, size: 18),
-                      SizedBox(width: 8),
-                      Text(
-                        '로그아웃',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 14,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
+      builder: (dialogContext) => AppSettingsDialog(onLogout: _confirmLogout),
     );
   }
 
