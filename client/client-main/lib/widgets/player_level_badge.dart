@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'package:capstone_app/services/game_state.dart';
-import 'package:capstone_app/widgets/profile_icon_catalog.dart';
+import 'package:capstone_app/widgets/user_profile_avatar.dart';
 
 class PlayerLevelBadge extends StatelessWidget {
   final int level;
@@ -99,9 +99,10 @@ class PlayerProfileWithLevel extends StatelessWidget {
         children: [
           AnimatedBuilder(
             animation: GameState.instance,
-            builder: (context, _) => ProfileIconPreview(
-              iconKey: GameState.instance.profileIconKey,
-              customImageDataUrl: GameState.instance.profileImageDataUrl,
+            builder: (context, _) => UserProfileAvatar(
+              fallbackIconKey: GameState.instance.profileIconKey,
+              fallbackCustomImageDataUrl:
+                  GameState.instance.profileImageDataUrl,
               size: 56,
             ),
           ),

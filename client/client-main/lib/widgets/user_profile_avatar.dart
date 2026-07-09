@@ -24,10 +24,13 @@ class UserProfileAvatar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final image = profileImage;
+    final customImage = fallbackCustomImageDataUrl?.trim();
     if (image == null || !image.hasDisplayImage) {
       return ProfileIconPreview(
-        iconKey: fallbackIconKey,
-        customImageDataUrl: fallbackCustomImageDataUrl,
+        iconKey: customImage != null && customImage.isNotEmpty
+            ? customProfileIconKey
+            : fallbackIconKey,
+        customImageDataUrl: customImage,
         size: size,
         selected: selected,
         showFrame: showFrame,

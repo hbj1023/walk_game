@@ -6,7 +6,6 @@ import 'package:capstone_app/models/raid_boss.dart';
 import 'package:capstone_app/services/game_api_service.dart';
 import 'package:capstone_app/services/game_state.dart';
 import 'package:capstone_app/features/raid/pages/raid_battle_page.dart';
-import 'package:capstone_app/widgets/profile_icon_catalog.dart';
 import 'package:capstone_app/widgets/user_profile_avatar.dart';
 
 const _kLobbyBg = Color(0xFF1A1008);
@@ -497,9 +496,9 @@ class _RaidLobbyPageState extends State<RaidLobbyPage> {
                 leading: isMine
                     ? AnimatedBuilder(
                         animation: GameState.instance,
-                        builder: (context, _) => ProfileIconPreview(
-                          iconKey: GameState.instance.profileIconKey,
-                          customImageDataUrl:
+                        builder: (context, _) => UserProfileAvatar(
+                          fallbackIconKey: GameState.instance.profileIconKey,
+                          fallbackCustomImageDataUrl:
                               GameState.instance.profileImageDataUrl,
                           size: 32,
                         ),

@@ -303,7 +303,6 @@ class _FriendSheetState extends State<FriendSheet> {
             user: user,
             title: user.displayName,
             subtitle: user.subtitle,
-            leadingIcon: Icons.person_add_alt_1,
             actions: [
               _ActionButton(
                 label: '요청',
@@ -386,7 +385,6 @@ class _FriendSheetState extends State<FriendSheet> {
               user: user,
               title: user.displayName,
               subtitle: user.subtitle,
-              leadingIcon: Icons.people_outline,
               actions: [
                 _ActionButton(
                   label: '삭제',
@@ -418,7 +416,6 @@ class _FriendSheetState extends State<FriendSheet> {
               user: user,
               title: user.displayName,
               subtitle: user.subtitle,
-              leadingIcon: Icons.mark_email_unread_outlined,
               actions: [
                 _ActionButton(
                   label: '수락',
@@ -458,7 +455,6 @@ class _FriendSheetState extends State<FriendSheet> {
               user: user,
               title: user.displayName,
               subtitle: user.subtitle,
-              leadingIcon: Icons.outgoing_mail,
               actions: [
                 _ActionButton(
                   label: '취소',
@@ -482,7 +478,6 @@ class _FriendSheetState extends State<FriendSheet> {
               user: user,
               title: user.displayName,
               subtitle: user.subtitle,
-              leadingIcon: Icons.block,
               actions: [
                 _ActionButton(
                   label: '해제',
@@ -573,29 +568,19 @@ class _FriendUserRow extends StatelessWidget {
     required this.user,
     required this.title,
     required this.subtitle,
-    required this.leadingIcon,
     required this.actions,
   });
 
   final FriendUser user;
   final String title;
   final String subtitle;
-  final IconData leadingIcon;
   final List<Widget> actions;
 
   @override
   Widget build(BuildContext context) {
     return Row(
       children: [
-        Stack(
-          alignment: Alignment.center,
-          children: [
-            UserProfileAvatar(profileImage: user.profileImage, size: 38),
-            if (user.profileImage == null ||
-                !user.profileImage!.hasDisplayImage)
-              Icon(leadingIcon, color: const Color(0xFF4DA6FF), size: 15),
-          ],
-        ),
+        UserProfileAvatar(profileImage: user.profileImage, size: 38),
         const SizedBox(width: 10),
         Expanded(
           child: Column(
