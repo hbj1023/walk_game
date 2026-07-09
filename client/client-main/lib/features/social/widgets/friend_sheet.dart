@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'package:capstone_app/services/game_api_service.dart'
+    show equipmentSetNameForKey;
 import 'package:capstone_app/services/friendship_service.dart';
 import 'package:capstone_app/widgets/user_profile_avatar.dart';
 
@@ -582,7 +584,7 @@ class _FriendUserRow extends StatelessWidget {
       children: [
         GestureDetector(
           behavior: HitTestBehavior.opaque,
-          onTap: () => _showFriendPower(context),
+          onTap: () => _showFriendProfile(context),
           child: UserProfileAvatar(profileImage: user.profileImage, size: 38),
         ),
         const SizedBox(width: 10),
@@ -619,13 +621,16 @@ class _FriendUserRow extends StatelessWidget {
     );
   }
 
-  void _showFriendPower(BuildContext context) {
+  void _showFriendProfile(BuildContext context) {
+    final profileStats = user.profileStats;
+    final hasStats = profileStats?.hasStats == true;
     showDialog<void>(
       context: context,
       builder: (dialogContext) => Dialog(
         backgroundColor: Colors.transparent,
+        insetPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 32),
         child: Container(
-          width: 260,
+          width: 340,
           padding: const EdgeInsets.fromLTRB(18, 18, 18, 16),
           decoration: BoxDecoration(
             color: const Color(0xFF1A1A1A),
@@ -639,97 +644,315 @@ class _FriendUserRow extends StatelessWidget {
               ),
             ],
           ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Row(
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              maxHeight: MediaQuery.of(context).size.height * 0.82,
+            ),
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  UserProfileAvatar(profileImage: user.profileImage, size: 48),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          title,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 15,
-                            fontWeight: FontWeight.w900,
-                          ),
-                        ),
-                        if (user.characterLevel != null)
-                          Text(
-                            'Lv.${user.characterLevel}',
-                            style: const TextStyle(
-                              color: Color(0xFFFFD15C),
-                              fontSize: 12,
-                              fontWeight: FontWeight.w800,
+                  Row(
+                    children: [
+                      UserProfileAvatar(
+                        profileImage: user.profileImage,
+                        size: 48,
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              title,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 15,
+                                fontWeight: FontWeight.w900,
+                              ),
                             ),
-                          ),
-                      ],
-                    ),
+                            if (user.characterLevel != null)
+                              Text(
+                                'Lv.${user.characterLevel}',
+                                style: const TextStyle(
+                                  color: Color(0xFFFFD15C),
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                      GestureDetector(
+                        onTap: () => Navigator.pop(dialogContext),
+                        child: const Icon(
+                          Icons.close,
+                          color: Colors.white54,
+                          size: 20,
+                        ),
+                      ),
+                    ],
                   ),
-                  GestureDetector(
-                    onTap: () => Navigator.pop(dialogContext),
-                    child: const Icon(
-                      Icons.close,
-                      color: Colors.white54,
-                      size: 20,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 14,
-                  vertical: 13,
-                ),
-                decoration: BoxDecoration(
-                  color: Colors.black.withValues(alpha: 0.28),
-                  border: Border.all(color: const Color(0xFF6B3A1F)),
-                ),
-                child: Column(
-                  children: [
+                  const SizedBox(height: 16),
+                  _buildCombatPowerBlock(),
+                  const SizedBox(height: 10),
+                  if (hasStats) ...[
+                    _buildStatGrid(profileStats!),
+                    const SizedBox(height: 10),
+                    _buildEquipmentProfileSection(profileStats),
+                  ] else ...[
+                    const SizedBox(height: 10),
                     const Text(
-                      '전투력',
-                      style: TextStyle(
-                        color: Color(0xFFFFD15C),
-                        fontSize: 12,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      user.combatPower == null ? '-' : '${user.combatPower}',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 28,
-                        fontWeight: FontWeight.w900,
-                        height: 1,
-                      ),
+                      '캐릭터 스탯 정보가 아직 없습니다.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: Colors.white38, fontSize: 11),
                     ),
                   ],
-                ),
+                ],
               ),
-              if (user.combatPower == null) ...[
-                const SizedBox(height: 10),
-                const Text(
-                  '캐릭터 전투력 정보가 아직 없습니다.',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(color: Colors.white38, fontSize: 11),
-                ),
-              ],
-            ],
+            ),
           ),
         ),
       ),
     );
   }
+
+  Widget _buildCombatPowerBlock() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.28),
+        border: Border.all(color: const Color(0xFF6B3A1F)),
+      ),
+      child: Row(
+        children: [
+          const Icon(
+            Icons.local_fire_department,
+            color: Color(0xFFFFD15C),
+            size: 18,
+          ),
+          const SizedBox(width: 8),
+          const Text(
+            '전투력',
+            style: TextStyle(
+              color: Color(0xFFFFD15C),
+              fontSize: 12,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const Spacer(),
+          Text(
+            user.combatPower == null ? '-' : '${user.combatPower}',
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 26,
+              fontWeight: FontWeight.w900,
+              height: 1,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatGrid(FriendProfileStats stats) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final tileWidth = (constraints.maxWidth - 8) / 2;
+        return Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            _buildStatTile('최대 HP', stats.finalStats['hp'] ?? 0, tileWidth),
+            _buildStatTile('공격력', stats.finalStats['attack'] ?? 0, tileWidth),
+            _buildStatTile('방어력', stats.finalStats['defense'] ?? 0, tileWidth),
+            _buildStatTile('민첩', stats.finalStats['agility'] ?? 0, tileWidth),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildStatTile(String label, int value, double width) {
+    return Container(
+      width: width,
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.24),
+        border: Border.all(color: const Color(0xFF6B3A1F)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(color: Colors.white54, fontSize: 10),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            '$value',
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 17,
+              fontWeight: FontWeight.w900,
+              height: 1,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEquipmentProfileSection(FriendProfileStats stats) {
+    final equippedItems = stats.equippedItems;
+    final primarySet = _primaryEquippedSet(stats);
+    final weapon = stats.equippedWeapon;
+    final hasActiveSet = primarySet != null && primarySet.count >= 3;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.22),
+        border: Border.all(color: const Color(0xFF6B3A1F)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.inventory_2, color: Color(0xFFFFD15C), size: 16),
+              const SizedBox(width: 6),
+              const Text(
+                '장착 정보',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              const Spacer(),
+              Text(
+                '${equippedItems.length}/4',
+                style: const TextStyle(color: Colors.white54, fontSize: 10),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          if (hasActiveSet) ...[
+            Text(
+              '${primarySet.name} ${primarySet.count}/4',
+              style: const TextStyle(
+                color: Color(0xFFFFD15C),
+                fontSize: 13,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+            const SizedBox(height: 4),
+            ...stats.activeSetBonuses.map(
+              (bonus) => Padding(
+                padding: const EdgeInsets.only(bottom: 2),
+                child: Text(
+                  bonus.displayDescription,
+                  style: const TextStyle(color: Colors.white60, fontSize: 10),
+                ),
+              ),
+            ),
+          ] else if (weapon != null) ...[
+            Text(
+              weapon.weaponTypeLabel.isEmpty
+                  ? '장착 무기: ${weapon.name}'
+                  : '장착 무기: ${weapon.weaponTypeLabel}',
+              style: const TextStyle(
+                color: Color(0xFFFFD15C),
+                fontSize: 13,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+            const SizedBox(height: 3),
+            Text(
+              weapon.name,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(color: Colors.white60, fontSize: 10),
+            ),
+          ] else
+            const Text(
+              '장착한 세트나 무기가 없습니다.',
+              style: TextStyle(color: Colors.white38, fontSize: 11),
+            ),
+          if (equippedItems.isNotEmpty) ...[
+            const Divider(color: Color(0xFF6B3A1F), height: 14),
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: equippedItems
+                  .map((item) => _buildEquippedChip(item))
+                  .toList(),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEquippedChip(FriendEquippedItem item) {
+    return Container(
+      constraints: const BoxConstraints(maxWidth: 142),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.06),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.10)),
+      ),
+      child: Text(
+        '${_slotLabel(item)} ${item.name}',
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: const TextStyle(color: Colors.white70, fontSize: 10),
+      ),
+    );
+  }
+
+  _FriendEquippedSet? _primaryEquippedSet(FriendProfileStats stats) {
+    final counts = <String, int>{};
+    for (final item in stats.equippedItems) {
+      final setKey = item.setKey.trim();
+      if (setKey.isEmpty) continue;
+      counts[setKey] = (counts[setKey] ?? 0) + 1;
+    }
+    if (counts.isEmpty) return null;
+    final entries = counts.entries.toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+    final entry = entries.first;
+    final name = equipmentSetNameForKey(entry.key);
+    return _FriendEquippedSet(
+      name: name.isEmpty ? entry.key : name,
+      count: entry.value,
+    );
+  }
+
+  String _slotLabel(FriendEquippedItem item) {
+    if (item.isWeapon) return '무기';
+    return switch (item.slot) {
+      'helmet' => '투구',
+      'armor' => '갑옷',
+      'shoes' => '신발',
+      _ => '장비',
+    };
+  }
+}
+
+class _FriendEquippedSet {
+  final String name;
+  final int count;
+
+  const _FriendEquippedSet({required this.name, required this.count});
 }
 
 class _ActionButton extends StatelessWidget {

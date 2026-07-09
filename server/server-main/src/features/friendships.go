@@ -641,11 +641,11 @@ func sanitizeFriendUser(item map[string]any) map[string]any {
 
 func buildFriendUserMap(ctx context.Context, token string, item map[string]any) map[string]any {
 	user := sanitizeFriendUser(item)
-	attachFriendCombatPower(ctx, token, user)
+	attachFriendProfileSummary(ctx, token, user)
 	return user
 }
 
-func attachFriendCombatPower(ctx context.Context, token string, user map[string]any) {
+func attachFriendProfileSummary(ctx context.Context, token string, user map[string]any) {
 	userID := strings.TrimSpace(stringField(user, "id"))
 	if userID == "" {
 		return
@@ -655,17 +655,22 @@ func attachFriendCombatPower(ctx context.Context, token string, user map[string]
 	if err != nil {
 		return
 	}
-	stats, err := getBattleCharacterStats(ctx, token, character.ID)
-	if err != nil {
-		return
-	}
-	statContext, err := getBattleStatContext(ctx, token, character.ID, stats)
+	summary, err := getCharacterStatsSummary(ctx, token, character.ID)
 	if err != nil {
 		return
 	}
 
 	user["character_level"] = character.Level
-	user["combat_power"] = combatPower(statContext.Stats)
+	if finalStats, ok := summary["final_stats"].(statBlock); ok {
+		user["combat_power"] = combatPower(finalStats)
+	}
+	user["profile_stats"] = map[string]any{
+		"final_stats":        summary["final_stats"],
+		"equipment_stats":    summary["equipment_stats"],
+		"set_bonus_stats":    summary["set_bonus_stats"],
+		"active_set_bonuses": summary["active_set_bonuses"],
+		"equipped_items":     summary["equipped_items"],
+	}
 }
 
 func stringField(item map[string]any, key string) string {

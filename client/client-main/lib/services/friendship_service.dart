@@ -5,6 +5,8 @@ import 'dart:io';
 import 'package:http/http.dart' as http;
 
 import 'package:capstone_app/models/profile_image_info.dart';
+import 'package:capstone_app/services/game_api_service.dart'
+    show EquipmentSetBonusInfo;
 
 import 'api_config.dart';
 import 'auth_service.dart';
@@ -18,6 +20,7 @@ class FriendUser {
   final ProfileImageInfo? profileImage;
   final int? combatPower;
   final int? characterLevel;
+  final FriendProfileStats? profileStats;
 
   const FriendUser({
     required this.id,
@@ -28,6 +31,7 @@ class FriendUser {
     this.profileImage,
     this.combatPower,
     this.characterLevel,
+    this.profileStats,
   });
 
   factory FriendUser.fromJson(Map<String, dynamic> json) {
@@ -40,6 +44,7 @@ class FriendUser {
       profileImage: ProfileImageInfo.fromJson(json['profile_image']),
       combatPower: _asNullableInt(json['combat_power']),
       characterLevel: _asNullableInt(json['character_level']),
+      profileStats: FriendProfileStats.fromJson(json['profile_stats']),
     );
   }
 
@@ -54,6 +59,109 @@ class FriendUser {
     if (email.isNotEmpty && email != displayName) return email;
     if (username.isNotEmpty && username != displayName) return username;
     return id;
+  }
+}
+
+class FriendProfileStats {
+  final Map<String, int> finalStats;
+  final Map<String, int> equipmentStats;
+  final Map<String, int> setBonusStats;
+  final List<FriendEquippedItem> equippedItems;
+  final List<EquipmentSetBonusInfo> activeSetBonuses;
+
+  const FriendProfileStats({
+    required this.finalStats,
+    required this.equipmentStats,
+    required this.setBonusStats,
+    required this.equippedItems,
+    required this.activeSetBonuses,
+  });
+
+  factory FriendProfileStats.fromJson(dynamic value) {
+    final json = _asMap(value);
+    if (json.isEmpty) return const FriendProfileStats.empty();
+    return FriendProfileStats(
+      finalStats: _intMap(_asMap(json['final_stats'])),
+      equipmentStats: _intMap(_asMap(json['equipment_stats'])),
+      setBonusStats: _intMap(_asMap(json['set_bonus_stats'])),
+      equippedItems: _asListOfMaps(json['equipped_items'])
+          .map(FriendEquippedItem.fromJson)
+          .where((item) => item.name.isNotEmpty)
+          .toList(),
+      activeSetBonuses: _asListOfMaps(
+        json['active_set_bonuses'],
+      ).map(EquipmentSetBonusInfo.fromJson).toList(),
+    );
+  }
+
+  const FriendProfileStats.empty()
+    : finalStats = const {},
+      equipmentStats = const {},
+      setBonusStats = const {},
+      equippedItems = const [],
+      activeSetBonuses = const [];
+
+  bool get hasStats => finalStats.isNotEmpty;
+
+  FriendEquippedItem? get equippedWeapon {
+    for (final item in equippedItems) {
+      if (item.isWeapon) return item;
+    }
+    return null;
+  }
+}
+
+class FriendEquippedItem {
+  final String equipmentId;
+  final String templateId;
+  final String name;
+  final String slot;
+  final String rarity;
+  final String weaponType;
+  final String setKey;
+  final String setPieceType;
+  final Map<String, int> stats;
+
+  const FriendEquippedItem({
+    required this.equipmentId,
+    required this.templateId,
+    required this.name,
+    required this.slot,
+    required this.rarity,
+    required this.weaponType,
+    required this.setKey,
+    required this.setPieceType,
+    required this.stats,
+  });
+
+  factory FriendEquippedItem.fromJson(Map<String, dynamic> json) {
+    return FriendEquippedItem(
+      equipmentId: _asString(json['equipment_id']),
+      templateId: _asString(json['template_id']),
+      name: _asString(json['name']),
+      slot: _asString(json['slot']),
+      rarity: _asString(json['rarity']),
+      weaponType: _asString(json['weapon_type']),
+      setKey: _asString(json['set_key']),
+      setPieceType: _asString(json['set_piece_type']),
+      stats: _intMap(_asMap(json['stats'])),
+    );
+  }
+
+  bool get isWeapon {
+    final piece = setPieceType.trim();
+    return slot == 'sword' || piece == 'weapon';
+  }
+
+  String get weaponTypeLabel {
+    return switch (weaponType) {
+      'sword' => '검',
+      'axe' => '도끼',
+      'spear' => '창',
+      'dagger' => '단검',
+      'greatsword' => '대검',
+      _ => _inferWeaponTypeFromName(name),
+    };
   }
 }
 
@@ -312,9 +420,38 @@ FriendUser _fallbackUser(String id) {
   return FriendUser(id: id, email: '', name: '', nickname: '', username: '');
 }
 
+Map<String, dynamic> _asMap(dynamic value) {
+  if (value is Map<String, dynamic>) return value;
+  if (value is Map) {
+    return value.map((key, item) => MapEntry(key.toString(), item));
+  }
+  return const {};
+}
+
+List<Map<String, dynamic>> _asListOfMaps(dynamic value) {
+  if (value is! List) return const [];
+  return value
+      .whereType<Map>()
+      .map((item) => item.map((key, value) => MapEntry(key.toString(), value)))
+      .toList();
+}
+
+Map<String, int> _intMap(Map<String, dynamic> value) {
+  return value.map((key, item) => MapEntry(key, _asInt(item)));
+}
+
 String _asString(dynamic value) {
   if (value is String) return value;
   return '';
+}
+
+int _asInt(dynamic value) {
+  if (value is int) return value;
+  if (value is double) return value.toInt();
+  if (value is String && value.trim().isNotEmpty) {
+    return int.tryParse(value) ?? double.tryParse(value)?.toInt() ?? 0;
+  }
+  return 0;
 }
 
 int? _asNullableInt(dynamic value) {
@@ -324,6 +461,20 @@ int? _asNullableInt(dynamic value) {
     return int.tryParse(value) ?? double.tryParse(value)?.toInt();
   }
   return null;
+}
+
+String _inferWeaponTypeFromName(String name) {
+  final normalized = name.toLowerCase();
+  if (normalized.contains('axe') || name.contains('도끼')) return '도끼';
+  if (normalized.contains('spear') || name.contains('창')) return '창';
+  if (normalized.contains('dagger') || name.contains('단검')) return '단검';
+  if (normalized.contains('greatsword') ||
+      normalized.contains('great sword') ||
+      name.contains('대검')) {
+    return '대검';
+  }
+  if (normalized.contains('sword') || name.contains('검')) return '검';
+  return '';
 }
 
 String _friendlyMessage(String message) {

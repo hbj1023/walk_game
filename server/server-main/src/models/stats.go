@@ -28,6 +28,7 @@ type EquippedStatItem struct {
 	Name         string    `json:"name"`
 	Slot         string    `json:"slot"`
 	Rarity       string    `json:"rarity"`
+	WeaponType   string    `json:"weapon_type"`
 	SetKey       string    `json:"set_key"`
 	SetPieceType string    `json:"set_piece_type"`
 	Stats        StatBlock `json:"stats"`

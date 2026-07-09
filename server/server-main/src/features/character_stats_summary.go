@@ -117,6 +117,7 @@ func getEquippedStats(ctx context.Context, token string, characterID string) (st
 			Name:         template.Name,
 			Slot:         template.EquipmentSlot,
 			Rarity:       template.Rarity,
+			WeaponType:   template.WeaponType,
 			SetKey:       template.SetKey,
 			SetPieceType: template.SetPieceType,
 			Stats:        itemStats,
