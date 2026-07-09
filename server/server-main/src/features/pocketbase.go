@@ -170,6 +170,12 @@ func mapPocketBaseError(resp *http.Response, fallback string) error {
 
 	var pbErr pocketBaseErrorResponse
 	if err := json.Unmarshal(body, &pbErr); err == nil && pbErr.Message != "" {
+		if isPocketBaseAuthFailure(pbErr.Message) {
+			return statusError{
+				status:  http.StatusUnauthorized,
+				message: "이메일 또는 비밀번호가 올바르지 않습니다.",
+			}
+		}
 		switch resp.StatusCode {
 		case http.StatusBadRequest:
 			if hasEmailAlreadyExistsError(pbErr.Data) {
@@ -203,6 +209,13 @@ func mapPocketBaseError(resp *http.Response, fallback string) error {
 		status = resp.StatusCode
 	}
 	return statusError{status: status, message: fallback}
+}
+
+func isPocketBaseAuthFailure(message string) bool {
+	normalized := strings.ToLower(strings.TrimSpace(message))
+	return normalized == "failed to authenticate." ||
+		normalized == "failed to authenticate" ||
+		strings.Contains(normalized, "invalid login credentials")
 }
 
 func hasEmailAlreadyExistsError(data map[string]interface{}) bool {
