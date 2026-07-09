@@ -527,7 +527,7 @@ func getFriendUserMap(ctx context.Context, token string, userID string) (map[str
 	if err := json.NewDecoder(resp.Body).Decode(&user); err != nil {
 		return nil, errors.New("failed to parse user response")
 	}
-	return sanitizeFriendUser(user), nil
+	return buildFriendUserMap(ctx, token, user), nil
 }
 
 func getFriendUserMapWithoutProfileExpand(ctx context.Context, token string, userID string) (map[string]any, error) {
@@ -547,7 +547,7 @@ func getFriendUserMapWithoutProfileExpand(ctx context.Context, token string, use
 	if err := json.NewDecoder(resp.Body).Decode(&user); err != nil {
 		return nil, errors.New("failed to parse user response")
 	}
-	return sanitizeFriendUser(user), nil
+	return buildFriendUserMap(ctx, token, user), nil
 }
 
 func getFriendship(ctx context.Context, token string, friendshipID string) (friendshipRecord, error) {
@@ -637,6 +637,35 @@ func sanitizeFriendUser(item map[string]any) map[string]any {
 		"profile_image":     buildProfileImage(item),
 		"expand":            item["expand"],
 	}
+}
+
+func buildFriendUserMap(ctx context.Context, token string, item map[string]any) map[string]any {
+	user := sanitizeFriendUser(item)
+	attachFriendCombatPower(ctx, token, user)
+	return user
+}
+
+func attachFriendCombatPower(ctx context.Context, token string, user map[string]any) {
+	userID := strings.TrimSpace(stringField(user, "id"))
+	if userID == "" {
+		return
+	}
+
+	character, err := getBattleCharacterByUserID(ctx, token, userID)
+	if err != nil {
+		return
+	}
+	stats, err := getBattleCharacterStats(ctx, token, character.ID)
+	if err != nil {
+		return
+	}
+	statContext, err := getBattleStatContext(ctx, token, character.ID, stats)
+	if err != nil {
+		return
+	}
+
+	user["character_level"] = character.Level
+	user["combat_power"] = combatPower(statContext.Stats)
 }
 
 func stringField(item map[string]any, key string) string {

@@ -16,6 +16,8 @@ class FriendUser {
   final String nickname;
   final String username;
   final ProfileImageInfo? profileImage;
+  final int? combatPower;
+  final int? characterLevel;
 
   const FriendUser({
     required this.id,
@@ -24,6 +26,8 @@ class FriendUser {
     required this.nickname,
     required this.username,
     this.profileImage,
+    this.combatPower,
+    this.characterLevel,
   });
 
   factory FriendUser.fromJson(Map<String, dynamic> json) {
@@ -34,6 +38,8 @@ class FriendUser {
       nickname: _asString(json['nickname']),
       username: _asString(json['username']),
       profileImage: ProfileImageInfo.fromJson(json['profile_image']),
+      combatPower: _asNullableInt(json['combat_power']),
+      characterLevel: _asNullableInt(json['character_level']),
     );
   }
 
@@ -309,6 +315,15 @@ FriendUser _fallbackUser(String id) {
 String _asString(dynamic value) {
   if (value is String) return value;
   return '';
+}
+
+int? _asNullableInt(dynamic value) {
+  if (value is int) return value;
+  if (value is double) return value.toInt();
+  if (value is String && value.trim().isNotEmpty) {
+    return int.tryParse(value) ?? double.tryParse(value)?.toInt();
+  }
+  return null;
 }
 
 String _friendlyMessage(String message) {

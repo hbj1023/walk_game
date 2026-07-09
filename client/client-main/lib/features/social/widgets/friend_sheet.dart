@@ -580,7 +580,11 @@ class _FriendUserRow extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        UserProfileAvatar(profileImage: user.profileImage, size: 38),
+        GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: () => _showFriendPower(context),
+          child: UserProfileAvatar(profileImage: user.profileImage, size: 38),
+        ),
         const SizedBox(width: 10),
         Expanded(
           child: Column(
@@ -612,6 +616,118 @@ class _FriendUserRow extends StatelessWidget {
         const SizedBox(width: 8),
         Wrap(spacing: 6, runSpacing: 6, children: actions),
       ],
+    );
+  }
+
+  void _showFriendPower(BuildContext context) {
+    showDialog<void>(
+      context: context,
+      builder: (dialogContext) => Dialog(
+        backgroundColor: Colors.transparent,
+        child: Container(
+          width: 260,
+          padding: const EdgeInsets.fromLTRB(18, 18, 18, 16),
+          decoration: BoxDecoration(
+            color: const Color(0xFF1A1A1A),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: const Color(0xFF6B3A1F), width: 2),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.45),
+                blurRadius: 18,
+                offset: const Offset(0, 8),
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                children: [
+                  UserProfileAvatar(profileImage: user.profileImage, size: 48),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 15,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                        if (user.characterLevel != null)
+                          Text(
+                            'Lv.${user.characterLevel}',
+                            style: const TextStyle(
+                              color: Color(0xFFFFD15C),
+                              fontSize: 12,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                  GestureDetector(
+                    onTap: () => Navigator.pop(dialogContext),
+                    child: const Icon(
+                      Icons.close,
+                      color: Colors.white54,
+                      size: 20,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 13,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.black.withValues(alpha: 0.28),
+                  border: Border.all(color: const Color(0xFF6B3A1F)),
+                ),
+                child: Column(
+                  children: [
+                    const Text(
+                      '전투력',
+                      style: TextStyle(
+                        color: Color(0xFFFFD15C),
+                        fontSize: 12,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      user.combatPower == null ? '-' : '${user.combatPower}',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 28,
+                        fontWeight: FontWeight.w900,
+                        height: 1,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (user.combatPower == null) ...[
+                const SizedBox(height: 10),
+                const Text(
+                  '캐릭터 전투력 정보가 아직 없습니다.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: Colors.white38, fontSize: 11),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
