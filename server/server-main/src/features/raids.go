@@ -354,13 +354,25 @@ func handleRaidParticipants(w http.ResponseWriter, r *http.Request, raidID strin
 		writeJSON(w, statusCodeForError(err, http.StatusNotFound), map[string]string{"error": err.Error()})
 		return
 	}
-	participants, err := listCollectionRecords(r.Context(), token, raidParticipantsCollection, fmt.Sprintf("raid=%q", raidID), "character", "joined_at")
+	participants, err := listRaidParticipantRecords(r.Context(), token, raidID)
 	if err != nil {
 		writeJSON(w, statusCodeForError(err, http.StatusBadRequest), map[string]string{"error": err.Error()})
 		return
 	}
+	summaries, err := raidParticipantSummaries(r.Context(), token, participants.Items)
+	if err != nil {
+		writeJSON(w, statusCodeForError(err, http.StatusBadRequest), map[string]string{"error": err.Error()})
+		return
+	}
+	data := pocketBaseListResponse[map[string]any]{
+		Page:       participants.Page,
+		PerPage:    participants.PerPage,
+		TotalItems: participants.TotalItems,
+		TotalPages: participants.TotalPages,
+		Items:      summaries,
+	}
 
-	writeInventoryResponse(w, http.StatusOK, "raid participants fetched", participants)
+	writeInventoryResponse(w, http.StatusOK, "raid participants fetched", data)
 }
 
 func handleRaidInvite(w http.ResponseWriter, r *http.Request, raidID string) {
@@ -490,6 +502,9 @@ func createRaid(ctx context.Context, token string, userID string, req raidCreate
 	if err := ensureRaidWeeklyClearAvailable(ctx, token, userID, monster.ID, time.Now()); err != nil {
 		return nil, err
 	}
+	if err := cancelWaitingRaidsForHost(ctx, token, req.HostCharacterID, ""); err != nil {
+		return nil, err
+	}
 
 	payload := map[string]any{
 		"host_character":   req.HostCharacterID,
@@ -598,6 +613,11 @@ func startRaid(ctx context.Context, token string, userID string, raidID string, 
 	if err != nil {
 		return nil, err
 	}
+	if raid.Status == "waiting" {
+		if err := cancelPendingRaidInvitations(ctx, token, raidID); err != nil {
+			return nil, err
+		}
+	}
 	invitations, err := listPendingRaidInvitationsByRaid(ctx, token, raidID)
 	if err != nil {
 		return nil, err
@@ -695,7 +715,7 @@ func leaveRaid(ctx context.Context, token string, userID string, raidID string, 
 	if raid.Status != "waiting" && raid.Status != "in_progress" {
 		return nil, statusError{status: http.StatusBadRequest, message: "raid is not active"}
 	}
-	hostLeftWaitingLobby := raid.Status == "waiting" && raid.HostCharacter == characterID
+	hostLeftRaid := raid.HostCharacter == characterID
 	participant, err := getJoinedRaidParticipant(ctx, token, raidID, characterID)
 	if err != nil {
 		return nil, err
@@ -715,8 +735,15 @@ func leaveRaid(ctx context.Context, token string, userID string, raidID string, 
 	if err != nil {
 		return nil, err
 	}
-	if hostLeftWaitingLobby {
+	if hostLeftRaid {
+		participants, err := listRaidParticipantRecords(ctx, token, raidID)
+		if err != nil {
+			return nil, err
+		}
 		if err := leaveAllRaidParticipants(ctx, token, raidID); err != nil {
+			return nil, err
+		}
+		if err := restoreRaidParticipantsHP(ctx, token, participants.Items); err != nil {
 			return nil, err
 		}
 		if err := cancelPendingRaidInvitations(ctx, token, raidID); err != nil {
@@ -819,6 +846,9 @@ func inviteRaidFriend(ctx context.Context, token string, userID string, raidID s
 	} else if exists {
 		return nil, statusError{status: http.StatusConflict, message: "invited user is already participating in raid"}
 	}
+	if err := cancelStalePendingRaidInvitations(ctx, token, req.InviterCharacterID, req.InvitedUserID, raidID); err != nil {
+		return nil, err
+	}
 	if exists, err := hasPendingRaidInvitation(ctx, token, raidID, req.InvitedUserID); err != nil {
 		return nil, err
 	} else if exists {
@@ -895,6 +925,17 @@ func acceptRaidInvitation(ctx context.Context, token string, userID string, invi
 	}
 	unlockRaid := lockRaid(invitation.Raid)
 	defer unlockRaid()
+
+	invitation, err = getRaidInvitation(ctx, token, invitationID)
+	if err != nil {
+		return nil, err
+	}
+	if invitation.InvitedUser != userID {
+		return nil, statusError{status: http.StatusForbidden, message: "invitation does not belong to authenticated user"}
+	}
+	if invitation.Status != "pending" {
+		return nil, statusError{status: http.StatusConflict, message: "invitation is not pending"}
+	}
 
 	raid, err := getRaid(ctx, token, invitation.Raid)
 	if err != nil {
@@ -975,6 +1016,16 @@ func cancelRaidInvitation(ctx context.Context, token string, userID string, invi
 	if invitation.Status != "pending" {
 		return nil, statusError{status: http.StatusConflict, message: "invitation is not pending"}
 	}
+	unlockRaid := lockRaid(invitation.Raid)
+	defer unlockRaid()
+
+	invitation, err = getRaidInvitation(ctx, token, invitationID)
+	if err != nil {
+		return nil, err
+	}
+	if invitation.Status != "pending" {
+		return nil, statusError{status: http.StatusConflict, message: "invitation is not pending"}
+	}
 	raid, err := getRaid(ctx, token, invitation.Raid)
 	if err != nil {
 		return nil, err
@@ -988,6 +1039,9 @@ func cancelRaidInvitation(ctx context.Context, token string, userID string, invi
 
 	updatedInvitation, err := patchRaidInvitationStatus(ctx, token, invitationID, "canceled")
 	if err != nil {
+		return nil, err
+	}
+	if err := cancelPendingRaidInvitationsForUser(ctx, token, invitation.Raid, invitation.InvitedUser); err != nil {
 		return nil, err
 	}
 	lobby, err := getRaidProgressSummary(ctx, token, invitation.Raid)
@@ -1018,6 +1072,10 @@ func listRaidInvitations(ctx context.Context, token string, userID string) (pock
 			activeInvitations = append(activeInvitations, invitation)
 		}
 	}
+	activeInvitations, err = pruneDuplicateRaidInvitations(ctx, token, activeInvitations)
+	if err != nil {
+		return pocketBaseListResponse[map[string]any]{}, err
+	}
 	activeInvitations, err = hydrateRaidInvitationUsers(ctx, token, activeInvitations)
 	if err != nil {
 		return pocketBaseListResponse[map[string]any]{}, err
@@ -1028,8 +1086,7 @@ func listRaidInvitations(ctx context.Context, token string, userID string) (pock
 }
 
 func listPendingRaidInvitationsByRaid(ctx context.Context, token string, raidID string) (pocketBaseListResponse[map[string]any], error) {
-	filter := fmt.Sprintf("raid=%q && status=%q", raidID, "pending")
-	invitations, err := listCollectionRecords(ctx, token, raidInvitationsCollection, filter, "invited_user,inviter_character", "invited_at,created")
+	invitations, err := listPendingRaidInvitationRecordsByRaid(ctx, token, raidID)
 	if err != nil {
 		return pocketBaseListResponse[map[string]any]{}, err
 	}
@@ -1038,6 +1095,11 @@ func listPendingRaidInvitationsByRaid(ctx context.Context, token string, raidID 
 		return pocketBaseListResponse[map[string]any]{}, err
 	}
 	return invitations, nil
+}
+
+func listPendingRaidInvitationRecordsByRaid(ctx context.Context, token string, raidID string) (pocketBaseListResponse[map[string]any], error) {
+	filter := fmt.Sprintf("raid=%q && status=%q", raidID, "pending")
+	return listCollectionRecords(ctx, token, raidInvitationsCollection, filter, "invited_user,inviter_character", "invited_at,created")
 }
 
 func ensureRaidInvitationStillActive(ctx context.Context, token string, invitation map[string]any) (bool, error) {
@@ -1331,7 +1393,7 @@ func leaveAllRaidParticipants(ctx context.Context, token string, raidID string) 
 }
 
 func cancelPendingRaidInvitations(ctx context.Context, token string, raidID string) error {
-	invitations, err := listPendingRaidInvitationsByRaid(ctx, token, raidID)
+	invitations, err := listPendingRaidInvitationRecordsByRaid(ctx, token, raidID)
 	if err != nil {
 		return err
 	}
@@ -1341,6 +1403,77 @@ func cancelPendingRaidInvitations(ctx context.Context, token string, raidID stri
 			continue
 		}
 		if _, err := patchRaidInvitationStatus(ctx, token, id, "canceled"); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func cancelStalePendingRaidInvitations(ctx context.Context, token string, inviterCharacterID string, invitedUserID string, currentRaidID string) error {
+	filter := fmt.Sprintf(
+		"inviter_character=%q && invited_user=%q && status=%q",
+		inviterCharacterID,
+		invitedUserID,
+		"pending",
+	)
+	invitations, err := listCollectionRecords(ctx, token, raidInvitationsCollection, filter, "", "-invited_at,-created")
+	if err != nil {
+		return err
+	}
+	for _, invitation := range invitations.Items {
+		if stringField(invitation, "raid") == currentRaidID {
+			continue
+		}
+		id := stringField(invitation, "id")
+		if id == "" {
+			continue
+		}
+		if _, err := patchRaidInvitationStatus(ctx, token, id, "canceled"); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func cancelPendingRaidInvitationsForUser(ctx context.Context, token string, raidID string, invitedUserID string) error {
+	filter := fmt.Sprintf("raid=%q && invited_user=%q && status=%q", raidID, invitedUserID, "pending")
+	invitations, err := listCollectionRecords(ctx, token, raidInvitationsCollection, filter, "", "-invited_at,-created")
+	if err != nil {
+		return err
+	}
+	for _, invitation := range invitations.Items {
+		id := stringField(invitation, "id")
+		if id == "" {
+			continue
+		}
+		if _, err := patchRaidInvitationStatus(ctx, token, id, "canceled"); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func cancelWaitingRaidsForHost(ctx context.Context, token string, hostCharacterID string, exceptRaidID string) error {
+	hostCharacterID = strings.TrimSpace(hostCharacterID)
+	if hostCharacterID == "" {
+		return nil
+	}
+	filter := fmt.Sprintf("host_character=%q && status=%q", hostCharacterID, "waiting")
+	raids, err := listCollectionRecords(ctx, token, raidsCollection, filter, "", "-created")
+	if err != nil {
+		return err
+	}
+	for _, item := range raids.Items {
+		raidID := stringField(item, "id")
+		if raidID == "" || raidID == exceptRaidID {
+			continue
+		}
+		if err := cancelWaitingRaid(ctx, token, raidRecord{
+			ID:            raidID,
+			HostCharacter: stringField(item, "host_character"),
+			Monster:       stringField(item, "monster"),
+			Status:        stringField(item, "status"),
+		}); err != nil {
 			return err
 		}
 	}
@@ -1362,7 +1495,21 @@ func cancelWaitingRaidIfHostMissing(ctx context.Context, token string, raid raid
 }
 
 func cancelWaitingRaidAfterHostLeft(ctx context.Context, token string, raid raidRecord) error {
+	if err := cancelWaitingRaid(ctx, token, raid); err != nil {
+		return err
+	}
+	return statusError{status: http.StatusGone, message: "raid host left"}
+}
+
+func cancelWaitingRaid(ctx context.Context, token string, raid raidRecord) error {
+	participants, err := listRaidParticipantRecords(ctx, token, raid.ID)
+	if err != nil {
+		return err
+	}
 	if err := leaveAllRaidParticipants(ctx, token, raid.ID); err != nil {
+		return err
+	}
+	if err := restoreRaidParticipantsHP(ctx, token, participants.Items); err != nil {
 		return err
 	}
 	if err := cancelPendingRaidInvitations(ctx, token, raid.ID); err != nil {
@@ -1387,7 +1534,47 @@ func cancelWaitingRaidAfterHostLeft(ctx context.Context, token string, raid raid
 	}); err != nil {
 		return err
 	}
-	return statusError{status: http.StatusGone, message: "raid host left"}
+	return nil
+}
+
+func pruneDuplicateRaidInvitations(ctx context.Context, token string, items []map[string]any) ([]map[string]any, error) {
+	seen := map[string]bool{}
+	pruned := make([]map[string]any, 0, len(items))
+	for _, item := range items {
+		key := raidInvitationDedupKey(item)
+		if key == "" {
+			pruned = append(pruned, item)
+			continue
+		}
+		if seen[key] {
+			if id := stringField(item, "id"); id != "" {
+				if _, err := patchRaidInvitationStatus(ctx, token, id, "canceled"); err != nil {
+					return nil, err
+				}
+			}
+			continue
+		}
+		seen[key] = true
+		pruned = append(pruned, item)
+	}
+	return pruned, nil
+}
+
+func raidInvitationDedupKey(item map[string]any) string {
+	inviterCharacterID := stringField(item, "inviter_character")
+	if inviterCharacterID == "" {
+		return ""
+	}
+	monsterID := ""
+	if expand, ok := item["expand"].(map[string]any); ok {
+		if raid, ok := expand["raid"].(map[string]any); ok {
+			monsterID = stringField(raid, "monster")
+		}
+	}
+	if monsterID == "" {
+		monsterID = stringField(item, "raid")
+	}
+	return inviterCharacterID + ":" + monsterID
 }
 
 func raidParticipantSummaries(ctx context.Context, token string, participants []raidParticipantRecord) ([]map[string]any, error) {

@@ -9,14 +9,13 @@ import 'package:capstone_app/services/friendship_service.dart';
 import 'package:capstone_app/services/game_api_service.dart';
 import 'package:capstone_app/services/game_state.dart';
 import 'package:capstone_app/services/profile_icon_service.dart';
-import 'package:capstone_app/features/social/widgets/friend_sheet.dart';
 import 'package:capstone_app/features/battle/pages/battle_stage_page.dart';
 import 'package:capstone_app/features/home/pages/home_page.dart';
 import 'package:capstone_app/features/inventory/pages/inventory_page.dart';
 import 'package:capstone_app/features/raid/pages/raid_lobby_page.dart';
 import 'package:capstone_app/features/shop/pages/shop_page.dart';
 import 'package:capstone_app/widgets/character_stats_panel.dart';
-import 'package:capstone_app/widgets/friend_request_badge_button.dart';
+import 'package:capstone_app/widgets/game_top_actions.dart';
 import 'package:capstone_app/widgets/player_level_badge.dart';
 import 'package:capstone_app/widgets/pixel_bottom_nav.dart';
 import 'package:capstone_app/widgets/user_profile_avatar.dart';
@@ -49,16 +48,20 @@ class RaidListPage extends StatefulWidget {
 }
 
 class _RaidListPageState extends State<RaidListPage> {
+  static const _invitationRefreshInterval = Duration(seconds: 1);
+
   int _selectedIndex = 0;
   String _userName = '...';
   List<RaidBoss> _bosses = const [];
   bool _loadingBosses = true;
   bool _startingRaid = false;
   bool _loadingInvitations = true;
+  bool _refreshingInvitations = false;
   List<RaidInvitationInfo> _invitations = const [];
   String? _bossError;
   String? _invitationError;
   final _gs = GameState.instance;
+  Timer? _invitationRefreshTimer;
 
   RaidBoss? get _selectedBoss {
     if (_bosses.isEmpty) return null;
@@ -74,10 +77,15 @@ class _RaidListPageState extends State<RaidListPage> {
     _loadUserName();
     _loadRaidBosses();
     _loadRaidInvitations();
+    _invitationRefreshTimer = Timer.periodic(
+      _invitationRefreshInterval,
+      (_) => unawaited(_loadRaidInvitations(silent: true)),
+    );
   }
 
   @override
   void dispose() {
+    _invitationRefreshTimer?.cancel();
     _gs.removeListener(_onGameStateChanged);
     super.dispose();
   }
@@ -132,24 +140,42 @@ class _RaidListPageState extends State<RaidListPage> {
     return 1;
   }
 
-  Future<void> _loadRaidInvitations() async {
-    setState(() {
-      _loadingInvitations = true;
-      _invitationError = null;
-    });
+  Future<void> _loadRaidInvitations({bool silent = false}) async {
+    if (_refreshingInvitations) return;
+    _refreshingInvitations = true;
+    final previousIds = _invitations.map((invite) => invite.id).toSet();
+    if (!silent) {
+      setState(() {
+        _loadingInvitations = true;
+        _invitationError = null;
+      });
+    }
     try {
       final invitations = await GameApiService.fetchRaidInvitations();
       if (!mounted) return;
+      final pendingInvitations = invitations
+          .where((invite) => invite.isPending)
+          .toList();
+      final hasNewInvitation = pendingInvitations.any(
+        (invite) => !previousIds.contains(invite.id),
+      );
       setState(() {
-        _invitations = invitations.where((invite) => invite.isPending).toList();
+        _invitations = pendingInvitations;
         _loadingInvitations = false;
+        _invitationError = null;
       });
+      if (silent && hasNewInvitation) {
+        _showMessage('새 레이드 초대가 도착했습니다.');
+      }
     } catch (e) {
       if (!mounted) return;
+      if (silent) return;
       setState(() {
         _invitationError = e.toString();
         _loadingInvitations = false;
       });
+    } finally {
+      _refreshingInvitations = false;
     }
   }
 
@@ -258,10 +284,27 @@ class _RaidListPageState extends State<RaidListPage> {
       );
     } catch (e) {
       if (mounted) {
-        _showMessage(e.toString());
+        final message = e.toString();
+        if (_isStaleInvitationMessage(message)) {
+          setState(() {
+            _invitations = _invitations
+                .where((item) => item.id != invitation.id)
+                .toList();
+          });
+        }
+        _showMessage(message);
         _loadRaidInvitations();
       }
     }
+  }
+
+  bool _isStaleInvitationMessage(String message) {
+    final normalized = message.toLowerCase().trim();
+    return normalized.contains('invitation is not pending') ||
+        normalized.contains('raid invitation not found') ||
+        normalized.contains("requested resource wasn't found") ||
+        normalized.contains('이미 처리된 초대') ||
+        normalized.contains('이미 처리된 레이드 초대');
   }
 
   Future<void> _declineInvitation(RaidInvitationInfo invitation) async {
@@ -279,13 +322,6 @@ class _RaidListPageState extends State<RaidListPage> {
     ScaffoldMessenger.of(context)
       ..removeCurrentSnackBar()
       ..showSnackBar(SnackBar(content: Text(message)));
-  }
-
-  Future<void> _openFriendDialog() {
-    return showDialog<void>(
-      context: context,
-      builder: (_) => const FriendSheet(),
-    );
   }
 
   @override
@@ -417,7 +453,7 @@ class _RaidListPageState extends State<RaidListPage> {
               ),
               const SizedBox(height: 6),
               // 친구 버튼
-              FriendRequestBadgeButton(onTap: _openFriendDialog),
+              const GameTopActions(),
             ],
           ),
         ],
@@ -601,6 +637,12 @@ class _RaidListPageState extends State<RaidListPage> {
       ),
       child: Row(
         children: [
+          UserProfileAvatar(
+            profileImage: invitation.inviterProfileImage,
+            size: 36,
+            showFrame: false,
+          ),
+          const SizedBox(width: 10),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
