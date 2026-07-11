@@ -1629,6 +1629,7 @@ func getRaidParticipantUser(ctx context.Context, token string, userID string) (m
 	if err := json.NewDecoder(resp.Body).Decode(&user); err != nil {
 		return nil, errors.New("failed to parse raid participant user response")
 	}
+	user["profile_image"] = buildProfileImage(user)
 	return sanitizeProfileUser(user), nil
 }
 
