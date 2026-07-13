@@ -321,8 +321,9 @@ const disableLegacyChapter2EpicEquipment = (app, keepTemplateIDs) => {
 }
 
 const setBonusesActive = (app, setKey, active) => {
-  const records = app.findRecordsByFilter("equipment_set_bonuses", `set_key="${setKey}"`, "", 100, 0)
+  const records = app.findRecordsByFilter("equipment_set_bonuses", "", "", 1000, 0)
   for (const record of records) {
+    if (getString(record, "set_key") !== setKey) continue
     record.set("is_active", active)
     app.save(record)
   }
@@ -330,9 +331,16 @@ const setBonusesActive = (app, setKey, active) => {
 
 const upsertSetBonus = (app, setKey, setName, effect) => {
   const collection = app.findCollectionByNameOrId("equipment_set_bonuses")
-  const filter = `set_key="${setKey}" && required_count=${effect.count} && bonus_type="${effect.type}"`
-  const existing = app.findRecordsByFilter("equipment_set_bonuses", filter, "", 1, 0)
-  const record = existing.length > 0 ? existing[0] : new Record(collection)
+  const records = app.findRecordsByFilter("equipment_set_bonuses", "", "", 1000, 0)
+  let record = null
+  for (const candidate of records) {
+    if (getString(candidate, "set_key") !== setKey) continue
+    if (Number(candidate.get("required_count") || 0) !== effect.count) continue
+    if (getString(candidate, "bonus_type") !== effect.type) continue
+    record = candidate
+    break
+  }
+  if (!record) record = new Record(collection)
   record.set("set_key", setKey)
   record.set("set_name", setName)
   record.set("required_count", effect.count)
@@ -356,24 +364,25 @@ const setEffectText = () => {
 }
 
 const findPoisonAssassinTemplate = (app, definition) => {
-  const exact = app.findRecordsByFilter(
+  const epicTemplates = app.findRecordsByFilter(
     "item_templates",
-    `item_type="equipment" && rarity="epic" && set_key="${poisonAssassinSetKey}" && set_piece_type="${definition.pieceType}"`,
+    `item_type="equipment" && rarity="epic"`,
     "",
-    1,
+    5000,
     0,
   )
-  if (exact.length > 0) return exact[0]
+  for (const template of epicTemplates) {
+    if (getString(template, "set_key") !== poisonAssassinSetKey) continue
+    if (getString(template, "set_piece_type") !== definition.pieceType) continue
+    return template
+  }
 
   if (definition.pieceType === "weapon") {
-    const legacyShadow = app.findRecordsByFilter(
-      "item_templates",
-      `item_type="equipment" && rarity="epic" && set_key="shadow" && set_piece_type="weapon"`,
-      "",
-      1,
-      0,
-    )
-    if (legacyShadow.length > 0) return legacyShadow[0]
+    for (const template of epicTemplates) {
+      if (getString(template, "set_key") !== "shadow") continue
+      if (getString(template, "set_piece_type") !== "weapon") continue
+      return template
+    }
   }
 
   return new Record(app.findCollectionByNameOrId("item_templates"))
