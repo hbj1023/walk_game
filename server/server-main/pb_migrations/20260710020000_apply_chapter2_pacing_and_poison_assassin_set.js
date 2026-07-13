@@ -88,6 +88,108 @@ const poisonAssassinItems = [
   },
 ]
 
+const ensureChapter2EquipmentSchema = (app) => {
+  const ensureField = (collection, fieldName, createField) => {
+    try {
+      collection.fields.getByName(fieldName)
+      return false
+    } catch (_) {
+      collection.fields.add(createField())
+      return true
+    }
+  }
+
+  const itemTemplates = app.findCollectionByNameOrId("item_templates")
+  let itemTemplatesChanged = false
+  itemTemplatesChanged = ensureField(
+    itemTemplates,
+    "set_key",
+    () => new TextField({ name: "set_key", max: 80 }),
+  ) || itemTemplatesChanged
+  itemTemplatesChanged = ensureField(
+    itemTemplates,
+    "set_piece_type",
+    () => new SelectField({
+      name: "set_piece_type",
+      maxSelect: 1,
+      values: ["weapon", "helmet", "armor", "shoes"],
+    }),
+  ) || itemTemplatesChanged
+  itemTemplatesChanged = ensureField(
+    itemTemplates,
+    "image_path",
+    () => new TextField({ name: "image_path", max: 255 }),
+  ) || itemTemplatesChanged
+  if (itemTemplatesChanged) app.save(itemTemplates)
+
+  let setBonuses
+  try {
+    setBonuses = app.findCollectionByNameOrId("equipment_set_bonuses")
+  } catch (_) {
+    setBonuses = new Collection({
+      id: "pbc_2070306000",
+      type: "base",
+      name: "equipment_set_bonuses",
+      listRule: "@request.auth.id != ''",
+      viewRule: "@request.auth.id != ''",
+      createRule: null,
+      updateRule: null,
+      deleteRule: null,
+    })
+  }
+
+  let setBonusesChanged = setBonuses.id === ""
+  setBonusesChanged = ensureField(
+    setBonuses,
+    "set_key",
+    () => new TextField({ name: "set_key", max: 80 }),
+  ) || setBonusesChanged
+  setBonusesChanged = ensureField(
+    setBonuses,
+    "set_name",
+    () => new TextField({ name: "set_name", max: 80 }),
+  ) || setBonusesChanged
+  setBonusesChanged = ensureField(
+    setBonuses,
+    "required_count",
+    () => new NumberField({ name: "required_count", onlyInt: true }),
+  ) || setBonusesChanged
+  setBonusesChanged = ensureField(
+    setBonuses,
+    "bonus_type",
+    () => new SelectField({
+      name: "bonus_type",
+      maxSelect: 1,
+      values: [
+        "attack_percent",
+        "defense_percent",
+        "hp_percent",
+        "agility_percent",
+        "damage_taken_percent",
+        "monster_gauge_percent",
+        "boss_damage_percent",
+        "attack_distance_percent",
+      ],
+    }),
+  ) || setBonusesChanged
+  setBonusesChanged = ensureField(
+    setBonuses,
+    "bonus_value",
+    () => new NumberField({ name: "bonus_value" }),
+  ) || setBonusesChanged
+  setBonusesChanged = ensureField(
+    setBonuses,
+    "description",
+    () => new TextField({ name: "description", max: 255 }),
+  ) || setBonusesChanged
+  setBonusesChanged = ensureField(
+    setBonuses,
+    "is_active",
+    () => new BoolField({ name: "is_active" }),
+  ) || setBonusesChanged
+  if (setBonusesChanged) app.save(setBonuses)
+}
+
 const getString = (record, fieldName) => {
   try {
     return String(record.get(fieldName) || "").trim()
@@ -335,6 +437,7 @@ const upsertPoisonAssassinSet = (app) => {
 }
 
 migrate((app) => {
+  ensureChapter2EquipmentSchema(app)
   applyStageMonsterBalance(app, chapter2PacingMonsters)
   syncChapter2Prices(app, chapter2EquipmentPrices)
   upsertPoisonAssassinSet(app)
