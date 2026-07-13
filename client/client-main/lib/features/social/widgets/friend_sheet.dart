@@ -626,6 +626,7 @@ class _FriendUserRow extends StatelessWidget {
     final hasStats = profileStats?.hasStats == true;
     showDialog<void>(
       context: context,
+      barrierColor: Colors.black.withValues(alpha: 0.72),
       builder: (dialogContext) => Dialog(
         backgroundColor: Colors.transparent,
         insetPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 32),

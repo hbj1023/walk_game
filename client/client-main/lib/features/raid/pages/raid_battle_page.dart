@@ -8,6 +8,10 @@ import 'package:pedometer/pedometer.dart';
 
 import 'package:capstone_app/models/raid_boss.dart';
 import 'package:capstone_app/services/game_api_service.dart';
+import 'package:capstone_app/services/game_state.dart';
+import 'package:capstone_app/widgets/game_feedback.dart';
+import 'package:capstone_app/widgets/game_top_actions.dart';
+import 'package:capstone_app/widgets/user_profile_avatar.dart';
 
 // ─── 색상 상수 ────────────────────────────────────────────────────────────────
 
@@ -485,37 +489,32 @@ class _RaidBattlePageState extends State<RaidBattlePage>
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       final cleared = _progress?.status == 'cleared';
-      showDialog<void>(
+      final canceled = _progress?.status == 'canceled';
+      showGameNoticeDialog(
         context: context,
+        title: canceled
+            ? '레이드 방 해산'
+            : cleared
+            ? '레이드 클리어'
+            : '레이드 종료',
+        message: canceled
+            ? '방장이 레이드를 종료했습니다.\n참가자는 자동으로 나가기 처리되었습니다.'
+            : '총 거리 ${_fmtDouble(_progress?.totalDistanceAccumulatedM ?? 0)}m\n'
+                  '파티 공격 ${_fmt(_progress?.totalAttackCycles ?? 0)}회\n'
+                  '보스 반격 ${_fmt(_progress?.totalMonsterAttackCycles ?? 0)}회',
+        confirmLabel: '확인',
+        type: canceled
+            ? GameToastType.warning
+            : cleared
+            ? GameToastType.success
+            : GameToastType.info,
         barrierDismissible: false,
-        builder: (context) => AlertDialog(
-          backgroundColor: _kPanelBg,
-          title: Text(
-            cleared ? '레이드 클리어' : '레이드 종료',
-            style: const TextStyle(color: Colors.white),
-          ),
-          content: Text(
-            '총 거리 ${_fmtDouble(_progress?.totalDistanceAccumulatedM ?? 0)}m\n'
-            '파티 공격 ${_fmt(_progress?.totalAttackCycles ?? 0)}회\n'
-            '보스 반격 ${_fmt(_progress?.totalMonsterAttackCycles ?? 0)}회',
-            style: const TextStyle(color: Colors.white70, height: 1.5),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => _returnHomeFromResult(context),
-              child: const Text('확인'),
-            ),
-          ],
-        ),
-      );
+      ).then((_) {
+        if (!mounted) return;
+        _routeExitAllowed = true;
+        Navigator.of(context).popUntil((route) => route.isFirst);
+      });
     });
-  }
-
-  void _returnHomeFromResult(BuildContext dialogContext) {
-    Navigator.of(dialogContext).pop();
-    if (!mounted) return;
-    _routeExitAllowed = true;
-    Navigator.of(context).popUntil((route) => route.isFirst);
   }
 
   Future<void> _handleBack() async {
@@ -531,27 +530,13 @@ class _RaidBattlePageState extends State<RaidBattlePage>
   Future<void> _confirmLeaveRaid() async {
     if (_raidFinished || _isLeavingRaid) return;
 
-    final shouldLeave = await showDialog<bool>(
+    final shouldLeave = await showGameConfirmDialog(
       context: context,
-      barrierDismissible: false,
-      builder: (dialogContext) => AlertDialog(
-        backgroundColor: _kPanelBg,
-        title: const Text('레이드 나가기', style: TextStyle(color: Colors.white)),
-        content: const Text(
-          '레이드 전투가 아직 끝나지 않았습니다.\n나가면 전투 포기로 처리됩니다.',
-          style: TextStyle(color: Colors.white70, height: 1.45),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext, false),
-            child: const Text('취소'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext, true),
-            child: const Text('포기하고 나가기'),
-          ),
-        ],
-      ),
+      title: '레이드 나가기',
+      message: '진행 중인 레이드를 나가면 현재 참여가 종료됩니다.\n정말 나가시겠습니까?',
+      confirmLabel: '나가기',
+      cancelLabel: '계속 전투',
+      type: GameToastType.warning,
     );
     if (shouldLeave != true || !mounted) return;
 
@@ -572,16 +557,14 @@ class _RaidBattlePageState extends State<RaidBattlePage>
       }
     } on GameApiException catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context)
-        ..removeCurrentSnackBar()
-        ..showSnackBar(SnackBar(content: Text(e.message)));
+      showGameToast(context, e.message, type: GameToastType.error);
     } catch (_) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context)
-        ..removeCurrentSnackBar()
-        ..showSnackBar(
-          const SnackBar(content: Text('레이드 나가기 처리에 실패했습니다. 잠시 후 다시 시도해주세요.')),
-        );
+      showGameToast(
+        context,
+        '레이드 나가기 처리에 실패했습니다. 잠시 후 다시 시도해주세요.',
+        type: GameToastType.error,
+      );
     } finally {
       if (mounted) setState(() => _isLeavingRaid = false);
     }
@@ -729,6 +712,8 @@ class _RaidBattlePageState extends State<RaidBattlePage>
               ),
             ),
           ),
+          const SizedBox(width: 8),
+          const GameTopActions(size: 36),
         ],
       ),
     );
@@ -1091,14 +1076,25 @@ class _RaidBattlePageState extends State<RaidBattlePage>
           LayoutBuilder(
             builder: (context, constraints) {
               final size = constraints.maxWidth;
+              final avatarSize = (size * 0.36).clamp(28.0, 38.0).toDouble();
               return Opacity(
                 opacity: isLeft ? 0.35 : 1,
-                child: SpriteFrame(
-                  assetPath: 'assets/images/character/attack2_right.png',
-                  frameIndex: 0,
-                  frameWidth: 80,
-                  frameHeight: 80,
-                  displayHeight: size,
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    SpriteFrame(
+                      assetPath: 'assets/images/character/attack2_right.png',
+                      frameIndex: 0,
+                      frameWidth: 80,
+                      frameHeight: 80,
+                      displayHeight: size,
+                    ),
+                    Positioned(
+                      top: 2,
+                      right: 2,
+                      child: _participantAvatar(participant, avatarSize),
+                    ),
+                  ],
                 ),
               );
             },
@@ -1130,6 +1126,29 @@ class _RaidBattlePageState extends State<RaidBattlePage>
             style: const TextStyle(color: Colors.white38, fontSize: 8),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _participantAvatar(RaidParticipantInfo participant, double size) {
+    final isMine =
+        _characterId != null && participant.characterId == _characterId;
+    if (!isMine) {
+      return UserProfileAvatar(
+        profileImage: participant.profileImage,
+        size: size,
+        showFrame: false,
+      );
+    }
+
+    return AnimatedBuilder(
+      animation: GameState.instance,
+      builder: (context, _) => UserProfileAvatar(
+        profileImage: participant.profileImage,
+        fallbackIconKey: GameState.instance.profileIconKey,
+        fallbackCustomImageDataUrl: GameState.instance.profileImageDataUrl,
+        size: size,
+        showFrame: false,
       ),
     );
   }

@@ -3,15 +3,21 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import 'package:capstone_app/models/raid_boss.dart';
+import 'package:capstone_app/services/app_settings_service.dart';
+import 'package:capstone_app/services/battle_api_service.dart';
 import 'package:capstone_app/services/game_api_service.dart';
 import 'package:capstone_app/services/game_state.dart';
 import 'package:capstone_app/features/raid/pages/raid_battle_page.dart';
+import 'package:capstone_app/widgets/game_feedback.dart';
+import 'package:capstone_app/widgets/game_top_actions.dart';
 import 'package:capstone_app/widgets/user_profile_avatar.dart';
 
 const _kLobbyBg = Color(0xFF1A1008);
 const _kLobbyBorder = Color(0xFF6B3A1F);
 const _kLobbyGold = Color(0xFFF0C040);
 const _kLobbyBlue = Color(0xFF4DA6FF);
+const _kChapter1HomeBg = 'assets/images/bg/home_bg.png';
+const _kChapter2HomeBg = 'assets/images/bg/home_bg_chapter2_shadow_forest.png';
 
 class RaidLobbyPage extends StatefulWidget {
   final RaidBoss boss;
@@ -43,9 +49,13 @@ class _RaidLobbyPageState extends State<RaidLobbyPage> {
   bool _raidCanceledDialogShown = false;
   bool _navigatingToBattle = false;
   Timer? _refreshTimer;
+  final Set<String> _locallyCanceledInvitationIds = <String>{};
+  List<RaidInvitationInfo> _visiblePendingInvitations = const [];
+  AppSettingsData _appSettings = const AppSettingsData.defaults();
+  bool _chapter2HomeBgUnlocked = false;
 
   List<RaidInvitationInfo> get _pendingInvitations =>
-      _summary.invitations.where((invitation) => invitation.isPending).toList();
+      _visiblePendingInvitations;
 
   bool get _hasPendingInvitations => _pendingInvitations.isNotEmpty;
   bool get _isHost => _characterId == _summary.raid.hostCharacterId;
@@ -64,10 +74,29 @@ class _RaidLobbyPageState extends State<RaidLobbyPage> {
       _joinedParticipantCount > 0 &&
       _joinedParticipantCount == _summary.participants.length;
 
+  String get _raidLobbyBackgroundAsset {
+    final selected = _appSettings.homeBackgroundChapter;
+    final effectiveChapter = selected == AppSettingsData.homeBackgroundAuto
+        ? (_chapter2HomeBgUnlocked
+              ? AppSettingsData.homeBackgroundChapter2
+              : AppSettingsData.homeBackgroundChapter1)
+        : selected;
+
+    if (effectiveChapter == AppSettingsData.homeBackgroundChapter2 &&
+        _chapter2HomeBgUnlocked) {
+      return _kChapter2HomeBg;
+    }
+    return _kChapter1HomeBg;
+  }
+
   @override
   void initState() {
     super.initState();
+    AppSettingsService.notifier.addListener(_onAppSettingsChanged);
+    _syncVisiblePendingInvitations(_summary);
     _loadCharacterId();
+    _loadAppSettings();
+    _loadHomeBackgroundState();
     _refreshTimer = Timer.periodic(
       const Duration(seconds: 3),
       (_) => unawaited(_refresh(silent: true)),
@@ -80,7 +109,47 @@ class _RaidLobbyPageState extends State<RaidLobbyPage> {
   @override
   void dispose() {
     _refreshTimer?.cancel();
+    AppSettingsService.notifier.removeListener(_onAppSettingsChanged);
     super.dispose();
+  }
+
+  Future<void> _loadAppSettings() async {
+    final settings = await AppSettingsService.load();
+    if (mounted) setState(() => _appSettings = settings);
+  }
+
+  Future<void> _loadHomeBackgroundState() async {
+    try {
+      final stages = await BattleApiService.fetchNormalStages();
+      final chapter2Unlocked =
+          stages.any((stage) => stage.stageNo >= 6 && stage.isUnlocked) ||
+          stages.any((stage) => stage.stageNo == 5 && stage.isCleared);
+      if (mounted) {
+        setState(() => _chapter2HomeBgUnlocked = chapter2Unlocked);
+      }
+    } catch (_) {
+      // Keep the chapter 1 background if stage state cannot be refreshed.
+    }
+  }
+
+  void _onAppSettingsChanged() {
+    if (!mounted) return;
+    setState(() => _appSettings = AppSettingsService.notifier.value);
+  }
+
+  void _syncVisiblePendingInvitations(RaidProgressSummary summary) {
+    final pendingIds = summary.invitations
+        .where((invitation) => invitation.isPending)
+        .map((invitation) => invitation.id)
+        .toSet();
+    _locallyCanceledInvitationIds.removeWhere((id) => !pendingIds.contains(id));
+    _visiblePendingInvitations = summary.invitations
+        .where(
+          (invitation) =>
+              invitation.isPending &&
+              !_locallyCanceledInvitationIds.contains(invitation.id),
+        )
+        .toList();
   }
 
   Future<void> _loadCharacterId() async {
@@ -103,11 +172,12 @@ class _RaidLobbyPageState extends State<RaidLobbyPage> {
       final wasCanceled = _raidCanceled;
       setState(() {
         _summary = summary;
+        _syncVisiblePendingInvitations(summary);
         _loading = false;
         _error = null;
       });
       if (!wasCanceled && _raidCanceled && !_leavingLobby) {
-        _showRaidCanceledDialog();
+        _showRaidCanceledNotice();
         return;
       }
       _enterBattleIfStarted(summary);
@@ -170,15 +240,18 @@ class _RaidLobbyPageState extends State<RaidLobbyPage> {
       _popLobby();
     } on GameApiException catch (e) {
       if (!mounted) return;
-      if (e.message == '파티장이 나가 레이드 방이 해체되었습니다.' ||
-          e.message == '진행 중인 레이드가 아닙니다.' ||
-          e.message == '레이드 참여 캐릭터가 아닙니다.') {
+      if (_isStaleRaidLobbyMessage(e.message)) {
         _popLobby();
         return;
       }
       _showMessage(e.message);
     } catch (e) {
-      if (mounted) _showMessage(e.toString());
+      if (!mounted) return;
+      if (_isStaleRaidLobbyMessage(e.toString())) {
+        _popLobby();
+        return;
+      }
+      _showMessage(e.toString());
     } finally {
       if (mounted) setState(() => _leavingLobby = false);
     }
@@ -192,42 +265,82 @@ class _RaidLobbyPageState extends State<RaidLobbyPage> {
     });
   }
 
-  void _showRaidCanceledDialog() {
+  void _showRaidCanceledNotice() {
     if (!mounted || _raidCanceledDialogShown) return;
     _raidCanceledDialogShown = true;
     _refreshTimer?.cancel();
-    showDialog<void>(
+    showGameNoticeDialog(
       context: context,
+      title: '레이드 방 해산',
+      message: '방장이 레이드 방을 나갔습니다.\n파티가 해산되어 레이드 화면으로 돌아갑니다.',
+      confirmLabel: '확인',
+      type: GameToastType.warning,
       barrierDismissible: false,
-      builder: (dialogContext) => AlertDialog(
-        backgroundColor: _kLobbyBg,
-        title: const Text('레이드 방 해체', style: TextStyle(color: Colors.white)),
-        content: const Text(
-          '파티장이 나가 레이드 방이 해체되었습니다.',
-          style: TextStyle(color: Colors.white70, height: 1.4),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext),
-            child: const Text('확인'),
-          ),
-        ],
-      ),
     ).then((_) {
       _popLobby();
     });
   }
 
+  bool _isStaleRaidLobbyMessage(String message) {
+    final normalized = message.toLowerCase().trim();
+    return normalized.contains("requested resource wasn't found") ||
+        normalized.contains('requested resource was not found') ||
+        normalized.contains('raid invitation not found') ||
+        normalized.contains('raid not found') ||
+        normalized.contains('character is not participating in raid') ||
+        normalized.contains('raid is not active') ||
+        normalized.contains('invitation is not pending') ||
+        message == '이미 처리되었거나 종료된 레이드 정보입니다.' ||
+        message == '이미 처리된 레이드 초대입니다.' ||
+        message == '이미 처리된 초대입니다.' ||
+        message == '이미 종료되었거나 찾을 수 없는 레이드입니다.' ||
+        message == '파티장이 나가 레이드 방이 해체되었습니다.' ||
+        message == '진행 중인 레이드가 아닙니다.' ||
+        message == '레이드 참여 캐릭터가 아닙니다.';
+  }
+
   Future<void> _cancelInvitation(RaidInvitationInfo invitation) async {
     if (_canceling) return;
-    setState(() => _canceling = true);
+    final invitationId = invitation.id;
+    setState(() {
+      _canceling = true;
+      _locallyCanceledInvitationIds.add(invitationId);
+      _visiblePendingInvitations = _visiblePendingInvitations
+          .where((item) => item.id != invitationId)
+          .toList();
+    });
     try {
-      final summary = await GameApiService.cancelRaidInvitation(invitation.id);
+      final summary = await GameApiService.cancelRaidInvitation(invitationId);
       if (!mounted) return;
-      setState(() => _summary = summary);
+      setState(() {
+        _summary = summary;
+        _syncVisiblePendingInvitations(summary);
+      });
       _showMessage('초대를 취소했습니다.');
+    } on GameApiException catch (e) {
+      if (!mounted) return;
+      if (_isStaleRaidLobbyMessage(e.message)) {
+        unawaited(_refresh(silent: true));
+        _showMessage('이미 처리된 초대입니다.');
+        return;
+      }
+      setState(() {
+        _locallyCanceledInvitationIds.remove(invitationId);
+        _syncVisiblePendingInvitations(_summary);
+      });
+      _showMessage(e.message);
     } catch (e) {
-      if (mounted) _showMessage(e.toString());
+      if (!mounted) return;
+      if (_isStaleRaidLobbyMessage(e.toString())) {
+        unawaited(_refresh(silent: true));
+        _showMessage('이미 처리된 초대입니다.');
+        return;
+      }
+      setState(() {
+        _locallyCanceledInvitationIds.remove(invitationId);
+        _syncVisiblePendingInvitations(_summary);
+      });
+      _showMessage(e.toString());
     } finally {
       if (mounted) setState(() => _canceling = false);
     }
@@ -235,6 +348,10 @@ class _RaidLobbyPageState extends State<RaidLobbyPage> {
 
   Future<void> _enterBattle() async {
     if (_starting) return;
+    if (_canceling) {
+      _showMessage('초대 취소 처리 중입니다. 잠시만 기다려주세요.');
+      return;
+    }
     if (_raidEnded) {
       _showMessage('이미 종료된 레이드입니다.');
       return;
@@ -255,6 +372,7 @@ class _RaidLobbyPageState extends State<RaidLobbyPage> {
       if (summary.pendingInvitationCount > 0) {
         setState(() {
           _summary = summary;
+          _syncVisiblePendingInvitations(summary);
           _starting = false;
         });
         _showMessage('수락 대기 중인 초대가 있어 전투를 시작할 수 없습니다.');
@@ -262,18 +380,77 @@ class _RaidLobbyPageState extends State<RaidLobbyPage> {
       }
       _openBattle(summary);
     } on GameApiException catch (e) {
-      if (mounted) _showMessage(e.message);
+      if (!mounted) return;
+      if (_isPendingInvitationMessage(e.message)) {
+        setState(() {
+          _locallyCanceledInvitationIds.clear();
+          _syncVisiblePendingInvitations(_summary);
+        });
+        unawaited(_refresh(silent: true));
+      }
+      _showMessage(e.message);
     } catch (e) {
-      if (mounted) _showMessage(e.toString());
+      if (!mounted) return;
+      final message = e.toString();
+      if (_isPendingInvitationMessage(message)) {
+        setState(() {
+          _locallyCanceledInvitationIds.clear();
+          _syncVisiblePendingInvitations(_summary);
+        });
+        unawaited(_refresh(silent: true));
+      }
+      _showMessage(message);
     } finally {
       if (mounted) setState(() => _starting = false);
     }
   }
 
-  void _showMessage(String message) {
-    ScaffoldMessenger.of(context)
-      ..removeCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text(message)));
+  bool _isPendingInvitationMessage(String message) {
+    final normalized = message.toLowerCase().trim();
+    return normalized.contains('raid has pending invitations') ||
+        message.contains('수락 대기 중인 초대');
+  }
+
+  void _showMessage(String message, {GameToastType? type}) {
+    showGameToast(
+      context,
+      _raidMessageText(message),
+      type: type ?? _raidToastTypeFor(message),
+    );
+  }
+
+  String _raidMessageText(String message) {
+    final normalized = message.toLowerCase().trim();
+    if (_isPendingInvitationMessage(message)) {
+      return '수락 대기 중인 초대가 있어 전투를 시작할 수 없습니다.';
+    }
+    if (_isStaleRaidLobbyMessage(message)) {
+      return '이미 처리된 초대입니다.';
+    }
+    if (normalized.startsWith('exception: ')) {
+      return message.substring('Exception: '.length).trim();
+    }
+    return message;
+  }
+
+  GameToastType _raidToastTypeFor(String message) {
+    final text = _raidMessageText(message);
+    final normalized = text.toLowerCase();
+    if (text.contains('취소했습니다')) return GameToastType.success;
+    if (text.contains('수락 대기') ||
+        text.contains('처리 중') ||
+        text.contains('기다려') ||
+        text.contains('종료된')) {
+      return GameToastType.warning;
+    }
+    if (normalized.contains('failed') ||
+        normalized.contains('error') ||
+        text.contains('실패') ||
+        text.contains('불가') ||
+        text.contains('없습니다')) {
+      return GameToastType.error;
+    }
+    return GameToastType.info;
   }
 
   @override
@@ -289,7 +466,7 @@ class _RaidLobbyPageState extends State<RaidLobbyPage> {
           children: [
             Positioned.fill(
               child: Image.asset(
-                widget.boss.bgPath ?? 'assets/images/bg/home_bg.png',
+                _raidLobbyBackgroundAsset,
                 fit: BoxFit.cover,
                 filterQuality: FilterQuality.none,
               ),
@@ -408,6 +585,8 @@ class _RaidLobbyPageState extends State<RaidLobbyPage> {
                   : const Icon(Icons.refresh, color: Colors.white, size: 20),
             ),
           ),
+          const SizedBox(width: 8),
+          const GameTopActions(size: 36),
         ],
       ),
     );
@@ -561,13 +740,20 @@ class _RaidLobbyPageState extends State<RaidLobbyPage> {
 
   Widget _buildStartButton() {
     final waitingForHost = !_isHost;
+    final waitingForCancel = _isHost && _canceling && !_raidEnded;
     final waitingForPartyReady = _isHost && !_allPartyReady && !_raidEnded;
     final disabled =
-        _starting || _raidEnded || waitingForHost || waitingForPartyReady;
+        _starting ||
+        _canceling ||
+        _raidEnded ||
+        waitingForHost ||
+        waitingForPartyReady;
     final label = _raidEnded
         ? '종료된 레이드'
         : waitingForHost
         ? '파티장 전투 시작 대기'
+        : waitingForCancel
+        ? '초대 취소 처리 중'
         : waitingForPartyReady
         ? '파티원 준비 대기'
         : _starting

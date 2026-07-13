@@ -134,6 +134,95 @@ Future<bool> showGameConfirmDialog({
   return result == true;
 }
 
+Future<void> showGameNoticeDialog({
+  required BuildContext context,
+  required String title,
+  required String message,
+  String confirmLabel = '확인',
+  GameToastType type = GameToastType.info,
+  bool barrierDismissible = false,
+}) {
+  return showDialog<void>(
+    context: context,
+    barrierDismissible: barrierDismissible,
+    barrierColor: Colors.black.withValues(alpha: 0.68),
+    builder: (dialogContext) {
+      final accent = _accentFor(type);
+      return Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: const EdgeInsets.symmetric(horizontal: 24),
+        child: Container(
+          padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+          decoration: BoxDecoration(
+            color: _kPanel,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: accent, width: 2),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.78),
+                offset: const Offset(0, 7),
+                blurRadius: 0,
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                children: [
+                  _PixelBadge(type: type, size: 36),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      title,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: _kGold,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.black.withValues(alpha: 0.36),
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(
+                    color: accent.withValues(alpha: 0.50),
+                    width: 1.5,
+                  ),
+                ),
+                child: Text(
+                  message,
+                  style: const TextStyle(
+                    color: _kText,
+                    fontSize: 14,
+                    height: 1.42,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 14),
+              _GameDialogButton(
+                label: confirmLabel,
+                color: accent.withValues(alpha: 0.38),
+                borderColor: accent,
+                onTap: () => Navigator.pop(dialogContext),
+              ),
+            ],
+          ),
+        ),
+      );
+    },
+  );
+}
+
 class _GameToast extends StatelessWidget {
   final String message;
   final GameToastType type;

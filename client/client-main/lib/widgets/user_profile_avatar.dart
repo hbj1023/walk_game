@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'package:capstone_app/models/profile_image_info.dart';
+import 'package:capstone_app/services/api_config.dart';
 import 'package:capstone_app/widgets/profile_icon_catalog.dart';
 
 class UserProfileAvatar extends StatelessWidget {
@@ -27,9 +28,7 @@ class UserProfileAvatar extends StatelessWidget {
     final customImage = fallbackCustomImageDataUrl?.trim();
     if (image == null || !image.hasDisplayImage) {
       return ProfileIconPreview(
-        iconKey: customImage != null && customImage.isNotEmpty
-            ? customProfileIconKey
-            : fallbackIconKey,
+        iconKey: _fallbackIconKey(image, fallbackIconKey, customImage),
         customImageDataUrl: customImage,
         size: size,
         selected: selected,
@@ -47,7 +46,10 @@ class UserProfileAvatar extends StatelessWidget {
       );
     }
 
-    final option = profileIconOptionFor(fallbackIconKey);
+    final fallbackKey = image.assetKey.isNotEmpty
+        ? image.assetKey
+        : fallbackIconKey;
+    final option = profileIconOptionFor(fallbackKey);
     final innerSize = size * 0.68;
     final innerRadius = size * 0.075;
     return SizedBox(
@@ -127,21 +129,57 @@ class UserProfileAvatar extends StatelessWidget {
         image.displayUrl,
         width: innerSize,
         height: innerSize,
-        fit: BoxFit.cover,
+        fit: BoxFit.contain,
         filterQuality: FilterQuality.none,
         errorBuilder: (_, _, _) => fallbackIcon,
       );
     }
-    if (image.isNetworkImage) {
+    if (image.isNetworkImage || image.displayUrl.startsWith('/')) {
       return Image.network(
-        image.displayUrl,
+        _resolveRemoteImageUrl(image.displayUrl),
         width: innerSize,
         height: innerSize,
-        fit: BoxFit.cover,
+        fit: BoxFit.contain,
         gaplessPlayback: true,
         errorBuilder: (_, _, _) => fallbackIcon,
       );
     }
     return fallbackIcon;
+  }
+
+  String _fallbackIconKey(
+    ProfileImageInfo? image,
+    String fallbackIconKey,
+    String? customImage,
+  ) {
+    if (customImage != null && customImage.isNotEmpty) {
+      return customProfileIconKey;
+    }
+    final assetKey = image?.assetKey.trim();
+    if (assetKey != null && assetKey.isNotEmpty) {
+      return assetKey;
+    }
+    return fallbackIconKey;
+  }
+
+  String _resolveRemoteImageUrl(String rawUrl) {
+    final trimmed = rawUrl.trim();
+    if (trimmed.startsWith('/')) {
+      return ApiConfig.uri(trimmed).toString();
+    }
+
+    final uri = Uri.tryParse(trimmed);
+    if (uri == null || !uri.hasAuthority) return trimmed;
+
+    final host = uri.host.toLowerCase();
+    if (host != 'pocketbase' && host != '0.0.0.0') {
+      return trimmed;
+    }
+
+    final apiUri = Uri.tryParse(ApiConfig.baseUrl);
+    if (apiUri == null || apiUri.host.isEmpty) return trimmed;
+    return uri
+        .replace(scheme: apiUri.scheme, host: apiUri.host, port: 8090)
+        .toString();
   }
 }

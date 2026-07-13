@@ -10,6 +10,7 @@ import 'package:capstone_app/features/inventory/pages/inventory_page.dart';
 import 'package:capstone_app/features/raid/pages/raid_list_page.dart';
 import 'package:capstone_app/widgets/game_feedback.dart';
 import 'package:capstone_app/widgets/character_stats_panel.dart';
+import 'package:capstone_app/widgets/game_top_actions.dart';
 import 'package:capstone_app/widgets/player_level_badge.dart';
 import 'package:capstone_app/widgets/pixel_bottom_nav.dart';
 
@@ -147,6 +148,34 @@ class _ShopPageState extends State<ShopPage> {
     };
   }
 
+  bool _canAffordShopItem(ShopItem item, {int quantity = 1}) {
+    if (item.usesBossTicketFragments) {
+      return _gs.bossTicketFragments >= item.bossTicketFragmentCost * quantity;
+    }
+    return _gs.coins >= item.priceCoin * quantity;
+  }
+
+  String _shopItemPriceText(ShopItem item, {int quantity = 1}) {
+    if (item.usesBossTicketFragments) {
+      return '${item.bossTicketFragmentCost * quantity}';
+    }
+    return '${item.priceCoin * quantity}';
+  }
+
+  String _shopItemPriceLabel(ShopItem item, {int quantity = 1}) {
+    if (item.usesBossTicketFragments) {
+      return '보스 조각 ${item.bossTicketFragmentCost * quantity}개';
+    }
+    return '${item.priceCoin * quantity} 코인';
+  }
+
+  String _shopItemPriceIcon(ShopItem item) {
+    if (item.usesBossTicketFragments) {
+      return 'assets/images/icon/ticket.png';
+    }
+    return 'assets/images/icon/coin_icon.png';
+  }
+
   Future<void> _purchase(
     ShopItem item, {
     bool skipEquipmentConfirm = false,
@@ -171,11 +200,12 @@ class _ShopPageState extends State<ShopPage> {
     if (!mounted) return;
     if (quantity == null || quantity <= 0) return;
 
-    final totalPrice = item.priceCoin * quantity;
-    if (_gs.coins < totalPrice) {
+    if (!_canAffordShopItem(item, quantity: quantity)) {
       showGameToast(
         context,
-        '코인이 부족합니다. 전투 보상으로 코인을 모아주세요.',
+        item.usesBossTicketFragments
+            ? '보스 조각이 부족합니다. 앱을 켜고 걸어 조각을 모아주세요.'
+            : '코인이 부족합니다. 전투 보상으로 코인을 모아주세요.',
         type: GameToastType.warning,
       );
       return;
@@ -209,7 +239,9 @@ class _ShopPageState extends State<ShopPage> {
       });
       showGameToast(
         context,
-        item.itemTemplate.isConsumable
+        item.usesBossTicketFragments
+            ? '${item.itemTemplate.displayName} $quantity개 구매 완료. 남은 보스 조각: ${_gs.bossTicketFragments}'
+            : item.itemTemplate.isConsumable
             ? '${item.itemTemplate.displayName} $quantity개 구매 완료. 남은 코인: ${_gs.coins}'
             : '${item.itemTemplate.displayName} 구매 완료. 남은 코인: ${_gs.coins}',
         type: GameToastType.success,
@@ -241,8 +273,12 @@ class _ShopPageState extends State<ShopPage> {
   }
 
   Future<int?> _showConsumablePurchaseDialog(ShopItem item) async {
-    final maxByCoin = item.priceCoin <= 0 ? 99 : _gs.coins ~/ item.priceCoin;
-    final maxQuantity = maxByCoin.clamp(1, 99).toInt();
+    final maxByPayment = item.usesBossTicketFragments
+        ? _gs.bossTicketFragments ~/ item.bossTicketFragmentCost
+        : item.priceCoin <= 0
+        ? 99
+        : _gs.coins ~/ item.priceCoin;
+    final maxQuantity = maxByPayment.clamp(1, 99).toInt();
     final ownedQuantity = _ownedConsumableQuantity(item.itemTemplate.id);
     int quantity = 1;
 
@@ -252,8 +288,7 @@ class _ShopPageState extends State<ShopPage> {
       builder: (dialogContext) {
         return StatefulBuilder(
           builder: (context, setDialogState) {
-            final totalPrice = item.priceCoin * quantity;
-            final canBuy = item.priceCoin <= 0 || _gs.coins >= totalPrice;
+            final canBuy = _canAffordShopItem(item, quantity: quantity);
 
             void setQuantity(int next) {
               setDialogState(() {
@@ -406,13 +441,13 @@ class _ShopPageState extends State<ShopPage> {
                               ),
                               const Spacer(),
                               Image.asset(
-                                'assets/images/icon/coin_icon.png',
+                                _shopItemPriceIcon(item),
                                 width: 16,
                                 height: 16,
                               ),
                               const SizedBox(width: 5),
                               Text(
-                                '$totalPrice',
+                                _shopItemPriceText(item, quantity: quantity),
                                 style: TextStyle(
                                   color: canBuy ? _kGold : Colors.redAccent,
                                   fontSize: 15,
@@ -638,7 +673,14 @@ class _ShopPageState extends State<ShopPage> {
             ),
           ),
           const Spacer(),
-          _buildCoinCard(),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              _buildCoinCard(),
+              const SizedBox(height: 6),
+              const GameTopActions(),
+            ],
+          ),
         ],
       ),
     );
@@ -1424,7 +1466,7 @@ class _ShopPageState extends State<ShopPage> {
 
   Widget _buildShopItemCard(ShopItem item) {
     final canBuy =
-        !_isBuying && item.isPurchaseUnlocked && _gs.coins >= item.priceCoin;
+        !_isBuying && item.isPurchaseUnlocked && _canAffordShopItem(item);
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.all(12),
@@ -1499,14 +1541,10 @@ class _ShopPageState extends State<ShopPage> {
               ),
               child: Row(
                 children: [
-                  Image.asset(
-                    'assets/images/icon/coin_icon.png',
-                    width: 14,
-                    height: 14,
-                  ),
+                  Image.asset(_shopItemPriceIcon(item), width: 14, height: 14),
                   const SizedBox(width: 4),
                   Text(
-                    '${item.priceCoin}',
+                    _shopItemPriceText(item),
                     style: TextStyle(
                       color: canBuy ? Colors.white : _kTextGray,
                       fontSize: 12,
@@ -1528,6 +1566,9 @@ class _ShopPageState extends State<ShopPage> {
 
   String _templateImage(ItemTemplate template) {
     if (template.displayImagePath.isNotEmpty) return template.displayImagePath;
+    if (template.isBossEntranceTicket || template.isBossTicketFragment) {
+      return 'assets/images/icon/ticket.png';
+    }
     final normalizedName = template.name.replaceAll(' ', '').trim();
     return switch (normalizedName) {
       '부서진검' => 'assets/images/icon/sword1.png',
@@ -1633,6 +1674,7 @@ class _ShopPageState extends State<ShopPage> {
   int _equipmentSetOrder(ItemTemplate template) {
     final key = _equipmentBaseSetKey(template);
     final offset = _equipmentRarity(template) == 'epic' ? 100 : 0;
+    if (key == 'poison_assassin') return 45 + offset;
     return switch (key) {
       'chapter1-adventurer' => 0 + offset,
       'vanguard' => 10 + offset,
@@ -1677,6 +1719,7 @@ class _ShopPageState extends State<ShopPage> {
 
   String _equipmentSetName(ItemTemplate template) {
     final key = _equipmentBaseSetKey(template);
+    if (key == 'poison_assassin') return '맹독 암살자 세트';
     if (_equipmentRarity(template) == 'epic') {
       return switch (key) {
         'vanguard' => '모험가 보스 에픽 세트',
@@ -1726,6 +1769,7 @@ class _ShopPageState extends State<ShopPage> {
     if (template.isEquipment) {
       return '${template.slotLabel} / ${template.rarity}';
     }
+    if (item.usesBossTicketFragments) return _shopItemPriceLabel(item);
     if (template.isConsumable) return '소모품';
     return '기타';
   }

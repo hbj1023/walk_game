@@ -10,6 +10,11 @@ String resolveEquipmentImagePath({
 }) {
   if (itemType != 'equipment') return '';
 
+  final explicitImagePath = imagePath.trim();
+  if (explicitImagePath.contains('ch2_epic_poison_assassin')) {
+    return explicitImagePath;
+  }
+
   final chapter1ImagePath = _chapter1EquipmentImagePath(name);
   if (chapter1ImagePath.isNotEmpty) return chapter1ImagePath;
 
@@ -32,7 +37,6 @@ String resolveEquipmentImagePath({
   );
   if (chapter2ImagePath.isNotEmpty) return chapter2ImagePath;
 
-  final explicitImagePath = imagePath.trim();
   if (explicitImagePath.isNotEmpty) return explicitImagePath;
 
   return '';
@@ -95,10 +99,6 @@ String _chapter2EquipmentImagePath({
   };
   if (pieceSuffix.isEmpty) return '';
 
-  if (rarity.trim().toLowerCase() == 'rare') {
-    return 'assets/images/equipment/chapter2/ch2_armor_rare_${inferredSetKey}_$pieceSuffix.png';
-  }
-
   final assetSetKey = switch (inferredSetKey) {
     'vanguard' => 'berserker',
     'berserker' => 'shadow',
@@ -109,11 +109,13 @@ String _chapter2EquipmentImagePath({
   };
   if (assetSetKey.isEmpty) return '';
 
-  return 'assets/images/equipment/chapter2/ch2_armor_${assetSetKey}_$pieceSuffix.png';
+  final rarityPrefix = rarity.trim().toLowerCase() == 'rare' ? 'rare_' : '';
+  return 'assets/images/equipment/chapter2/ch2_armor_$rarityPrefix${assetSetKey}_$pieceSuffix.png';
 }
 
 String _inferSetKey(String setKey, String name) {
-  if (setKey.isNotEmpty) return setKey;
+  final normalizedSetKey = setKey.trim().toLowerCase();
+  if (normalizedSetKey.isNotEmpty) return normalizedSetKey;
 
   final lowerName = name.toLowerCase();
   if (lowerName.contains('vanguard') || name.contains('모험가')) {

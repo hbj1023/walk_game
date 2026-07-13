@@ -3,8 +3,10 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 
+import 'package:capstone_app/services/app_settings_service.dart';
 import 'package:capstone_app/services/auth_service.dart';
 import 'package:capstone_app/services/battle_api_service.dart';
+import 'package:capstone_app/services/game_api_service.dart';
 import 'package:capstone_app/services/game_state.dart';
 import 'package:capstone_app/services/monster_asset_service.dart';
 import 'package:capstone_app/features/battle/pages/battle_page.dart';
@@ -14,6 +16,7 @@ import 'package:capstone_app/features/raid/pages/raid_list_page.dart';
 import 'package:capstone_app/features/shop/pages/shop_page.dart';
 import 'package:capstone_app/widgets/game_feedback.dart';
 import 'package:capstone_app/widgets/character_stats_panel.dart';
+import 'package:capstone_app/widgets/game_top_actions.dart';
 import 'package:capstone_app/widgets/player_level_badge.dart';
 import 'package:capstone_app/widgets/pixel_bottom_nav.dart';
 
@@ -24,6 +27,11 @@ const _kLabelBg = Color(0xE6111111);
 const _kStartBtn = Color(0xFF7A1A1A);
 const _kStartBtnBorder = Color(0xFF4A0E0E);
 const _kStageMapContentOffsetY = -25.0;
+const _kPowerDanger = Color(0xFFFF5A52);
+const _kPowerEasy = Color(0xFF5AB7FF);
+const _kRewardReductionPowerPercent = 140;
+const _kChapter1HomeBg = 'assets/images/bg/home_bg.png';
+const _kChapter2HomeBg = 'assets/images/bg/home_bg_chapter2_shadow_forest.png';
 
 class _StageData {
   final int stageNo;
@@ -115,6 +123,7 @@ const _kRecommendedCombatPowerByStage = <int, int>{
 
 const _kBattlePreloadAssets = <String>[
   'assets/images/bg/stage1_battle_BG.png',
+  'assets/images/bg/stage2_battle_shadow_mushroom_forest.png',
   'assets/images/profile_frame.png',
   'assets/images/icon/coin_icon.png',
   'assets/images/icon/friend_icon.png',
@@ -159,6 +168,8 @@ class _BattleStagePageState extends State<BattleStagePage> {
   bool _isWaitingServer = false;
   String? _stageError;
   List<_StageData> _allStages = const [];
+  int? _currentCombatPower;
+  AppSettingsData _appSettings = const AppSettingsData.defaults();
 
   List<_StageData> get _visibleStages => _allStages
       .where((stage) => _chapterForStage(stage.stageNo) == _currentChapter)
@@ -186,11 +197,58 @@ class _BattleStagePageState extends State<BattleStagePage> {
     return stages[_safeSelectedIndex];
   }
 
+  bool get _chapter2HomeBgUnlocked =>
+      _allStages.any((stage) => stage.stageNo >= 6 && stage.unlocked) ||
+      _allStages.any((stage) => stage.stageNo == 5 && stage.cleared);
+
+  String get _stagePageBackgroundAsset {
+    final selected = _appSettings.homeBackgroundChapter;
+    final effectiveChapter = selected == AppSettingsData.homeBackgroundAuto
+        ? (_chapter2HomeBgUnlocked
+              ? AppSettingsData.homeBackgroundChapter2
+              : AppSettingsData.homeBackgroundChapter1)
+        : selected;
+
+    if (effectiveChapter == AppSettingsData.homeBackgroundChapter2 &&
+        _chapter2HomeBgUnlocked) {
+      return _kChapter2HomeBg;
+    }
+    return _kChapter1HomeBg;
+  }
+
+  Widget _buildStagePageBackground() {
+    return Image.asset(
+      _stagePageBackgroundAsset,
+      fit: BoxFit.cover,
+      alignment: Alignment.center,
+      filterQuality: FilterQuality.none,
+    );
+  }
+
   @override
   void initState() {
     super.initState();
+    AppSettingsService.notifier.addListener(_onAppSettingsChanged);
     _loadUserName();
     _loadStages();
+    _loadCurrentCombatPower();
+    _loadAppSettings();
+  }
+
+  @override
+  void dispose() {
+    AppSettingsService.notifier.removeListener(_onAppSettingsChanged);
+    super.dispose();
+  }
+
+  Future<void> _loadAppSettings() async {
+    final settings = await AppSettingsService.load();
+    if (mounted) setState(() => _appSettings = settings);
+  }
+
+  void _onAppSettingsChanged() {
+    if (!mounted) return;
+    setState(() => _appSettings = AppSettingsService.notifier.value);
   }
 
   Future<void> _loadUserName() async {
@@ -241,6 +299,18 @@ class _BattleStagePageState extends State<BattleStagePage> {
         _stageError = '스테이지 정보를 불러오지 못했습니다.';
         _isStageLoading = false;
       });
+    }
+  }
+
+  Future<void> _loadCurrentCombatPower() async {
+    try {
+      final summary = await GameApiService.fetchCharacterStatsSummary();
+      final power = _combatPower(summary.finalStats);
+      if (!mounted) return;
+      setState(() => _currentCombatPower = power);
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _currentCombatPower = null);
     }
   }
 
@@ -501,12 +571,7 @@ class _BattleStagePageState extends State<BattleStagePage> {
         bottomNavigationBar: _buildBottomNav(),
         body: Stack(
           children: [
-            Positioned.fill(
-              child: Image.asset(
-                'assets/images/bg/home_bg.png',
-                fit: BoxFit.cover,
-              ),
-            ),
+            Positioned.fill(child: _buildStagePageBackground()),
             SafeArea(
               child: SingleChildScrollView(
                 physics: const NeverScrollableScrollPhysics(),
@@ -694,6 +759,8 @@ class _BattleStagePageState extends State<BattleStagePage> {
                   ],
                 ),
               ),
+              const SizedBox(height: 6),
+              const GameTopActions(),
             ],
           ),
         ],
@@ -1386,10 +1453,11 @@ class _BattleStagePageState extends State<BattleStagePage> {
   }
 
   Widget _buildRecommendedPowerBadge(_StageData stage) {
-    final value = _formatNumber(_recommendedCombatPowerForStage(stage.stageNo));
-    final valueColor = stage.unlocked ? _kGold : Colors.white60;
+    final recommendedPower = _recommendedCombatPowerForStage(stage.stageNo);
+    final value = _formatNumber(recommendedPower);
+    final valueColor = _recommendedPowerColor(stage, recommendedPower);
     final borderColor = stage.unlocked
-        ? _kGold.withValues(alpha: 0.72)
+        ? valueColor.withValues(alpha: 0.72)
         : Colors.white.withValues(alpha: 0.16);
 
     return Container(
@@ -1424,6 +1492,26 @@ class _BattleStagePageState extends State<BattleStagePage> {
         ],
       ),
     );
+  }
+
+  Color _recommendedPowerColor(_StageData stage, int recommendedPower) {
+    if (!stage.unlocked) return Colors.white60;
+    final currentPower = _currentCombatPower;
+    if (currentPower == null || recommendedPower <= 0) return _kGold;
+    if (currentPower < recommendedPower) return _kPowerDanger;
+    if (currentPower * 100 > recommendedPower * _kRewardReductionPowerPercent) {
+      return _kPowerEasy;
+    }
+    return _kGold;
+  }
+
+  int _combatPower(Map<String, int> stats) {
+    if (stats.isEmpty) return 0;
+    final hp = stats['hp'] ?? 0;
+    final attack = stats['attack'] ?? 0;
+    final defense = stats['defense'] ?? 0;
+    final agility = stats['agility'] ?? 0;
+    return (hp / 3 + attack * 8 + defense * 5 + agility * 4).round();
   }
 
   Widget _buildStartButton() {

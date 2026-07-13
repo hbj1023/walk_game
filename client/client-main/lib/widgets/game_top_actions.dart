@@ -9,6 +9,7 @@ import 'package:capstone_app/services/game_api_service.dart';
 import 'package:capstone_app/services/game_state.dart';
 import 'package:capstone_app/widgets/app_settings_dialog.dart';
 import 'package:capstone_app/widgets/friend_request_badge_button.dart';
+import 'package:capstone_app/widgets/game_feedback.dart';
 
 class GameTopActions extends StatefulWidget {
   final double size;
@@ -47,6 +48,7 @@ class _GameTopActionsState extends State<GameTopActions> {
   Future<void> _openFriendSheet() {
     return showDialog<void>(
       context: context,
+      barrierColor: Colors.black.withValues(alpha: 0.72),
       builder: (context) => const FriendSheet(),
     );
   }
@@ -54,6 +56,7 @@ class _GameTopActionsState extends State<GameTopActions> {
   Future<void> _openSettingsDialog() {
     return showDialog<void>(
       context: context,
+      barrierColor: Colors.black.withValues(alpha: 0.72),
       builder: (dialogContext) => AppSettingsDialog(
         onLogout: _confirmLogout,
         onAccountDeleted: _logout,
@@ -62,26 +65,13 @@ class _GameTopActionsState extends State<GameTopActions> {
   }
 
   Future<void> _confirmLogout() async {
-    final shouldLogout = await showDialog<bool>(
+    final shouldLogout = await showGameConfirmDialog(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        backgroundColor: const Color(0xFF1A1A1A),
-        title: const Text('로그아웃', style: TextStyle(color: Colors.white)),
-        content: const Text(
-          '정말 로그아웃하시겠습니까?',
-          style: TextStyle(color: Color(0xFFD9C9A8)),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext, false),
-            child: const Text('취소'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext, true),
-            child: const Text('로그아웃'),
-          ),
-        ],
-      ),
+      title: '로그아웃',
+      message: '현재 계정에서 로그아웃합니다.\n다시 접속하려면 이메일과 비밀번호가 필요합니다.',
+      confirmLabel: '로그아웃',
+      cancelLabel: '취소',
+      type: GameToastType.warning,
     );
 
     if (shouldLogout != true) return;
@@ -95,6 +85,7 @@ class _GameTopActionsState extends State<GameTopActions> {
       await AuthService.logout();
       GameState.instance.setCoins(0);
       GameState.instance.setAttackCountBalance(0);
+      GameState.instance.setBossTicketFragments(0);
 
       if (!mounted) return;
       Navigator.pushAndRemoveUntil(
@@ -104,8 +95,10 @@ class _GameTopActionsState extends State<GameTopActions> {
       );
     } catch (_) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('로그아웃에 실패했습니다. 잠시 후 다시 시도해주세요.')),
+      showGameToast(
+        context,
+        '로그아웃에 실패했습니다. 잠시 후 다시 시도해주세요.',
+        type: GameToastType.error,
       );
       setState(() => _isLoggingOut = false);
     }
@@ -131,9 +124,7 @@ class _GameTopActionsState extends State<GameTopActions> {
       _hasLoadedRaidInvitations = true;
       final isCurrentRoute = ModalRoute.of(context)?.isCurrent ?? true;
       if (shouldAnnounce && isCurrentRoute) {
-        ScaffoldMessenger.of(context)
-          ..removeCurrentSnackBar()
-          ..showSnackBar(const SnackBar(content: Text('새 레이드 초대가 도착했습니다.')));
+        showGameToast(context, '새 레이드 초대가 도착했습니다.', type: GameToastType.info);
       }
     } catch (_) {
       // 초대 알림 갱신 실패는 현재 화면 이용을 막지 않는다.

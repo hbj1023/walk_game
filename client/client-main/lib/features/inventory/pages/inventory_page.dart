@@ -11,6 +11,7 @@ import 'package:capstone_app/features/raid/pages/raid_list_page.dart';
 import 'package:capstone_app/features/shop/pages/shop_page.dart';
 import 'package:capstone_app/widgets/character_stats_panel.dart';
 import 'package:capstone_app/widgets/game_feedback.dart';
+import 'package:capstone_app/widgets/game_top_actions.dart';
 import 'package:capstone_app/widgets/player_level_badge.dart';
 import 'package:capstone_app/widgets/pixel_bottom_nav.dart';
 
@@ -191,10 +192,15 @@ class _InventoryPageState extends State<InventoryPage> {
   List<OwnedInventoryItem> get _filteredItems {
     final items = switch (_inventoryFilter) {
       1 => _items.where((item) => item.itemTemplate.isEquipment),
-      2 => _items.where((item) => item.itemTemplate.isConsumable),
+      2 => _items.where(
+        (item) =>
+            item.itemTemplate.isConsumable &&
+            !item.itemTemplate.isInventoryMisc,
+      ),
       3 => _items.where(
         (item) =>
-            !item.itemTemplate.isEquipment && !item.itemTemplate.isConsumable,
+            item.itemTemplate.isInventoryMisc ||
+            (!item.itemTemplate.isEquipment && !item.itemTemplate.isConsumable),
       ),
       _ => _items,
     };
@@ -210,6 +216,27 @@ class _InventoryPageState extends State<InventoryPage> {
         a.value,
       ).compareTo(_inventoryCategoryRank(b.value));
       if (categoryCompare != 0) return categoryCompare;
+      final equippedCompare = _inventoryEquippedRank(
+        a.value,
+      ).compareTo(_inventoryEquippedRank(b.value));
+      if (equippedCompare != 0) return equippedCompare;
+
+      if (a.value.isEquipped && b.value.isEquipped) {
+        final slotCompare = _inventorySlotRank(
+          a.value,
+        ).compareTo(_inventorySlotRank(b.value));
+        if (slotCompare != 0) return slotCompare;
+        final setCompare = _inventorySetRank(
+          a.value,
+        ).compareTo(_inventorySetRank(b.value));
+        if (setCompare != 0) return setCompare;
+        final rarityCompare = _inventoryRarityRank(
+          a.value,
+        ).compareTo(_inventoryRarityRank(b.value));
+        if (rarityCompare != 0) return rarityCompare;
+        return a.key.compareTo(b.key);
+      }
+
       final setCompare = _inventorySetRank(
         a.value,
       ).compareTo(_inventorySetRank(b.value));
@@ -222,10 +249,6 @@ class _InventoryPageState extends State<InventoryPage> {
         a.value,
       ).compareTo(_inventoryRarityRank(b.value));
       if (rarityCompare != 0) return rarityCompare;
-      final equippedCompare = _inventoryEquippedRank(
-        a.value,
-      ).compareTo(_inventoryEquippedRank(b.value));
-      if (equippedCompare != 0) return equippedCompare;
       return a.key.compareTo(b.key);
     });
     return indexedItems.map((entry) => entry.value).toList();
@@ -233,6 +256,7 @@ class _InventoryPageState extends State<InventoryPage> {
 
   int _inventoryCategoryRank(OwnedInventoryItem item) {
     if (item.itemTemplate.isEquipment) return 0;
+    if (item.itemTemplate.isInventoryMisc) return 2;
     if (item.itemTemplate.isConsumable) return 1;
     return 2;
   }
@@ -284,6 +308,7 @@ class _InventoryPageState extends State<InventoryPage> {
 
   // 반환값: 'action' | 'sell' | null
   Future<String?> _showItemDialog(OwnedInventoryItem item) async {
+    final isInfoOnly = item.itemTemplate.blocksManualInventoryAction;
     final action = item.itemTemplate.isConsumable
         ? '사용'
         : item.isEquipped
@@ -314,36 +339,46 @@ class _InventoryPageState extends State<InventoryPage> {
               const SizedBox(height: 8),
               _buildSetEffectInfo(item.itemTemplate),
             ],
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                Image.asset(
-                  'assets/images/icon/coin_icon.png',
-                  width: 14,
-                  height: 14,
-                ),
-                const SizedBox(width: 4),
-                Text(
-                  '판매가: $sellPrice',
-                  style: const TextStyle(color: kGold, fontSize: 12),
-                ),
-              ],
-            ),
+            if (!isInfoOnly) ...[
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Image.asset(
+                    'assets/images/icon/coin_icon.png',
+                    width: 14,
+                    height: 14,
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    '판매가: $sellPrice',
+                    style: const TextStyle(color: kGold, fontSize: 12),
+                  ),
+                ],
+              ),
+            ],
           ],
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, null),
-            child: const Text('취소', style: TextStyle(color: kTextGray)),
+            child: Text(
+              isInfoOnly ? '닫기' : '취소',
+              style: const TextStyle(color: kTextGray),
+            ),
           ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, 'sell'),
-            child: const Text('판매', style: TextStyle(color: Color(0xFFE06030))),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, 'action'),
-            child: Text(action, style: const TextStyle(color: kGold)),
-          ),
+          if (!isInfoOnly)
+            TextButton(
+              onPressed: () => Navigator.pop(context, 'sell'),
+              child: const Text(
+                '판매',
+                style: TextStyle(color: Color(0xFFE06030)),
+              ),
+            ),
+          if (!isInfoOnly)
+            TextButton(
+              onPressed: () => Navigator.pop(context, 'action'),
+              child: Text(action, style: const TextStyle(color: kGold)),
+            ),
         ],
       ),
     );
@@ -662,7 +697,14 @@ class _InventoryPageState extends State<InventoryPage> {
             ),
           ),
           const Spacer(),
-          _buildCoinCard(),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              _buildCoinCard(),
+              const SizedBox(height: 6),
+              const GameTopActions(),
+            ],
+          ),
         ],
       ),
     );
@@ -805,6 +847,12 @@ class _InventoryPageState extends State<InventoryPage> {
 
   Widget _buildActiveSetEffectsPanel() {
     final bonuses = _characterStatsSummary?.activeSetBonuses ?? const [];
+    final groups = _activeSetEffectGroups(bonuses);
+    final activeSetCount = groups.fold<int>(
+      0,
+      (maxCount, group) =>
+          group.activeCount > maxCount ? group.activeCount : maxCount,
+    );
     return Container(
       width: double.infinity,
       margin: const EdgeInsets.fromLTRB(8, 2, 8, 8),
@@ -828,9 +876,24 @@ class _InventoryPageState extends State<InventoryPage> {
                   fontWeight: FontWeight.bold,
                 ),
               ),
+              if (groups.isNotEmpty) ...[
+                const SizedBox(width: 8),
+                Flexible(
+                  child: Text(
+                    groups.map((group) => group.setName).join(', '),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: kGold,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ),
+              ],
               const Spacer(),
               Text(
-                '${bonuses.length}',
+                '$activeSetCount',
                 style: const TextStyle(
                   color: kGold,
                   fontSize: 12,
@@ -846,33 +909,132 @@ class _InventoryPageState extends State<InventoryPage> {
               style: TextStyle(color: kTextGray, fontSize: 11),
             )
           else
-            Wrap(
-              spacing: 6,
-              runSpacing: 6,
-              children: bonuses.map(_buildActiveSetEffectChip).toList(),
-            ),
+            Column(children: groups.map(_buildActiveSetEffectGroup).toList()),
         ],
       ),
     );
   }
 
-  Widget _buildActiveSetEffectChip(EquipmentSetBonusInfo bonus) {
+  List<_ActiveSetEffectGroup> _activeSetEffectGroups(
+    List<EquipmentSetBonusInfo> bonuses,
+  ) {
+    final bySet = <String, List<EquipmentSetBonusInfo>>{};
+    for (final bonus in bonuses) {
+      final key = bonus.setKey.isNotEmpty ? bonus.setKey : bonus.displaySetName;
+      bySet.putIfAbsent(key, () => []).add(bonus);
+    }
+
+    final groups = bySet.entries.map((entry) {
+      final bonuses = entry.value;
+      final first = bonuses.first;
+      final effectsByCount = <int, List<String>>{};
+      for (final bonus in bonuses) {
+        effectsByCount.putIfAbsent(bonus.requiredCount, () => []);
+        effectsByCount[bonus.requiredCount]!.add(
+          _stripActiveSetCountPrefix(
+            bonus.displayDescription,
+            bonus.requiredCount,
+          ),
+        );
+      }
+      final activeCount = effectsByCount.keys.fold<int>(
+        0,
+        (maxCount, count) => count > maxCount ? count : maxCount,
+      );
+      return _ActiveSetEffectGroup(
+        setName: _shortSetName(first.displaySetName),
+        activeCount: activeCount,
+        effectsByCount: effectsByCount,
+      );
+    }).toList();
+
+    groups.sort((a, b) => a.setName.compareTo(b.setName));
+    return groups;
+  }
+
+  Widget _buildActiveSetEffectGroup(_ActiveSetEffectGroup group) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+      width: double.infinity,
+      margin: const EdgeInsets.only(bottom: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 8),
       decoration: BoxDecoration(
-        color: kGold.withValues(alpha: 0.08),
+        color: kGold.withValues(alpha: 0.07),
         borderRadius: BorderRadius.circular(7),
-        border: Border.all(color: kGold.withValues(alpha: 0.45), width: 1),
+        border: Border.all(color: kGold.withValues(alpha: 0.38), width: 1),
       ),
-      child: Text(
-        '${bonus.displaySetName} ${bonus.displayDescription}',
-        style: const TextStyle(
-          color: kTextLight,
-          fontSize: 10.5,
-          fontWeight: FontWeight.bold,
-        ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Text(
+                group.setName,
+                style: const TextStyle(
+                  color: kTextLight,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              const Spacer(),
+              Text(
+                '${group.activeCount}세트 활성',
+                style: const TextStyle(
+                  color: kGold,
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          _buildActiveSetStageLine(3, group.effectsByCount[3]),
+          const SizedBox(height: 4),
+          _buildActiveSetStageLine(4, group.effectsByCount[4]),
+        ],
       ),
     );
+  }
+
+  Widget _buildActiveSetStageLine(int count, List<String>? effects) {
+    final isActive = effects != null && effects.isNotEmpty;
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SizedBox(
+          width: 45,
+          child: Text(
+            '$count세트:',
+            style: TextStyle(
+              color: isActive ? kGold : kTextGray,
+              fontSize: 11,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+        ),
+        Expanded(
+          child: Text(
+            isActive ? effects.join(' / ') : '미활성',
+            style: TextStyle(
+              color: isActive ? kTextLight : kTextGray,
+              fontSize: 11,
+              height: 1.2,
+              fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  String _stripActiveSetCountPrefix(String description, int count) {
+    final trimmed = description.trim();
+    final pattern = RegExp('^$count\\s*[^:]*:\\s*');
+    return trimmed.replaceFirst(pattern, '').trim();
+  }
+
+  String _shortSetName(String setName) {
+    final shortened = setName.replaceFirst(RegExp(r'\s*세트$'), '').trim();
+    return shortened.isEmpty ? setName : shortened;
   }
 
   Widget _buildEquipSlot(String slot) {
@@ -1159,6 +1321,9 @@ class _InventoryPageState extends State<InventoryPage> {
 
   String _inventoryItemImage(ItemTemplate template) {
     if (template.displayImagePath.isNotEmpty) return template.displayImagePath;
+    if (template.isBossEntranceTicket || template.isBossTicketFragment) {
+      return 'assets/images/icon/ticket.png';
+    }
     final normalizedName = template.name.replaceAll(' ', '').trim();
     return switch (normalizedName) {
       '부서진검' => 'assets/images/icon/sword1.png',
@@ -1795,6 +1960,18 @@ class _InventoryPageState extends State<InventoryPage> {
       ),
     );
   }
+}
+
+class _ActiveSetEffectGroup {
+  final String setName;
+  final int activeCount;
+  final Map<int, List<String>> effectsByCount;
+
+  const _ActiveSetEffectGroup({
+    required this.setName,
+    required this.activeCount,
+    required this.effectsByCount,
+  });
 }
 
 class _EquipmentStatFeedback {

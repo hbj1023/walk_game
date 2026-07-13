@@ -13,6 +13,7 @@ class GameState extends ChangeNotifier {
   int _exp = 0;
   int _statExp = 0;
   int _attackCountBalance = 0;
+  int _bossTicketFragments = 0;
   String _profileIconKey = 'vanguard';
   String? _profileImageDataUrl;
 
@@ -22,6 +23,7 @@ class GameState extends ChangeNotifier {
   int get statExp => _statExp;
   int get expToNextLevel => (_level < 1 ? 1 : _level) * 100;
   int get attackCountBalance => _attackCountBalance;
+  int get bossTicketFragments => _bossTicketFragments;
   String get profileIconKey => _profileIconKey;
   String? get profileImageDataUrl => _profileImageDataUrl;
 
@@ -34,6 +36,13 @@ class GameState extends ChangeNotifier {
   void setAttackCountBalance(int value) {
     if (_attackCountBalance == value) return;
     _attackCountBalance = value;
+    notifyListeners();
+  }
+
+  void setBossTicketFragments(int value) {
+    final next = value < 0 ? 0 : value;
+    if (_bossTicketFragments == next) return;
+    _bossTicketFragments = next;
     notifyListeners();
   }
 

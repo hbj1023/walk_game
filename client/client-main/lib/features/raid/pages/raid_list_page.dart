@@ -4,7 +4,9 @@ import 'package:flutter/material.dart';
 
 import 'package:capstone_app/models/raid_boss.dart';
 import 'package:capstone_app/models/profile_image_info.dart';
+import 'package:capstone_app/services/app_settings_service.dart';
 import 'package:capstone_app/services/auth_service.dart';
+import 'package:capstone_app/services/battle_api_service.dart';
 import 'package:capstone_app/services/friendship_service.dart';
 import 'package:capstone_app/services/game_api_service.dart';
 import 'package:capstone_app/services/game_state.dart';
@@ -15,6 +17,7 @@ import 'package:capstone_app/features/inventory/pages/inventory_page.dart';
 import 'package:capstone_app/features/raid/pages/raid_lobby_page.dart';
 import 'package:capstone_app/features/shop/pages/shop_page.dart';
 import 'package:capstone_app/widgets/character_stats_panel.dart';
+import 'package:capstone_app/widgets/game_feedback.dart';
 import 'package:capstone_app/widgets/game_top_actions.dart';
 import 'package:capstone_app/widgets/player_level_badge.dart';
 import 'package:capstone_app/widgets/pixel_bottom_nav.dart';
@@ -27,6 +30,8 @@ const _kCardBorder = Color(0xFF6B3A1F);
 const _kGold = Color(0xFFF0C040);
 const _kRedStar = Color(0xFFE03030);
 const _kRaidMinimumLevel = 5;
+const _kChapter1HomeBg = 'assets/images/bg/home_bg.png';
+const _kChapter2HomeBg = 'assets/images/bg/home_bg_chapter2_shadow_forest.png';
 
 String _formatRaidNumber(int value) {
   final text = value.toString();
@@ -62,6 +67,8 @@ class _RaidListPageState extends State<RaidListPage> {
   String? _invitationError;
   final _gs = GameState.instance;
   Timer? _invitationRefreshTimer;
+  AppSettingsData _appSettings = const AppSettingsData.defaults();
+  bool _chapter2HomeBgUnlocked = false;
 
   RaidBoss? get _selectedBoss {
     if (_bosses.isEmpty) return null;
@@ -69,14 +76,32 @@ class _RaidListPageState extends State<RaidListPage> {
     return _bosses[index];
   }
 
+  String get _raidPageBackgroundAsset {
+    final selected = _appSettings.homeBackgroundChapter;
+    final effectiveChapter = selected == AppSettingsData.homeBackgroundAuto
+        ? (_chapter2HomeBgUnlocked
+              ? AppSettingsData.homeBackgroundChapter2
+              : AppSettingsData.homeBackgroundChapter1)
+        : selected;
+
+    if (effectiveChapter == AppSettingsData.homeBackgroundChapter2 &&
+        _chapter2HomeBgUnlocked) {
+      return _kChapter2HomeBg;
+    }
+    return _kChapter1HomeBg;
+  }
+
   @override
   void initState() {
     super.initState();
     _gs.addListener(_onGameStateChanged);
+    AppSettingsService.notifier.addListener(_onAppSettingsChanged);
     unawaited(ProfileIconService.loadIntoGameState());
     _loadUserName();
     _loadRaidBosses();
     _loadRaidInvitations();
+    _loadAppSettings();
+    _loadHomeBackgroundState();
     _invitationRefreshTimer = Timer.periodic(
       _invitationRefreshInterval,
       (_) => unawaited(_loadRaidInvitations(silent: true)),
@@ -86,6 +111,7 @@ class _RaidListPageState extends State<RaidListPage> {
   @override
   void dispose() {
     _invitationRefreshTimer?.cancel();
+    AppSettingsService.notifier.removeListener(_onAppSettingsChanged);
     _gs.removeListener(_onGameStateChanged);
     super.dispose();
   }
@@ -93,6 +119,30 @@ class _RaidListPageState extends State<RaidListPage> {
   void _onGameStateChanged() {
     if (!mounted) return;
     setState(() {});
+  }
+
+  Future<void> _loadAppSettings() async {
+    final settings = await AppSettingsService.load();
+    if (mounted) setState(() => _appSettings = settings);
+  }
+
+  Future<void> _loadHomeBackgroundState() async {
+    try {
+      final stages = await BattleApiService.fetchNormalStages();
+      final chapter2Unlocked =
+          stages.any((stage) => stage.stageNo >= 6 && stage.isUnlocked) ||
+          stages.any((stage) => stage.stageNo == 5 && stage.isCleared);
+      if (mounted) {
+        setState(() => _chapter2HomeBgUnlocked = chapter2Unlocked);
+      }
+    } catch (_) {
+      // Keep the chapter 1 background if stage state cannot be refreshed.
+    }
+  }
+
+  void _onAppSettingsChanged() {
+    if (!mounted) return;
+    setState(() => _appSettings = AppSettingsService.notifier.value);
   }
 
   Future<void> _loadUserName() async {
@@ -319,9 +369,28 @@ class _RaidListPageState extends State<RaidListPage> {
   }
 
   void _showMessage(String message) {
-    ScaffoldMessenger.of(context)
-      ..removeCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text(message)));
+    showGameToast(context, message, type: _raidListToastTypeFor(message));
+  }
+
+  GameToastType _raidListToastTypeFor(String message) {
+    final normalized = message.toLowerCase();
+    if (message.contains('도착')) return GameToastType.info;
+    if (message.contains('거절') || message.contains('취소')) {
+      return GameToastType.success;
+    }
+    if (normalized.contains('failed') ||
+        normalized.contains('error') ||
+        message.contains('실패') ||
+        message.contains('불러오지 못') ||
+        message.contains('다시 시도')) {
+      return GameToastType.error;
+    }
+    if (message.contains('레벨') ||
+        message.contains('준비중') ||
+        message.contains('처리된')) {
+      return GameToastType.warning;
+    }
+    return GameToastType.info;
   }
 
   @override
@@ -333,7 +402,7 @@ class _RaidListPageState extends State<RaidListPage> {
         children: [
           Positioned.fill(
             child: Image.asset(
-              'assets/images/bg/home_bg.png',
+              _raidPageBackgroundAsset,
               fit: BoxFit.cover,
               alignment: const Alignment(
                 -0.9,
@@ -474,6 +543,7 @@ class _RaidListPageState extends State<RaidListPage> {
   void _openCharacterStatsDialog() {
     showDialog<void>(
       context: context,
+      barrierColor: Colors.black.withValues(alpha: 0.72),
       builder: (context) =>
           CharacterStatsDialog(userName: _userName, level: _gs.level),
     );
@@ -1246,9 +1316,15 @@ class _PartySheetState extends State<_PartySheet> {
   }
 
   void _showPartyMessage(String message) {
-    ScaffoldMessenger.of(context)
-      ..removeCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text(message)));
+    showGameToast(context, message, type: _raidPartyToastTypeFor(message));
+  }
+
+  GameToastType _raidPartyToastTypeFor(String message) {
+    if (message.contains('가득')) return GameToastType.warning;
+    if (message.contains('불러오지 못') || message.contains('다시 시도')) {
+      return GameToastType.error;
+    }
+    return GameToastType.info;
   }
 
   Future<void> _enterRaid(List<MapEntry<String, FriendUser>> selected) async {

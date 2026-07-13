@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 
 import 'package:capstone_app/services/app_settings_service.dart';
 import 'package:capstone_app/services/auth_service.dart';
+import 'package:capstone_app/services/battle_api_service.dart';
 import 'package:capstone_app/services/support_service.dart';
 
 const _kPanelBg = Color(0xFF1A1A1A);
@@ -11,6 +12,8 @@ const _kBorder = Color(0xFF6B3A1F);
 const _kGold = Color(0xFFFFD15C);
 const _kRed = Color(0xFF7A1A1A);
 const _kBlue = Color(0xFF245A8F);
+const _kChapter1HomeBg = 'assets/images/bg/home_bg.png';
+const _kChapter2HomeBg = 'assets/images/bg/home_bg_chapter2_shadow_forest.png';
 
 class AppSettingsDialog extends StatefulWidget {
   final Future<void> Function() onLogout;
@@ -31,6 +34,7 @@ class _AppSettingsDialogState extends State<AppSettingsDialog> {
   bool _isLoading = true;
   String _email = '';
   String _name = '';
+  bool _chapter2BackgroundUnlocked = false;
 
   @override
   void initState() {
@@ -44,11 +48,21 @@ class _AppSettingsDialogState extends State<AppSettingsDialog> {
       AuthService.getSavedEmail(),
       AuthService.getSavedName(),
     ]);
+    var chapter2Unlocked = false;
+    try {
+      final stages = await BattleApiService.fetchNormalStages();
+      chapter2Unlocked =
+          stages.any((stage) => stage.stageNo >= 6 && stage.isUnlocked) ||
+          stages.any((stage) => stage.stageNo == 5 && stage.isCleared);
+    } catch (_) {
+      chapter2Unlocked = false;
+    }
     if (!mounted) return;
     setState(() {
       _settings = results[0] as AppSettingsData;
       _email = (results[1] as String?)?.trim() ?? '';
       _name = (results[2] as String?)?.trim() ?? '';
+      _chapter2BackgroundUnlocked = chapter2Unlocked;
       _isLoading = false;
     });
   }
@@ -58,22 +72,54 @@ class _AppSettingsDialogState extends State<AppSettingsDialog> {
     await AppSettingsService.save(settings);
   }
 
+  Future<void> _setPowerSavingMode(bool enabled) async {
+    await _save(_settings.copyWith(powerSavingMode: enabled));
+    if (enabled && mounted) {
+      Navigator.of(context).pop();
+    }
+  }
+
   Future<void> _openSoundSettings() async {
     await showDialog<void>(
       context: context,
+      barrierColor: Colors.black.withValues(alpha: 0.72),
       builder: (_) =>
           _SoundSettingsDialog(settings: _settings, onChanged: _save),
+    );
+  }
+
+  Future<void> _openBackgroundSettings() async {
+    await showDialog<void>(
+      context: context,
+      barrierColor: Colors.black.withValues(alpha: 0.72),
+      builder: (_) => _BackgroundSettingsDialog(
+        settings: _settings,
+        chapter2Unlocked: _chapter2BackgroundUnlocked,
+        onChanged: _save,
+      ),
     );
   }
 
   Future<void> _openCustomerCenter() async {
     final deleted = await showDialog<bool>(
       context: context,
+      barrierColor: Colors.black.withValues(alpha: 0.72),
       builder: (_) => _CustomerCenterDialog(email: _email, name: _name),
     );
     if (deleted != true || !mounted) return;
     Navigator.pop(context);
     await widget.onAccountDeleted();
+  }
+
+  String get _backgroundSubtitle {
+    switch (_settings.homeBackgroundChapter) {
+      case AppSettingsData.homeBackgroundChapter1:
+        return '1장 배경';
+      case AppSettingsData.homeBackgroundChapter2:
+        return _chapter2BackgroundUnlocked ? '2장 배경' : '2장 배경 잠김';
+      default:
+        return _chapter2BackgroundUnlocked ? '자동: 가장 높은 장' : '자동: 1장';
+    }
   }
 
   @override
@@ -97,6 +143,13 @@ class _AppSettingsDialogState extends State<AppSettingsDialog> {
                       ? '볼륨 ${(_settings.masterVolume * 100).round()}%'
                       : '전체 사운드 꺼짐',
                   onTap: _openSoundSettings,
+                ),
+                const SizedBox(height: 8),
+                _menuTile(
+                  icon: Icons.landscape,
+                  title: '홈 배경',
+                  subtitle: _backgroundSubtitle,
+                  onTap: _openBackgroundSettings,
                 ),
                 const SizedBox(height: 8),
                 _powerTile(),
@@ -126,35 +179,68 @@ class _AppSettingsDialogState extends State<AppSettingsDialog> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: _panelDecoration(),
-      child: Row(
+      child: Column(
         children: [
-          const Icon(Icons.battery_saver, color: _kGold, size: 20),
-          const SizedBox(width: 10),
-          const Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  '절전 모드',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w900,
-                  ),
+          Row(
+            children: [
+              const Icon(Icons.battery_saver, color: _kGold, size: 20),
+              const SizedBox(width: 10),
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '절전 모드',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    SizedBox(height: 2),
+                    Text(
+                      '화면 효과를 줄여 배터리 사용을 낮춥니다.',
+                      style: TextStyle(color: Colors.white54, fontSize: 11),
+                    ),
+                  ],
                 ),
-                SizedBox(height: 2),
-                Text(
-                  '이동 중 배터리 사용을 줄입니다.',
-                  style: TextStyle(color: Colors.white54, fontSize: 11),
-                ),
-              ],
-            ),
+              ),
+              Switch(
+                value: _settings.powerSavingMode,
+                activeThumbColor: _kGold,
+                onChanged: _setPowerSavingMode,
+              ),
+            ],
           ),
-          Switch(
-            value: _settings.powerSavingMode,
-            activeThumbColor: _kGold,
-            onChanged: (value) =>
-                _save(_settings.copyWith(powerSavingMode: value)),
+          const Divider(color: Colors.white12, height: 18),
+          Row(
+            children: [
+              const Expanded(
+                child: Text(
+                  '자동 절전',
+                  style: TextStyle(color: Colors.white70, fontSize: 12),
+                ),
+              ),
+              DropdownButton<int>(
+                value: _settings.autoPowerSavingMinutes,
+                dropdownColor: _kPanelBg,
+                underline: const SizedBox.shrink(),
+                style: const TextStyle(
+                  color: _kGold,
+                  fontFamily: 'Galmuri',
+                  fontSize: 12,
+                ),
+                items: const [
+                  DropdownMenuItem(value: 0, child: Text('사용 안 함')),
+                  DropdownMenuItem(value: 3, child: Text('3분')),
+                  DropdownMenuItem(value: 5, child: Text('5분')),
+                ],
+                onChanged: (value) {
+                  if (value == null) return;
+                  _save(_settings.copyWith(autoPowerSavingMinutes: value));
+                },
+              ),
+            ],
           ),
         ],
       ),
@@ -251,6 +337,162 @@ class _SoundSettingsDialogState extends State<_SoundSettingsDialog> {
   }
 }
 
+class _BackgroundSettingsDialog extends StatefulWidget {
+  final AppSettingsData settings;
+  final bool chapter2Unlocked;
+  final Future<void> Function(AppSettingsData settings) onChanged;
+
+  const _BackgroundSettingsDialog({
+    required this.settings,
+    required this.chapter2Unlocked,
+    required this.onChanged,
+  });
+
+  @override
+  State<_BackgroundSettingsDialog> createState() =>
+      _BackgroundSettingsDialogState();
+}
+
+class _BackgroundSettingsDialogState extends State<_BackgroundSettingsDialog> {
+  late AppSettingsData _settings;
+
+  @override
+  void initState() {
+    super.initState();
+    _settings = widget.settings;
+  }
+
+  Future<void> _select(int chapter) async {
+    if (chapter == AppSettingsData.homeBackgroundChapter2 &&
+        !widget.chapter2Unlocked) {
+      return;
+    }
+    final next = _settings.copyWith(homeBackgroundChapter: chapter);
+    setState(() => _settings = next);
+    await widget.onChanged(next);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return _SettingsShell(
+      title: '홈 배경',
+      icon: Icons.landscape,
+      maxWidth: 440,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _backgroundOption(
+            title: '자동',
+            subtitle: '열려있는 가장 높은 장 배경으로 변경',
+            assetPath: widget.chapter2Unlocked
+                ? _kChapter2HomeBg
+                : _kChapter1HomeBg,
+            value: AppSettingsData.homeBackgroundAuto,
+            enabled: true,
+          ),
+          const SizedBox(height: 8),
+          _backgroundOption(
+            title: '1장 배경',
+            subtitle: '튜토리얼 초원',
+            assetPath: _kChapter1HomeBg,
+            value: AppSettingsData.homeBackgroundChapter1,
+            enabled: true,
+          ),
+          const SizedBox(height: 8),
+          _backgroundOption(
+            title: '2장 배경',
+            subtitle: widget.chapter2Unlocked ? '그림자 숲' : '2장 해금 후 선택 가능',
+            assetPath: _kChapter2HomeBg,
+            value: AppSettingsData.homeBackgroundChapter2,
+            enabled: widget.chapter2Unlocked,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _backgroundOption({
+    required String title,
+    required String subtitle,
+    required String assetPath,
+    required int value,
+    required bool enabled,
+  }) {
+    final selected = _settings.homeBackgroundChapter == value;
+    final borderColor = selected ? _kGold : _kBorder;
+    return GestureDetector(
+      onTap: enabled ? () => _select(value) : null,
+      child: Opacity(
+        opacity: enabled ? 1 : 0.48,
+        child: Container(
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            color: _kInnerBg,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: borderColor, width: selected ? 2 : 1),
+          ),
+          child: Row(
+            children: [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(6),
+                child: SizedBox(
+                  width: 72,
+                  height: 44,
+                  child: Image.asset(
+                    assetPath,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, _, _) => Container(
+                      color: Colors.black.withValues(alpha: 0.35),
+                      child: const Icon(
+                        Icons.image_not_supported,
+                        color: Colors.white38,
+                        size: 18,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      subtitle,
+                      style: const TextStyle(
+                        color: Colors.white54,
+                        fontSize: 11,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(
+                enabled
+                    ? (selected
+                          ? Icons.check_circle
+                          : Icons.radio_button_unchecked)
+                    : Icons.lock,
+                color: selected ? _kGold : Colors.white38,
+                size: 20,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _CustomerCenterDialog extends StatefulWidget {
   final String email;
   final String name;
@@ -315,6 +557,7 @@ class _CustomerCenterDialogState extends State<_CustomerCenterDialog> {
   Future<void> _openDeleteDialog() async {
     final deleted = await showDialog<bool>(
       context: context,
+      barrierColor: Colors.black.withValues(alpha: 0.72),
       builder: (_) => _AccountDeleteDialog(email: widget.email),
     );
     if (deleted == true && mounted) {
@@ -425,8 +668,61 @@ class _AccountDeleteDialogState extends State<_AccountDeleteDialog> {
             widget.email.trim().toLowerCase();
   }
 
+  Future<bool> _confirmPermanentDelete() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      barrierColor: Colors.black.withValues(alpha: 0.76),
+      builder: (dialogContext) => _SettingsShell(
+        title: '계정 영구 삭제',
+        icon: Icons.warning_amber_rounded,
+        maxWidth: 400,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const Text(
+              '삭제하면 캐릭터, 장비, 전투 기록, 친구/레이드 정보가 영구 삭제되며 복구할 수 없습니다. 계속 삭제할까요?',
+              style: TextStyle(
+                color: Colors.white70,
+                fontSize: 12,
+                height: 1.45,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: _fullWidthButton(
+                    icon: Icons.close,
+                    label: '취소',
+                    color: _kBlue,
+                    onTap: () => Navigator.pop(dialogContext, false),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: _fullWidthButton(
+                    icon: Icons.delete_forever,
+                    label: '영구 삭제',
+                    color: _kRed,
+                    onTap: () => Navigator.pop(dialogContext, true),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+    return confirmed == true;
+  }
+
   Future<void> _deleteAccount() async {
     if (!_canDelete || _isDeleting) return;
+    final confirmed = await _confirmPermanentDelete();
+    if (!confirmed || !mounted) return;
+
     setState(() {
       _isDeleting = true;
       _error = null;

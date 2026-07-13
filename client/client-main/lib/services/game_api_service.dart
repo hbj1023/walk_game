@@ -11,6 +11,10 @@ import 'auth_service.dart';
 import 'equipment_image_resolver.dart';
 import 'game_state.dart';
 
+const kBossEntranceTicketName = '5스테이지 보스 입장권';
+const kBossEntranceTicketFragmentName = '보스 입장권 조각';
+const kBossEntranceTicketFragmentCost = 10;
+
 class GameApiException implements Exception {
   final String message;
   const GameApiException(this.message);
@@ -88,6 +92,14 @@ class ItemTemplate {
   bool get isEquipment => itemType == 'equipment';
   bool get isConsumable => itemType == 'consumable';
   bool get isWeapon => equipmentSlot == 'sword';
+  String get normalizedName => name.replaceAll(' ', '').trim();
+  bool get isBossEntranceTicket =>
+      normalizedName == kBossEntranceTicketName.replaceAll(' ', '');
+  bool get isBossTicketFragment =>
+      normalizedName == kBossEntranceTicketFragmentName.replaceAll(' ', '');
+  bool get isInventoryMisc => isBossTicketFragment;
+  bool get blocksManualInventoryAction =>
+      isBossTicketFragment || isBossEntranceTicket;
 
   String get displayName {
     if (!isEquipment) return name;
@@ -177,6 +189,12 @@ class ItemTemplate {
   }
 
   String get statSummary {
+    if (isBossTicketFragment) {
+      return '10개를 모으면 보스 입장권 1장을 구매할 수 있습니다.';
+    }
+    if (isBossEntranceTicket) {
+      return '보스 전투 입장에 필요한 입장권입니다.';
+    }
     final parts = <String>[];
     if (isWeapon && weaponTypeLabel.isNotEmpty) parts.add(weaponTypeLabel);
     if (baseHp != 0) parts.add('HP ${_signedStat(baseHp)}');
@@ -258,6 +276,7 @@ String _stripSetCountPrefix(String description, int count) {
 }
 
 String equipmentSetNameForKey(String setKey) {
+  if (setKey.trim() == 'poison_assassin') return '맹독 암살자 세트';
   return switch (setKey.trim()) {
     'vanguard' => '모험가 세트',
     'berserker' => '광전사 세트',
@@ -269,6 +288,12 @@ String equipmentSetNameForKey(String setKey) {
 }
 
 List<String> equipmentSetEffectLinesForKey(String setKey) {
+  if (setKey.trim() == 'poison_assassin') {
+    return const [
+      '3세트: 민첩 +15% / 받는 피해 -5%',
+      '4세트: 공격 필요 거리 -12% / 보스 피해 +12%',
+    ];
+  }
   return switch (setKey.trim()) {
     'vanguard' => const [
       '3세트: 최대 HP +8% / 방어력 +8%',
@@ -344,6 +369,10 @@ class ShopItem {
       itemTemplate: ItemTemplate.fromJson(_asMap(expand['item_template'])),
     );
   }
+
+  bool get usesBossTicketFragments => itemTemplate.isBossEntranceTicket;
+  int get bossTicketFragmentCost =>
+      usesBossTicketFragments ? kBossEntranceTicketFragmentCost : 0;
 }
 
 class OwnedInventoryItem {
@@ -618,6 +647,10 @@ class StepSyncResult {
   final int offlineAttackCountEarned;
   final int offlineAttackCountStored;
   final int offlineAttackCountLost;
+  final int bossTicketFragmentEarned;
+  final int bossTicketFragmentBalance;
+  final double bossTicketFragmentDistanceM;
+  final double bossTicketFragmentDistanceRemainderM;
 
   const StepSyncResult({
     required this.recordDate,
@@ -633,6 +666,10 @@ class StepSyncResult {
     required this.offlineAttackCountEarned,
     required this.offlineAttackCountStored,
     required this.offlineAttackCountLost,
+    required this.bossTicketFragmentEarned,
+    required this.bossTicketFragmentBalance,
+    required this.bossTicketFragmentDistanceM,
+    required this.bossTicketFragmentDistanceRemainderM,
   });
 
   factory StepSyncResult.fromJson(Map<String, dynamic> json) {
@@ -650,6 +687,14 @@ class StepSyncResult {
       offlineAttackCountEarned: _asInt(json['offline_attack_count_earned']),
       offlineAttackCountStored: _asInt(json['offline_attack_count_stored']),
       offlineAttackCountLost: _asInt(json['offline_attack_count_lost']),
+      bossTicketFragmentEarned: _asInt(json['boss_ticket_fragment_earned']),
+      bossTicketFragmentBalance: _asInt(json['boss_ticket_fragment_balance']),
+      bossTicketFragmentDistanceM: _asDouble(
+        json['boss_ticket_fragment_distance_m'],
+      ),
+      bossTicketFragmentDistanceRemainderM: _asDouble(
+        json['boss_ticket_fragment_distance_remainder_m'],
+      ),
     );
   }
 }
@@ -1244,6 +1289,12 @@ class GameApiService {
     if (character.containsKey('coin_balance')) {
       GameState.instance.setCoins(_asInt(character['coin_balance']));
     }
+    final data = _asMap(response['data']);
+    if (data.containsKey('boss_ticket_fragment_balance')) {
+      GameState.instance.setBossTicketFragments(
+        _asInt(data['boss_ticket_fragment_balance']),
+      );
+    }
   }
 
   static Future<List<OwnedInventoryItem>> fetchInventoryItems() async {
@@ -1254,7 +1305,7 @@ class GameApiService {
     final consumableResponse = await _get(
       '/api/characters/$characterId/consumables',
     );
-    return [
+    final items = [
       ..._dataItems(equipmentResponse)
           .map(OwnedInventoryItem.equipment)
           .where(
@@ -1272,6 +1323,11 @@ class GameApiService {
                 item.quantity > 0,
           ),
     ];
+    final fragmentQuantity = items
+        .where((item) => item.itemTemplate.isBossTicketFragment)
+        .fold<int>(0, (sum, item) => sum + item.quantity);
+    GameState.instance.setBossTicketFragments(fragmentQuantity);
+    return items;
   }
 
   static Future<void> equipItem(String ownedEquipmentId) async {
@@ -1419,6 +1475,11 @@ class GameApiService {
     return result;
   }
 
+  static void _applyStepSyncResult(StepSyncResult result) {
+    GameState.instance.setAttackCountBalance(result.attackCountBalance);
+    GameState.instance.setBossTicketFragments(result.bossTicketFragmentBalance);
+  }
+
   static Future<StepSyncResult> syncSteps({
     required int stepCount,
     int? distanceM,
@@ -1431,7 +1492,7 @@ class GameApiService {
       'captured_at': DateTime.now().toUtc().toIso8601String(),
     });
     final result = StepSyncResult.fromJson(response);
-    GameState.instance.setAttackCountBalance(result.attackCountBalance);
+    _applyStepSyncResult(result);
     return result;
   }
 
@@ -1455,7 +1516,7 @@ class GameApiService {
       'captured_at': DateTime.now().toUtc().toIso8601String(),
     });
     final result = StepSyncResult.fromJson(response);
-    GameState.instance.setAttackCountBalance(result.attackCountBalance);
+    _applyStepSyncResult(result);
     return result;
   }
 
@@ -1471,7 +1532,7 @@ class GameApiService {
       'captured_at': DateTime.now().toUtc().toIso8601String(),
     });
     final result = StepSyncResult.fromJson(response);
-    GameState.instance.setAttackCountBalance(result.attackCountBalance);
+    _applyStepSyncResult(result);
     return result;
   }
 
@@ -1487,7 +1548,7 @@ class GameApiService {
       'captured_at': DateTime.now().toUtc().toIso8601String(),
     });
     final result = StepSyncResult.fromJson(response);
-    GameState.instance.setAttackCountBalance(result.attackCountBalance);
+    _applyStepSyncResult(result);
     return result;
   }
 
@@ -1749,9 +1810,22 @@ class GameApiService {
 }
 
 String _localizeApiMessage(String message) {
+  final normalized = message.toLowerCase().trim();
+  if (normalized.contains("requested resource wasn't found") ||
+      normalized.contains('requested resource was not found')) {
+    return '이미 처리되었거나 종료된 레이드 정보입니다.';
+  }
+  if (normalized.contains('raid invitation not found')) {
+    return '이미 처리된 레이드 초대입니다.';
+  }
+  if (normalized.contains('raid not found')) {
+    return '이미 종료되었거나 찾을 수 없는 레이드입니다.';
+  }
   return switch (message) {
     'Something went wrong while processing your request.' =>
       '서버에서 요청을 처리하지 못했습니다. 잠시 후 다시 시도해주세요.',
+    "The requested resource wasn't found." => '이미 처리되었거나 종료된 레이드 정보입니다.',
+    'The requested resource was not found.' => '이미 처리되었거나 종료된 레이드 정보입니다.',
     'Invalid value equipment_sell.' => '판매 완료!',
     'equipment is not sellable' => '판매할 수 없는 장비입니다.',
     'equipment is already equipped' => '이미 장착 중인 장비입니다.',
@@ -1762,11 +1836,16 @@ String _localizeApiMessage(String message) {
     'not enough consumable quantity' => '소모품 수량이 부족합니다.',
     'item template is not consumable' => '사용할 수 없는 아이템입니다.',
     'not enough coin balance' => '코인이 부족합니다.',
+    'not enough boss entrance ticket fragments' =>
+      '보스 조각이 부족합니다. 앱을 켜고 걸어 조각을 모아주세요.',
+    'item cannot be used manually' => '전투 입장 흐름에서만 사용할 수 있는 아이템입니다.',
+    'item cannot be sold' => '판매할 수 없는 아이템입니다.',
     'stock limit exceeded' => '현재 구매할 수 있는 수량을 초과했습니다.',
     'purchase limit per user exceeded' => '구매 가능 횟수를 초과했습니다.',
     'not enough exp balance' => 'EXP가 부족합니다.',
     'not enough stat exp balance' => '스탯 포인트가 부족합니다.',
     'raid is not active' => '진행 중인 레이드가 아닙니다.',
+    'raid not found' => '이미 종료되었거나 찾을 수 없는 레이드입니다.',
     'raid progress is already finished' => '이미 종료된 레이드입니다.',
     'raid weekly clear already used' => '이번 주에는 이미 해당 레이드를 클리어했습니다.',
     'raid is not waiting for invitations' => '초대 가능한 레이드 상태가 아닙니다.',
@@ -1783,6 +1862,7 @@ String _localizeApiMessage(String message) {
     'character already joined raid' => '이미 참여한 레이드입니다.',
     'raid requires level 5' => '레이드는 5레벨부터 입장할 수 있습니다.',
     'invitation is not pending' => '이미 처리된 초대입니다.',
+    'raid invitation not found' => '이미 처리된 레이드 초대입니다.',
     'only raid host can cancel invitations' => '레이드 방장만 초대를 취소할 수 있습니다.',
     'raid has pending invitations' => '수락 대기 중인 초대가 있어 전투를 시작할 수 없습니다.',
     _ => message,

@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import 'package:capstone_app/services/app_settings_service.dart';
 import 'package:capstone_app/services/auth_service.dart';
 import 'package:capstone_app/services/battle_api_service.dart';
 import 'package:capstone_app/services/game_api_service.dart';
@@ -14,6 +15,7 @@ import 'package:capstone_app/features/raid/pages/raid_list_page.dart';
 import 'package:capstone_app/features/shop/pages/shop_page.dart';
 import 'package:capstone_app/widgets/game_feedback.dart';
 import 'package:capstone_app/widgets/character_stats_panel.dart';
+import 'package:capstone_app/widgets/game_top_actions.dart';
 import 'package:capstone_app/widgets/pixel_bottom_nav.dart';
 import 'package:capstone_app/widgets/player_level_badge.dart';
 
@@ -26,6 +28,9 @@ const _kPlayerAttackFrameWidth = 96.0;
 const _kPlayerAttackFrameHeight = 80.0;
 const _kPlayerIdleSprite = 'assets/images/character/idle_up.png';
 const _kPlayerRunSprite = 'assets/images/character/run_up.png';
+const _kChapter1BattleBg = 'assets/images/bg/stage1_battle_BG.png';
+const _kChapter2BattleBg =
+    'assets/images/bg/stage2_battle_shadow_mushroom_forest.png';
 const _kPlayerAttackSprites = [
   'assets/images/character/attack1_up.png',
   'assets/images/character/attack2_up.png',
@@ -87,10 +92,12 @@ class _BattlePageState extends State<BattlePage> with WidgetsBindingObserver {
   bool _isAttacking = false;
   bool _isLeavingBattle = false;
   bool _isUsingConsumable = false;
+  bool _isRestartingBattle = false;
   bool _routeExitAllowed = false;
   bool _isRunningAutoAttacks = false;
   bool _resultDialogShown = false;
   int _pendingAutoAttacks = 0;
+  AppSettingsData _appSettings = const AppSettingsData.defaults();
 
   late final int _playerMaxHp = widget.initialResult.characterMaxHp > 0
       ? widget.initialResult.characterMaxHp
@@ -112,6 +119,10 @@ class _BattlePageState extends State<BattlePage> with WidgetsBindingObserver {
 
   bool get _canLeaveRoute => _battleEnded || _routeExitAllowed;
   bool get _isBossBattle => widget.initialResult.battle.battleType == 'boss';
+  bool get _shouldRestartWhenLeavingPowerSaving =>
+      _battleStatus == 'lose' || _battleStatus == 'flee';
+  String get _battleBackgroundAsset =>
+      widget.stageNo >= 6 ? _kChapter2BattleBg : _kChapter1BattleBg;
 
   OwnedInventoryItem? get _selectedConsumable {
     for (final item in _consumables) {
@@ -124,6 +135,7 @@ class _BattlePageState extends State<BattlePage> with WidgetsBindingObserver {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    AppSettingsService.notifier.addListener(_onAppSettingsChanged);
     _stepTracker = StepTrackingController.battle(
       onSyncSteps: (request) => GameApiService.syncStepDelta(
         stepCount: request.stepCount,
@@ -142,6 +154,7 @@ class _BattlePageState extends State<BattlePage> with WidgetsBindingObserver {
     )..addListener(_onStepTrackerChanged);
     _applyResult(widget.initialResult, clearDamageText: true);
     _syncActiveBattleMarker();
+    _loadAppSettings();
     _loadUserName();
     _loadConsumables();
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -159,6 +172,7 @@ class _BattlePageState extends State<BattlePage> with WidgetsBindingObserver {
     unawaited(_stepTracker.stop(syncPending: true, updateState: false));
     _stepTracker.removeListener(_onStepTrackerChanged);
     _stepTracker.dispose();
+    AppSettingsService.notifier.removeListener(_onAppSettingsChanged);
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
@@ -180,6 +194,38 @@ class _BattlePageState extends State<BattlePage> with WidgetsBindingObserver {
   void _onStepTrackerChanged() {
     if (!mounted) return;
     setState(() {});
+  }
+
+  Future<void> _loadAppSettings() async {
+    final settings = await AppSettingsService.load();
+    if (!mounted) return;
+    _applyAppSettings(settings);
+  }
+
+  void _onAppSettingsChanged() {
+    if (!mounted) return;
+    _applyAppSettings(AppSettingsService.notifier.value);
+  }
+
+  void _applyAppSettings(AppSettingsData settings) {
+    final wasPowerSaving = _appSettings.powerSavingMode;
+    setState(() => _appSettings = settings);
+    if (wasPowerSaving && !settings.powerSavingMode && _battleEnded) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        if (_shouldRestartWhenLeavingPowerSaving) {
+          unawaited(_restartBattleFromPowerSaving());
+          return;
+        }
+        _showBattleResultDialogOnce();
+      });
+    }
+  }
+
+  Future<void> _setPowerSavingMode(bool enabled) async {
+    await AppSettingsService.save(
+      _appSettings.copyWith(powerSavingMode: enabled),
+    );
   }
 
   void _applyResult(NormalBattleResult result, {bool clearDamageText = false}) {
@@ -278,7 +324,9 @@ class _BattlePageState extends State<BattlePage> with WidgetsBindingObserver {
       return false;
     }
 
-    unawaited(_playPlayerAttackSequence());
+    if (!_appSettings.powerSavingMode) {
+      unawaited(_playPlayerAttackSequence());
+    }
     setState(() => _isAttacking = true);
     try {
       final result = _isBossBattle
@@ -489,27 +537,13 @@ class _BattlePageState extends State<BattlePage> with WidgetsBindingObserver {
   Future<void> _confirmLeaveBattle() async {
     if (_battleEnded || _isLeavingBattle) return;
 
-    final shouldLeave = await showDialog<bool>(
+    final shouldLeave = await showGameConfirmDialog(
       context: context,
-      barrierDismissible: false,
-      builder: (dialogContext) => AlertDialog(
-        backgroundColor: const Color(0xFF171717),
-        title: const Text('전투 나가기', style: TextStyle(color: Colors.white)),
-        content: const Text(
-          '전투가 아직 끝나지 않았습니다.\n나가면 전투 포기로 처리됩니다.',
-          style: TextStyle(color: Colors.white70),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext, false),
-            child: const Text('취소'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext, true),
-            child: const Text('나가기'),
-          ),
-        ],
-      ),
+      title: '전투 나가기',
+      message: '진행 중인 전투를 나가면 현재 전투는 포기 처리됩니다.\n정말 나가시겠습니까?',
+      confirmLabel: '나가기',
+      cancelLabel: '계속 전투',
+      type: GameToastType.warning,
     );
     if (shouldLeave != true || !mounted) return;
 
@@ -546,12 +580,44 @@ class _BattlePageState extends State<BattlePage> with WidgetsBindingObserver {
     }
   }
 
+  Future<void> _restartBattleFromPowerSaving() async {
+    if (!_battleEnded || _isRestartingBattle) return;
+    setState(() => _isRestartingBattle = true);
+    try {
+      final result = _isBossBattle
+          ? await BattleApiService.startBossBattle(stageNo: widget.stageNo)
+          : await BattleApiService.startNormalBattle(stageNo: widget.stageNo);
+      if (!mounted) return;
+      setState(() {
+        _resultDialogShown = false;
+        _routeExitAllowed = false;
+        _pendingAutoAttacks = 0;
+        _applyResult(result, clearDamageText: true);
+      });
+      _syncActiveBattleMarker();
+      unawaited(_stepTracker.start());
+      _showBattleToast('전투를 다시 시작했습니다.', type: GameToastType.success);
+    } on BattleApiException catch (e) {
+      if (!mounted) return;
+      _showBattleToast(e.message, type: GameToastType.error);
+    } catch (_) {
+      if (!mounted) return;
+      _showBattleToast(
+        '전투 재시작에 실패했습니다. 잠시 후 다시 시도해주세요.',
+        type: GameToastType.error,
+      );
+    } finally {
+      if (mounted) setState(() => _isRestartingBattle = false);
+    }
+  }
+
   void _showBattleLockedMessage() {
     _showBattleToast('전투 중에는 다른 화면으로 이동할 수 없습니다.', type: GameToastType.warning);
   }
 
   void _showBattleResultDialogOnce() {
     if (_resultDialogShown || !mounted) return;
+    if (_appSettings.powerSavingMode) return;
     _resultDialogShown = true;
 
     final isWin = _battleStatus == 'win';
@@ -1012,31 +1078,254 @@ class _BattlePageState extends State<BattlePage> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
+    final powerSaving = _appSettings.powerSavingMode;
     return PopScope(
       canPop: _canLeaveRoute,
       child: Scaffold(
         extendBody: true,
-        bottomNavigationBar: _buildBottomNav(),
+        bottomNavigationBar: powerSaving ? null : _buildBottomNav(),
         body: Stack(
           children: [
-            Positioned.fill(
-              child: Image.asset(
-                'assets/images/bg/stage1_battle_BG.png',
-                fit: BoxFit.cover,
-                filterQuality: FilterQuality.none,
+            if (powerSaving)
+              const Positioned.fill(child: ColoredBox(color: Color(0xFF050505)))
+            else
+              Positioned.fill(
+                child: Image.asset(
+                  _battleBackgroundAsset,
+                  fit: BoxFit.cover,
+                  filterQuality: FilterQuality.none,
+                ),
               ),
-            ),
-            SafeArea(
-              child: Column(
-                children: [
-                  _buildTopHud(),
-                  _buildStageTitle(),
-                  Expanded(child: _buildBattleField()),
-                  const SizedBox(height: 124),
-                ],
+            if (powerSaving)
+              SafeArea(child: _buildBattlePowerSavingView())
+            else
+              SafeArea(
+                child: Column(
+                  children: [
+                    _buildTopHud(),
+                    _buildStageTitle(),
+                    Expanded(child: _buildBattleField()),
+                    const SizedBox(height: 124),
+                  ],
+                ),
               ),
-            ),
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBattlePowerSavingView() {
+    final isWin = _battleStatus == 'win';
+    final isFailed = _battleStatus == 'lose' || _battleStatus == 'flee';
+    final statusText = _battleStatusLabel();
+    final monsterHp = _monsterCurrentHp.clamp(0, _monsterMaxHp).toInt();
+    final playerHp = _playerCurrentHp.clamp(0, _playerMaxHp).toInt();
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(18, 18, 18, 18),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.battery_saver, color: _kGold, size: 22),
+              const SizedBox(width: 8),
+              const Expanded(
+                child: Text(
+                  '절전 전투',
+                  style: TextStyle(
+                    color: _kGold,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
+              _powerSavingTextButton('종료', () => _setPowerSavingMode(false)),
+            ],
+          ),
+          const SizedBox(height: 18),
+          Expanded(
+            child: Center(
+              child: Container(
+                width: double.infinity,
+                constraints: const BoxConstraints(maxWidth: 380),
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF111111),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: _kPanelBorder, width: 2),
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Text(
+                      '${widget.stageId} ${widget.stageName}',
+                      textAlign: TextAlign.center,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      statusText,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: isWin
+                            ? _kGold
+                            : isFailed
+                            ? const Color(0xFFFF6B5C)
+                            : const Color(0xFFBFF4FF),
+                        fontSize: 26,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    _powerSavingStatusRow('몬스터', _monsterName),
+                    _powerSavingStatusRow(
+                      '몬스터 HP',
+                      '${_fmt(monsterHp)} / ${_fmt(_monsterMaxHp)}',
+                    ),
+                    _powerSavingStatusRow(
+                      '내 HP',
+                      '${_fmt(playerHp)} / ${_fmt(_playerMaxHp)}',
+                    ),
+                    _powerSavingStatusRow(
+                      '공격권',
+                      '${_fmt(_attackCountBalance)}회',
+                    ),
+                    _powerSavingStatusRow(
+                      '자동공격',
+                      _pendingAutoAttacks > 0
+                          ? '$_pendingAutoAttacks회 대기'
+                          : '대기 없음',
+                    ),
+                    _powerSavingStatusRow(
+                      '걸음 상태',
+                      _stepTracker.statusLabel,
+                      maxLines: 2,
+                    ),
+                    const SizedBox(height: 14),
+                    if (isFailed)
+                      _powerSavingActionButton(
+                        _isRestartingBattle ? '재시작 중' : '전투 재시작',
+                        _isRestartingBattle
+                            ? null
+                            : () => _setPowerSavingMode(false),
+                      )
+                    else
+                      _powerSavingActionButton(
+                        isWin ? '결과 확인' : '전투 화면 보기',
+                        () => _setPowerSavingMode(false),
+                      ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          const Text(
+            '전투 계산과 걸음 추적은 유지하고 화면 효과를 최소화합니다.',
+            textAlign: TextAlign.center,
+            style: TextStyle(color: Colors.white54, fontSize: 11, height: 1.35),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _battleStatusLabel() {
+    return switch (_battleStatus) {
+      'win' => '클리어 완료',
+      'lose' => '클리어 실패',
+      'flee' => '전투 이탈',
+      _ => '전투 진행 중',
+    };
+  }
+
+  Widget _powerSavingStatusRow(String label, String value, {int maxLines = 1}) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 5),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 78,
+            child: Text(
+              label,
+              style: const TextStyle(
+                color: Colors.white54,
+                fontSize: 12,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value,
+              maxLines: maxLines,
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.right,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 13,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _powerSavingTextButton(String label, VoidCallback onTap) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: const Color(0xFF2C1B10),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: _kGold, width: 1.4),
+        ),
+        child: Text(
+          label,
+          style: const TextStyle(
+            color: _kGold,
+            fontSize: 12,
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _powerSavingActionButton(String label, VoidCallback? onTap) {
+    final enabled = onTap != null;
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        height: 42,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: enabled ? const Color(0xFF7A1A1A) : Colors.grey.shade800,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: enabled ? const Color(0xFFB84535) : Colors.white24,
+            width: 1.5,
+          ),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            color: enabled ? Colors.white : Colors.white38,
+            fontSize: 13,
+            fontWeight: FontWeight.w900,
+          ),
         ),
       ),
     );
@@ -1113,6 +1402,8 @@ class _BattlePageState extends State<BattlePage> with WidgetsBindingObserver {
               ),
               const SizedBox(height: 6),
               _buildLeaveBattleButton(),
+              const SizedBox(height: 6),
+              const GameTopActions(),
             ],
           ),
         ],

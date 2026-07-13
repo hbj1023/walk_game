@@ -1,18 +1,19 @@
 import 'package:flutter/material.dart';
 
+import 'package:capstone_app/services/app_settings_service.dart';
 import 'package:capstone_app/services/auth_service.dart';
+import 'package:capstone_app/services/battle_api_service.dart';
 import 'package:capstone_app/services/game_api_service.dart';
 import 'package:capstone_app/services/game_state.dart';
 import 'package:capstone_app/services/step_tracking_controller.dart';
-import 'package:capstone_app/features/social/widgets/friend_sheet.dart';
+import 'package:capstone_app/features/auth/pages/login_page.dart';
 import 'package:capstone_app/features/battle/pages/battle_stage_page.dart';
 import 'package:capstone_app/features/inventory/pages/inventory_page.dart';
-import 'package:capstone_app/features/auth/pages/login_page.dart';
 import 'package:capstone_app/features/raid/pages/raid_list_page.dart';
 import 'package:capstone_app/features/shop/pages/shop_page.dart';
-import 'package:capstone_app/widgets/app_settings_dialog.dart';
 import 'package:capstone_app/widgets/character_stats_panel.dart';
-import 'package:capstone_app/widgets/friend_request_badge_button.dart';
+import 'package:capstone_app/widgets/game_feedback.dart';
+import 'package:capstone_app/widgets/game_top_actions.dart';
 import 'package:capstone_app/widgets/player_level_badge.dart';
 import 'package:capstone_app/widgets/pixel_bottom_nav.dart';
 
@@ -25,15 +26,20 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage>
     with SingleTickerProviderStateMixin {
+  static const _chapter1HomeBg = 'assets/images/bg/home_bg.png';
+  static const _chapter2HomeBg =
+      'assets/images/bg/home_bg_chapter2_shadow_forest.png';
+
   String _userName = '...';
   int _currentNavIndex = 2;
   final _gs = GameState.instance;
   late final StepTrackingController _stepTracker;
-  bool _isLoggingOut = false;
 
   late AnimationController _bgController;
   double _bgAspectRatio = 2.0; // 이미지 로드 전 기본값
 
+  bool _chapter2HomeBgUnlocked = false;
+  AppSettingsData _appSettings = const AppSettingsData.defaults();
   bool _profileLoading = true;
   String? _profileError;
   bool _missionLoading = true;
@@ -44,6 +50,7 @@ class _HomePageState extends State<HomePage>
   void initState() {
     super.initState();
     _gs.addListener(_onGameStateChanged);
+    AppSettingsService.notifier.addListener(_onAppSettingsChanged);
     _stepTracker = StepTrackingController.home(
       onSyncSteps: (request) => GameApiService.syncStepDelta(
         stepCount: request.stepCount,
@@ -52,21 +59,76 @@ class _HomePageState extends State<HomePage>
         abnormalReason: request.abnormalReason,
         syncType: request.syncType,
       ),
-      onSyncSuccess: (_, _) => _loadMissions(),
+      onSyncSuccess: (result, context) async {
+        if (context.allowPostSyncActions &&
+            result.bossTicketFragmentEarned > 0 &&
+            mounted) {
+          showGameToast(
+            this.context,
+            '보스 입장권 조각 +${result.bossTicketFragmentEarned}개',
+            type: GameToastType.success,
+          );
+        }
+        await _loadMissions();
+      },
       onStartError: (error) => _showSnackBar(error.toString()),
       onSyncError: (error) => _showSnackBar(error.toString()),
     )..addListener(_onStepTrackerChanged);
     _loadUserName();
     _loadMissions();
+    _loadAppSettings();
     _bgController = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 30),
     )..repeat();
     _loadBgAspectRatio();
+    _loadHomeBackgroundState();
   }
 
-  void _loadBgAspectRatio() {
-    const image = AssetImage('assets/images/bg/home_bg.png');
+  String get _homeBgAsset {
+    final selected = _appSettings.homeBackgroundChapter;
+    final effectiveChapter = selected == AppSettingsData.homeBackgroundAuto
+        ? (_chapter2HomeBgUnlocked
+              ? AppSettingsData.homeBackgroundChapter2
+              : AppSettingsData.homeBackgroundChapter1)
+        : selected;
+
+    if (effectiveChapter == AppSettingsData.homeBackgroundChapter2 &&
+        _chapter2HomeBgUnlocked) {
+      return _chapter2HomeBg;
+    }
+    return _chapter1HomeBg;
+  }
+
+  Future<void> _loadAppSettings() async {
+    final settings = await AppSettingsService.load();
+    if (!mounted) return;
+    _applyAppSettings(settings);
+  }
+
+  void _onAppSettingsChanged() {
+    if (!mounted) return;
+    _applyAppSettings(AppSettingsService.notifier.value);
+  }
+
+  void _applyAppSettings(AppSettingsData settings) {
+    final previousAsset = _homeBgAsset;
+    setState(() {
+      _appSettings = settings;
+    });
+    if (settings.powerSavingMode) {
+      if (_bgController.isAnimating) _bgController.stop();
+    } else if (!_bgController.isAnimating) {
+      _bgController.repeat();
+    }
+    final nextAsset = _homeBgAsset;
+    if (nextAsset != previousAsset) {
+      _loadBgAspectRatio(nextAsset);
+    }
+  }
+
+  void _loadBgAspectRatio([String? assetPath]) {
+    final image = AssetImage(assetPath ?? _homeBgAsset);
     image
         .resolve(const ImageConfiguration())
         .addListener(
@@ -80,11 +142,38 @@ class _HomePageState extends State<HomePage>
         );
   }
 
+  Future<void> _loadHomeBackgroundState() async {
+    try {
+      final stages = await BattleApiService.fetchNormalStages();
+      final chapter2Unlocked =
+          stages.any((stage) => stage.stageNo >= 6 && stage.isUnlocked) ||
+          stages.any((stage) => stage.stageNo == 5 && stage.isCleared);
+      if (!mounted || chapter2Unlocked == _chapter2HomeBgUnlocked) return;
+      final previousAsset = _homeBgAsset;
+      setState(() {
+        _chapter2HomeBgUnlocked = chapter2Unlocked;
+      });
+      final nextAsset = _homeBgAsset;
+      if (nextAsset != previousAsset) {
+        _loadBgAspectRatio(nextAsset);
+      }
+    } catch (_) {
+      // Keep the current background if stage state cannot be refreshed.
+    }
+  }
+
+  void _returnHomeFromRoute() {
+    if (!mounted) return;
+    setState(() => _currentNavIndex = 2);
+    _loadHomeBackgroundState();
+  }
+
   @override
   void dispose() {
     _stepTracker.removeListener(_onStepTrackerChanged);
     _stepTracker.dispose();
     _bgController.dispose();
+    AppSettingsService.notifier.removeListener(_onAppSettingsChanged);
     _gs.removeListener(_onGameStateChanged);
     super.dispose();
   }
@@ -173,70 +262,219 @@ class _HomePageState extends State<HomePage>
   }
 
   void _showSnackBar(String message) {
-    ScaffoldMessenger.of(context)
-      ..removeCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text(message)));
+    showGameToast(context, message, type: GameToastType.error);
+  }
+
+  Future<void> _setPowerSavingMode(bool enabled) async {
+    await AppSettingsService.save(
+      _appSettings.copyWith(powerSavingMode: enabled),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
+    final powerSaving = _appSettings.powerSavingMode;
     return Scaffold(
       extendBody: true,
-      bottomNavigationBar: _buildBottomNav(),
+      bottomNavigationBar: powerSaving ? null : _buildBottomNav(),
       body: Stack(
         children: [
-          AnimatedBuilder(
-            animation: _bgController,
-            builder: (context, child) {
-              final h = MediaQuery.of(context).size.height;
-              final tileW = h * _bgAspectRatio;
-              final offset = _bgController.value * tileW;
-              return Stack(
+          if (powerSaving)
+            const Positioned.fill(child: ColoredBox(color: Color(0xFF050505)))
+          else
+            AnimatedBuilder(
+              animation: _bgController,
+              builder: (context, child) {
+                final h = MediaQuery.of(context).size.height;
+                final tileW = h * _bgAspectRatio;
+                final offset = _bgController.value * tileW;
+                return Stack(
+                  children: [
+                    Positioned(
+                      left: -offset,
+                      top: 0,
+                      bottom: 0,
+                      width: tileW,
+                      child: child!,
+                    ),
+                    Positioned(
+                      left: tileW - offset,
+                      top: 0,
+                      bottom: 0,
+                      width: tileW,
+                      child: child,
+                    ),
+                  ],
+                );
+              },
+              child: Image.asset(
+                _homeBgAsset,
+                key: ValueKey(_homeBgAsset),
+                fit: BoxFit.fill,
+              ),
+            ),
+          if (powerSaving)
+            SafeArea(child: _buildHomePowerSavingView())
+          else
+            SafeArea(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Positioned(
-                    left: -offset,
-                    top: 0,
-                    bottom: 0,
-                    width: tileW,
-                    child: child!,
-                  ),
-                  Positioned(
-                    left: tileW - offset,
-                    top: 0,
-                    bottom: 0,
-                    width: tileW,
-                    child: child,
+                  _buildTopBar(),
+                  SizedBox(height: _currentNavIndex == 0 ? 10 : 20),
+                  Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.only(bottom: 20),
+                      child: _buildMainContent(),
+                    ),
                   ),
                 ],
-              );
-            },
-            child: Image.asset(
-              'assets/images/bg/home_bg.png',
-              fit: BoxFit.fill,
+              ),
             ),
-          ),
-          SafeArea(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                _buildTopBar(),
-                SizedBox(height: _currentNavIndex == 0 ? 10 : 20),
-                Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.only(bottom: 20),
-                    child: _buildMainContent(),
+          if (!powerSaving)
+            const Positioned(
+              bottom: 88,
+              left: 0,
+              right: 0,
+              child: Center(child: WalkingCharacter()),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildHomePowerSavingView() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(18, 18, 18, 18),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              const Icon(
+                Icons.battery_saver,
+                color: Color(0xFFFFD15C),
+                size: 22,
+              ),
+              const SizedBox(width: 8),
+              const Expanded(
+                child: Text(
+                  '절전 모드',
+                  style: TextStyle(
+                    color: Color(0xFFFFD15C),
+                    fontSize: 18,
+                    fontWeight: FontWeight.w900,
                   ),
                 ),
-              ],
+              ),
+              _powerSavingTextButton('종료', () => _setPowerSavingMode(false)),
+            ],
+          ),
+          const SizedBox(height: 18),
+          Expanded(
+            child: Center(
+              child: Container(
+                width: double.infinity,
+                constraints: const BoxConstraints(maxWidth: 360),
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF111111),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: const Color(0xFF5C3A1E), width: 2),
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    const Text(
+                      '걸음 추적 유지 중',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    _powerSavingStatusRow(
+                      '상태',
+                      _stepTracker.statusLabel,
+                      maxLines: 2,
+                    ),
+                    _powerSavingStatusRow('공격권', '${_gs.attackCountBalance}회'),
+                    _powerSavingStatusRow(
+                      '보스 조각',
+                      '${_gs.bossTicketFragments}개',
+                    ),
+                    _powerSavingStatusRow('레벨', 'LV.${_gs.level}'),
+                  ],
+                ),
+              ),
             ),
           ),
-          const Positioned(
-            bottom: 88,
-            left: 0,
-            right: 0,
-            child: Center(child: WalkingCharacter()),
+          const Text(
+            '화면 효과와 배경 애니메이션을 줄이고 걷기 보상만 유지합니다.',
+            textAlign: TextAlign.center,
+            style: TextStyle(color: Colors.white54, fontSize: 11, height: 1.35),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _powerSavingStatusRow(String label, String value, {int maxLines = 1}) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 5),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 72,
+            child: Text(
+              label,
+              style: const TextStyle(
+                color: Colors.white54,
+                fontSize: 12,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value,
+              maxLines: maxLines,
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.right,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 13,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _powerSavingTextButton(String label, VoidCallback onTap) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: const Color(0xFF2C1B10),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: const Color(0xFFFFD15C), width: 1.4),
+        ),
+        child: Text(
+          label,
+          style: const TextStyle(
+            color: Color(0xFFFFD15C),
+            fontSize: 12,
+            fontWeight: FontWeight.w900,
+          ),
+        ),
       ),
     );
   }
@@ -270,9 +508,7 @@ class _HomePageState extends State<HomePage>
                 children: [
                   _buildQuestButton(),
                   const SizedBox(width: 6),
-                  _buildFriendButton(),
-                  const SizedBox(width: 6),
-                  _buildSettingsButton(),
+                  const GameTopActions(),
                 ],
               ),
             ],
@@ -391,6 +627,7 @@ class _HomePageState extends State<HomePage>
     return GestureDetector(
       onTap: () => showDialog(
         context: context,
+        barrierColor: Colors.black.withValues(alpha: 0.72),
         builder: (_) => _QuestDetailDialog(
           missions: _missions,
           isLoading: _missionLoading,
@@ -416,100 +653,13 @@ class _HomePageState extends State<HomePage>
     );
   }
 
-  Widget _buildFriendButton() {
-    return FriendRequestBadgeButton(onTap: _openFriendSheet);
-  }
-
-  Widget _buildSettingsButton() {
-    return GestureDetector(
-      onTap: _isLoggingOut ? null : _openSettingsDialog,
-      child: Container(
-        width: 40,
-        height: 40,
-        decoration: BoxDecoration(
-          color: Colors.black.withValues(alpha: 0.6),
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: const Color(0xFF6B3A1F), width: 2),
-        ),
-        child: Icon(
-          Icons.settings,
-          size: 22,
-          color: Colors.white.withValues(alpha: 0.9),
-        ),
-      ),
-    );
-  }
-
-  Future<void> _openFriendSheet() {
-    return showDialog<void>(
-      context: context,
-      builder: (context) => const FriendSheet(),
-    );
-  }
-
   void _openCharacterStatsDialog() {
     showDialog<void>(
       context: context,
+      barrierColor: Colors.black.withValues(alpha: 0.72),
       builder: (context) =>
           CharacterStatsDialog(userName: _userName, level: _gs.level),
     );
-  }
-
-  void _openSettingsDialog() {
-    showDialog<void>(
-      context: context,
-      builder: (dialogContext) => AppSettingsDialog(
-        onLogout: _confirmLogout,
-        onAccountDeleted: _logout,
-      ),
-    );
-  }
-
-  Future<void> _confirmLogout() async {
-    final shouldLogout = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('로그아웃'),
-        content: const Text('정말 로그아웃하시겠어요?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext, false),
-            child: const Text('취소'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext, true),
-            child: const Text('로그아웃'),
-          ),
-        ],
-      ),
-    );
-
-    if (shouldLogout != true) return;
-    await _logout();
-  }
-
-  Future<void> _logout() async {
-    if (_isLoggingOut) return;
-
-    setState(() => _isLoggingOut = true);
-    try {
-      await AuthService.logout();
-      _gs.setCoins(0);
-      _gs.setAttackCountBalance(0);
-
-      if (!mounted) return;
-      Navigator.pushAndRemoveUntil(
-        context,
-        MaterialPageRoute(builder: (_) => const LoginPage()),
-        (route) => false,
-      );
-    } catch (_) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('로그아웃에 실패했습니다. 잠시 후 다시 시도해주세요.')),
-      );
-      setState(() => _isLoggingOut = false);
-    }
   }
 
   Widget _buildMainContent() {
@@ -836,7 +986,7 @@ class _HomePageState extends State<HomePage>
               },
               transitionDuration: const Duration(milliseconds: 300),
             ),
-          ).then((_) => setState(() => _currentNavIndex = 2));
+          ).then((_) => _returnHomeFromRoute());
         } else if (item.index == 1) {
           Navigator.push(
             context,
@@ -851,7 +1001,7 @@ class _HomePageState extends State<HomePage>
               },
               transitionDuration: const Duration(milliseconds: 300),
             ),
-          ).then((_) => setState(() => _currentNavIndex = 2));
+          ).then((_) => _returnHomeFromRoute());
         } else if (item.index == 4) {
           Navigator.push(
             context,
@@ -866,7 +1016,7 @@ class _HomePageState extends State<HomePage>
               },
               transitionDuration: const Duration(milliseconds: 300),
             ),
-          ).then((_) => setState(() => _currentNavIndex = 2));
+          ).then((_) => _returnHomeFromRoute());
         } else if (item.index == 3) {
           if (_stepTracker.isTracking) {
             await _stepTracker.stop();
@@ -885,7 +1035,7 @@ class _HomePageState extends State<HomePage>
               },
               transitionDuration: const Duration(milliseconds: 300),
             ),
-          ).then((_) => setState(() => _currentNavIndex = 2));
+          ).then((_) => _returnHomeFromRoute());
         } else {
           setState(() => _currentNavIndex = item.index);
         }

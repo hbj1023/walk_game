@@ -311,6 +311,10 @@ class AuthService {
 
   static String _localizeAuthMessage(String message) {
     final normalized = message.trim().toLowerCase();
+    if (normalized.contains('failed to delete record') ||
+        normalized.contains('required relation reference')) {
+      return '연결된 게임 데이터가 남아 계정을 삭제하지 못했습니다. 서버 업데이트 후 다시 시도해주세요.';
+    }
     if (normalized == 'email confirmation does not match current account') {
       return '입력한 이메일이 현재 계정과 다릅니다.';
     }
