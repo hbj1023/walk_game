@@ -20,6 +20,8 @@ const (
 	equipmentSlotBalancesCollection   = "equipment_slot_balances"
 	equipmentRarityBalancesCollection = "equipment_rarity_balances"
 	equipmentSellRefundRate           = 0.50
+	bossEntranceTicketFragmentName    = "보스 입장권 조각"
+	bossEntranceTicketFragmentCost    = 10
 )
 
 func itemsHandler(w http.ResponseWriter, r *http.Request) {
@@ -334,6 +336,9 @@ func useConsumable(ctx context.Context, token string, characterID string, itemTe
 	if itemTemplate.ItemType != "consumable" {
 		return nil, statusError{status: http.StatusBadRequest, message: "item template is not consumable"}
 	}
+	if isBossEntranceTicketTemplate(itemTemplate) || isBossEntranceTicketFragmentTemplate(itemTemplate) {
+		return nil, statusError{status: http.StatusBadRequest, message: "item cannot be used manually"}
+	}
 
 	consumable, err := getCharacterConsumable(ctx, token, characterID, itemTemplateID)
 	if err != nil {
@@ -521,6 +526,9 @@ func sellConsumable(ctx context.Context, token string, characterID string, itemT
 	if itemTemplate.ItemType != "consumable" {
 		return nil, statusError{status: http.StatusBadRequest, message: "item template is not consumable"}
 	}
+	if isBossEntranceTicketTemplate(itemTemplate) || isBossEntranceTicketFragmentTemplate(itemTemplate) {
+		return nil, statusError{status: http.StatusBadRequest, message: "item cannot be sold"}
+	}
 
 	consumable, err := getCharacterConsumable(ctx, token, characterID, itemTemplateID)
 	if err != nil {
@@ -630,6 +638,79 @@ func patchCharacterConsumableQuantity(ctx context.Context, token string, consuma
 		return nil, errors.New("failed to parse consumable update response")
 	}
 	return record, nil
+}
+
+func normalizedItemName(name string) string {
+	return strings.ToLower(strings.ReplaceAll(strings.TrimSpace(name), " ", ""))
+}
+
+func isBossEntranceTicketTemplate(itemTemplate itemTemplateRecord) bool {
+	return normalizedItemName(itemTemplate.Name) == normalizedItemName(bossEntranceTicketName)
+}
+
+func isBossEntranceTicketFragmentTemplate(itemTemplate itemTemplateRecord) bool {
+	return normalizedItemName(itemTemplate.Name) == normalizedItemName(bossEntranceTicketFragmentName)
+}
+
+func getBossEntranceTicketFragmentTemplate(ctx context.Context, token string) (itemTemplateRecord, error) {
+	return findItemTemplateByName(ctx, token, bossEntranceTicketFragmentName)
+}
+
+func getBossEntranceTicketFragmentBalance(ctx context.Context, token string, characterID string) (int, error) {
+	template, err := getBossEntranceTicketFragmentTemplate(ctx, token)
+	if err != nil {
+		return 0, err
+	}
+	consumable, err := getCharacterConsumable(ctx, token, characterID, template.ID)
+	if err == nil {
+		return int(consumable.Quantity), nil
+	}
+	var statusErr statusError
+	if errors.As(err, &statusErr) && statusErr.status == http.StatusNotFound {
+		return 0, nil
+	}
+	return 0, err
+}
+
+func addBossEntranceTicketFragments(ctx context.Context, token string, characterID string, amount int) (int, error) {
+	if amount <= 0 {
+		return getBossEntranceTicketFragmentBalance(ctx, token, characterID)
+	}
+	template, err := getBossEntranceTicketFragmentTemplate(ctx, token)
+	if err != nil {
+		return 0, err
+	}
+	if _, err := addCharacterConsumableQuantity(ctx, token, characterID, template.ID, amount); err != nil {
+		return 0, err
+	}
+	return getBossEntranceTicketFragmentBalance(ctx, token, characterID)
+}
+
+func spendBossEntranceTicketFragments(ctx context.Context, token string, characterID string, amount int) (int, error) {
+	if amount <= 0 {
+		return getBossEntranceTicketFragmentBalance(ctx, token, characterID)
+	}
+	template, err := getBossEntranceTicketFragmentTemplate(ctx, token)
+	if err != nil {
+		return 0, err
+	}
+	consumable, err := getCharacterConsumable(ctx, token, characterID, template.ID)
+	if err != nil {
+		var statusErr statusError
+		if errors.As(err, &statusErr) && statusErr.status == http.StatusNotFound {
+			return 0, statusError{status: http.StatusBadRequest, message: "not enough boss entrance ticket fragments"}
+		}
+		return 0, err
+	}
+	current := int(consumable.Quantity)
+	if current < amount {
+		return current, statusError{status: http.StatusBadRequest, message: "not enough boss entrance ticket fragments"}
+	}
+	balanceAfter := current - amount
+	if _, err := patchCharacterConsumableQuantity(ctx, token, consumable.ID, float64(balanceAfter)); err != nil {
+		return 0, err
+	}
+	return balanceAfter, nil
 }
 
 func equipOwnedEquipment(ctx context.Context, token string, characterID string, ownedEquipmentID string) (map[string]any, error) {

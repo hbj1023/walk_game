@@ -853,9 +853,19 @@ func purchaseShopItem(ctx context.Context, token string, shopID string, characte
 		}
 	}
 
-	totalPrice, err := totalCoinPrice(shopItem.PriceCoin, quantity)
-	if err != nil {
-		return nil, err
+	usesBossTicketFragments := isBossEntranceTicketTemplate(itemTemplate)
+	totalPrice := 0
+	bossTicketFragmentCost := 0
+	if usesBossTicketFragments {
+		bossTicketFragmentCost, err = totalCoinPrice(bossEntranceTicketFragmentCost, quantity)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		totalPrice, err = totalCoinPrice(shopItem.PriceCoin, quantity)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	if shopItem.StockLimit > 0 {
@@ -902,7 +912,15 @@ func purchaseShopItem(ctx context.Context, token string, shopID string, characte
 	if err != nil {
 		return nil, err
 	}
-	if character.CoinBalance < totalPrice {
+	if usesBossTicketFragments {
+		fragmentBalance, err := getBossEntranceTicketFragmentBalance(ctx, token, characterID)
+		if err != nil {
+			return nil, err
+		}
+		if fragmentBalance < bossTicketFragmentCost {
+			return nil, statusError{status: http.StatusBadRequest, message: "not enough boss entrance ticket fragments"}
+		}
+	} else if character.CoinBalance < totalPrice {
 		return nil, statusError{status: http.StatusBadRequest, message: "not enough coin balance"}
 	}
 
@@ -916,11 +934,30 @@ func purchaseShopItem(ctx context.Context, token string, shopID string, characte
 		return nil, err
 	}
 
-	updatedCharacter, err := patchBattleCharacter(ctx, token, characterID, map[string]any{
-		"coin_balance": character.CoinBalance - totalPrice,
-	})
-	if err != nil {
-		return nil, err
+	updatedCharacter := character
+	bossTicketFragmentBalance := 0
+	if usesBossTicketFragments {
+		bossTicketFragmentBalance, err = spendBossEntranceTicketFragments(ctx, token, characterID, bossTicketFragmentCost)
+		if err != nil {
+			return nil, err
+		}
+		if err := createBossEntranceTicketFragmentUseTransaction(
+			ctx,
+			token,
+			characterID,
+			shopItemID,
+			-bossTicketFragmentCost,
+			bossTicketFragmentBalance,
+		); err != nil {
+			return nil, err
+		}
+	} else {
+		updatedCharacter, err = patchBattleCharacter(ctx, token, characterID, map[string]any{
+			"coin_balance": character.CoinBalance - totalPrice,
+		})
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	purchaseLog, err := createPurchaseLog(ctx, token, characterID, shopItemID, quantity, totalPrice)
@@ -936,14 +973,19 @@ func purchaseShopItem(ctx context.Context, token string, shopID string, characte
 		}
 	}
 
-	return map[string]any{
+	data := map[string]any{
 		"character":          updatedCharacter,
 		"shop_item":          shopItem,
 		"purchase_log":       purchaseLog,
 		"reward":             reward,
 		"unlocked_shop_item": unlockedShopItem,
 		"total_price_coin":   totalPrice,
-	}, nil
+	}
+	if usesBossTicketFragments {
+		data["total_boss_ticket_fragments"] = bossTicketFragmentCost
+		data["boss_ticket_fragment_balance"] = bossTicketFragmentBalance
+	}
+	return data, nil
 }
 
 func getOrCreateDailyShopOffers(ctx context.Context, token string, shopID string, characterID string) (map[string]any, error) {
@@ -1836,6 +1878,36 @@ func createShopResourceTransaction(
 	defer resp.Body.Close()
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		return mapPocketBaseError(resp, "failed to create shop resource transaction")
+	}
+	return nil
+}
+
+func createBossEntranceTicketFragmentUseTransaction(
+	ctx context.Context,
+	token string,
+	characterID string,
+	shopItemID string,
+	amount int,
+	balanceAfter int,
+) error {
+	payload := map[string]any{
+		"character":        characterID,
+		"resource_type":    "boss_ticket_fragment",
+		"transaction_type": "use",
+		"amount":           amount,
+		"balance_after":    balanceAfter,
+		"source_type":      "shop_item",
+		"source_id":        shopItemID,
+		"reason":           "boss entrance ticket purchase",
+	}
+
+	resp, err := pocketBaseRequest(ctx, http.MethodPost, pocketBaseCollectionURL("resource_transactions"), token, payload)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return mapPocketBaseError(resp, "failed to create boss entrance ticket fragment transaction")
 	}
 	return nil
 }

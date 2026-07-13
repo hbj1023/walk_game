@@ -3,11 +3,16 @@ package features
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
+	"net/url"
 	"strings"
 )
 
-const supportReportsCollection = "support_reports"
+const (
+	supportReportsCollection        = "support_reports"
+	accountDeleteStepLogsCollection = "step_sync_logs"
+)
 
 type supportBugReportRequest struct {
 	Screen  string `json:"screen"`
@@ -106,6 +111,11 @@ func accountDeleteHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if err := deleteAccountStepSyncLogs(r.Context(), auth.Token, user.ID); err != nil {
+		writeJSON(w, statusCodeForError(err, http.StatusBadRequest), map[string]string{"message": "account delete failed", "error": err.Error()})
+		return
+	}
+
 	if err := deletePocketBaseUser(r.Context(), auth.Token, user.ID); err != nil {
 		writeJSON(w, statusCodeForError(err, http.StatusBadRequest), map[string]string{"message": "account delete failed", "error": err.Error()})
 		return
@@ -136,6 +146,60 @@ func createSupportBugReport(ctx context.Context, token string, user pocketBaseUs
 		return nil, statusError{status: http.StatusInternalServerError, message: "failed to parse bug report response"}
 	}
 	return record, nil
+}
+
+func deleteAccountStepSyncLogs(ctx context.Context, token string, userID string) error {
+	query := url.Values{}
+	query.Set("filter", fmt.Sprintf(`profile_id="%s"`, userID))
+	query.Set("perPage", "200")
+	query.Set("page", "1")
+
+	for {
+		resp, err := pocketBaseRequest(ctx, http.MethodGet, pocketBaseCollectionURL(accountDeleteStepLogsCollection)+"?"+query.Encode(), token, nil)
+		if err != nil {
+			return err
+		}
+		if resp.StatusCode == http.StatusNotFound {
+			resp.Body.Close()
+			return nil
+		}
+		if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+			err := mapPocketBaseError(resp, "failed to delete step logs")
+			return err
+		}
+
+		var list pocketBaseListResponse[map[string]any]
+		if err := json.NewDecoder(resp.Body).Decode(&list); err != nil {
+			resp.Body.Close()
+			return statusError{status: http.StatusInternalServerError, message: "failed to parse step log records"}
+		}
+		resp.Body.Close()
+
+		for _, item := range list.Items {
+			id, _ := item["id"].(string)
+			if id == "" {
+				continue
+			}
+			if err := deletePocketBaseRecord(ctx, token, accountDeleteStepLogsCollection, id); err != nil {
+				return err
+			}
+		}
+		if len(list.Items) == 0 {
+			return nil
+		}
+	}
+}
+
+func deletePocketBaseRecord(ctx context.Context, token string, collection string, recordID string) error {
+	resp, err := pocketBaseRequest(ctx, http.MethodDelete, pocketBaseRecordURL(collection, recordID), token, nil)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode == http.StatusOK || resp.StatusCode == http.StatusNoContent || resp.StatusCode == http.StatusNotFound {
+		return nil
+	}
+	return mapPocketBaseError(resp, "failed to delete record")
 }
 
 func deletePocketBaseUser(ctx context.Context, token string, userID string) error {

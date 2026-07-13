@@ -17,6 +17,7 @@ const (
 	baseAttackDistanceM            = 100.0
 	offlineAgilityReductionPenalty = 0.3
 	defaultOfflineAttackCountCap   = 10
+	bossTicketFragmentDistanceM    = 1800.0
 )
 
 type pocketBaseListResponse[T any] struct {
@@ -86,6 +87,15 @@ func processStepSync(r *http.Request, profileID string, token string, req StepSy
 		deltaDistanceM,
 		attackDistanceM,
 	)
+	bossTicketFragmentEarned := 0
+	bossTicketFragmentDistanceRemainderM := existingSummary.BossTicketFragmentDistanceRemainderM
+	if normalized.SyncType != "offline" {
+		bossTicketFragmentEarned, bossTicketFragmentDistanceRemainderM = calculateAttackCountEarned(
+			existingSummary.BossTicketFragmentDistanceRemainderM,
+			deltaDistanceM,
+			bossTicketFragmentDistanceM,
+		)
+	}
 	offlineAttackCountEarned := 0
 	offlineAttackCountStored := 0
 	offlineAttackCountLost := 0
@@ -121,6 +131,8 @@ func processStepSync(r *http.Request, profileID string, token string, req StepSy
 		offlineAttackCountEarned,
 		offlineAttackCountStored,
 		offlineAttackCountLost,
+		bossTicketFragmentEarned,
+		bossTicketFragmentDistanceRemainderM,
 	)
 	if err != nil {
 		return StepSyncResponse{}, fmt.Errorf("save daily step summary failed: %w", err)
@@ -137,30 +149,60 @@ func processStepSync(r *http.Request, profileID string, token string, req StepSy
 		}
 	}
 
+	bossTicketFragmentBalance, err := getBossEntranceTicketFragmentBalance(r.Context(), token, character.ID)
+	if err != nil {
+		return StepSyncResponse{}, fmt.Errorf("get boss entrance ticket fragment balance failed: %w", err)
+	}
+	if bossTicketFragmentEarned > 0 {
+		bossTicketFragmentBalance, err = addBossEntranceTicketFragments(
+			r.Context(),
+			token,
+			character.ID,
+			bossTicketFragmentEarned,
+		)
+		if err != nil {
+			return StepSyncResponse{}, fmt.Errorf("add boss entrance ticket fragments failed: %w", err)
+		}
+		if err := createBossEntranceTicketFragmentTransaction(
+			r,
+			token,
+			character.ID,
+			stepLog.ID,
+			bossTicketFragmentEarned,
+			bossTicketFragmentBalance,
+		); err != nil {
+			return StepSyncResponse{}, fmt.Errorf("create boss entrance ticket fragment transaction failed: %w", err)
+		}
+	}
+
 	if err := syncUserDistanceMissions(r.Context(), token, profileID, recordDate, totalDistanceM); err != nil {
 		return StepSyncResponse{}, fmt.Errorf("sync missions failed: %w", err)
 	}
 
 	return StepSyncResponse{
-		ProfileID:                profileID,
-		CharacterID:              character.ID,
-		StepSyncLogID:            stepLog.ID,
-		DailySummaryID:           dailySummary.ID,
-		RecordDate:               recordDate,
-		StepCount:                totalStepCount,
-		DistanceM:                totalDistanceM,
-		DeltaStepCount:           deltaStepCount,
-		DeltaDistanceM:           deltaDistanceM,
-		Agility:                  agility,
-		AttackDistanceM:          round2(attackDistanceM),
-		AttackDistanceRemainderM: round2(attackDistanceRemainderM),
-		AttackCountEarned:        attackCountEarned,
-		AttackCountBalance:       attackCountBalance,
-		OfflineAttackCountCap:    offlineAttackCountCapForLevel(character.OfflineStorageLevel),
-		OfflineAttackCountEarned: offlineAttackCountEarned,
-		OfflineAttackCountStored: offlineAttackCountStored,
-		OfflineAttackCountLost:   offlineAttackCountLost,
-		Token:                    token,
+		ProfileID:                            profileID,
+		CharacterID:                          character.ID,
+		StepSyncLogID:                        stepLog.ID,
+		DailySummaryID:                       dailySummary.ID,
+		RecordDate:                           recordDate,
+		StepCount:                            totalStepCount,
+		DistanceM:                            totalDistanceM,
+		DeltaStepCount:                       deltaStepCount,
+		DeltaDistanceM:                       deltaDistanceM,
+		Agility:                              agility,
+		AttackDistanceM:                      round2(attackDistanceM),
+		AttackDistanceRemainderM:             round2(attackDistanceRemainderM),
+		AttackCountEarned:                    attackCountEarned,
+		AttackCountBalance:                   attackCountBalance,
+		OfflineAttackCountCap:                offlineAttackCountCapForLevel(character.OfflineStorageLevel),
+		OfflineAttackCountEarned:             offlineAttackCountEarned,
+		OfflineAttackCountStored:             offlineAttackCountStored,
+		OfflineAttackCountLost:               offlineAttackCountLost,
+		BossTicketFragmentEarned:             bossTicketFragmentEarned,
+		BossTicketFragmentBalance:            bossTicketFragmentBalance,
+		BossTicketFragmentDistanceM:          bossTicketFragmentDistanceM,
+		BossTicketFragmentDistanceRemainderM: round2(bossTicketFragmentDistanceRemainderM),
+		Token:                                token,
 	}, nil
 }
 
@@ -295,16 +337,20 @@ func upsertDailyStepSummary(
 	offlineAttackCountEarned int,
 	offlineAttackCountStored int,
 	offlineAttackCountLost int,
+	bossTicketFragmentEarned int,
+	bossTicketFragmentDistanceRemainderM float64,
 ) (dailyStepSummaryRecord, error) {
 	payload := map[string]any{
-		"user":                        profileID,
-		"record_date":                 recordDate,
-		"total_step_count":            totalStepCount,
-		"total_distance_m":            totalDistanceM,
-		"attack_count_earned":         attackCountEarned,
-		"attack_distance_remainder_m": round2(attackDistanceRemainderM),
-		"offline_attack_count_earned": offlineAttackCountStored,
-		"offline_attack_count_lost":   offlineAttackCountLost,
+		"user":                                      profileID,
+		"record_date":                               recordDate,
+		"total_step_count":                          totalStepCount,
+		"total_distance_m":                          totalDistanceM,
+		"attack_count_earned":                       attackCountEarned,
+		"attack_distance_remainder_m":               round2(attackDistanceRemainderM),
+		"offline_attack_count_earned":               offlineAttackCountStored,
+		"offline_attack_count_lost":                 offlineAttackCountLost,
+		"boss_ticket_fragment_earned":               bossTicketFragmentEarned,
+		"boss_ticket_fragment_distance_remainder_m": round2(bossTicketFragmentDistanceRemainderM),
 	}
 	method := http.MethodPost
 	url := pocketBaseCollectionURL("daily_step_summaries")
@@ -313,6 +359,7 @@ func upsertDailyStepSummary(
 		payload["attack_count_earned"] = summary.AttackCountEarned + attackCountEarned
 		payload["offline_attack_count_earned"] = summary.OfflineAttackCountEarned + offlineAttackCountStored
 		payload["offline_attack_count_lost"] = summary.OfflineAttackCountLost + offlineAttackCountLost
+		payload["boss_ticket_fragment_earned"] = summary.BossTicketFragmentEarned + bossTicketFragmentEarned
 		method = http.MethodPatch
 		url = pocketBaseRecordURL("daily_step_summaries", summary.ID)
 	}
@@ -465,6 +512,27 @@ func createAttackCountTransaction(r *http.Request, token string, characterID str
 	defer resp.Body.Close()
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		return mapPocketBaseError(resp, "failed to create resource transaction")
+	}
+	return nil
+}
+
+func createBossEntranceTicketFragmentTransaction(r *http.Request, token string, characterID string, sourceID string, amount int, balanceAfter int) error {
+	resp, err := pocketBaseRequest(r.Context(), http.MethodPost, pocketBaseCollectionURL("resource_transactions"), token, map[string]any{
+		"character":        characterID,
+		"resource_type":    "boss_ticket_fragment",
+		"transaction_type": "earn",
+		"amount":           amount,
+		"balance_after":    balanceAfter,
+		"source_type":      "step",
+		"source_id":        sourceID,
+		"reason":           "active walking distance converted to boss entrance ticket fragments",
+	})
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return mapPocketBaseError(resp, "failed to create boss entrance ticket fragment transaction")
 	}
 	return nil
 }
