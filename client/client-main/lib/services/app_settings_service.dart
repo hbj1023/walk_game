@@ -122,6 +122,11 @@ class AppSettingsService {
     notifier.value = normalized;
   }
 
+  static void resetPowerSavingAfterLogin() {
+    final settings = notifier.value;
+    notifier.value = settings.copyWith(powerSavingMode: false);
+  }
+
   static int _normalizeHomeBackgroundChapter(int value) {
     if (value == AppSettingsData.homeBackgroundChapter1 ||
         value == AppSettingsData.homeBackgroundChapter2) {

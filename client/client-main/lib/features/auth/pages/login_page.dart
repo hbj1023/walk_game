@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'package:capstone_app/services/auth_service.dart';
+import 'package:capstone_app/services/app_settings_service.dart';
 import 'package:capstone_app/services/profile_icon_service.dart';
 import 'package:capstone_app/features/home/pages/home_page.dart';
 import 'package:capstone_app/features/auth/pages/signup_page.dart';
@@ -122,6 +123,7 @@ class _LoginPageState extends State<LoginPage> {
 
     try {
       await AuthService.login(email: email, password: pw);
+      AppSettingsService.resetPowerSavingAfterLogin();
       ProfileIconService.resetGameStateToDefault();
       await ProfileIconService.loadIntoGameState();
 
