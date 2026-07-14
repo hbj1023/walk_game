@@ -26,11 +26,19 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage>
     with SingleTickerProviderStateMixin {
+  static const _supportedWeaponTypes = <String>{
+    'sword',
+    'dagger',
+    'axe',
+    'spear',
+    'greatsword',
+  };
   static const _chapter1HomeBg = 'assets/images/bg/home_bg.png';
   static const _chapter2HomeBg =
       'assets/images/bg/home_bg_chapter2_shadow_forest.png';
 
   String _userName = '...';
+  String _equippedWeaponType = '';
   int _currentNavIndex = 2;
   final _gs = GameState.instance;
   late final StepTrackingController _stepTracker;
@@ -75,6 +83,7 @@ class _HomePageState extends State<HomePage>
       onSyncError: (error) => _showSnackBar(error.toString()),
     )..addListener(_onStepTrackerChanged);
     _loadUserName();
+    _loadEquippedWeapon();
     _loadMissions();
     _loadAppSettings();
     _bgController = AnimationController(
@@ -98,6 +107,28 @@ class _HomePageState extends State<HomePage>
       return _chapter2HomeBg;
     }
     return _chapter1HomeBg;
+  }
+
+  String get _homeRunSprite =>
+      _supportedWeaponTypes.contains(_equippedWeaponType)
+      ? 'assets/images/character/weapon_attacks/run_right_$_equippedWeaponType.png'
+      : 'assets/images/character/run_right.png';
+
+  Future<void> _loadEquippedWeapon() async {
+    try {
+      final items = await GameApiService.fetchInventoryItems();
+      final equippedWeapons = items.where(
+        (item) => item.isEquipped && item.itemTemplate.isWeapon,
+      );
+      if (!mounted) return;
+      setState(() {
+        _equippedWeaponType = equippedWeapons.isEmpty
+            ? ''
+            : equippedWeapons.first.itemTemplate.weaponType;
+      });
+    } catch (_) {
+      // Keep the default character sprite if equipment cannot be loaded.
+    }
   }
 
   Future<void> _loadAppSettings() async {
@@ -166,6 +197,7 @@ class _HomePageState extends State<HomePage>
     if (!mounted) return;
     setState(() => _currentNavIndex = 2);
     _loadHomeBackgroundState();
+    _loadEquippedWeapon();
   }
 
   @override
@@ -332,11 +364,13 @@ class _HomePageState extends State<HomePage>
               ),
             ),
           if (!powerSaving)
-            const Positioned(
+            Positioned(
               bottom: 88,
               left: 0,
               right: 0,
-              child: Center(child: WalkingCharacter()),
+              child: Center(
+                child: WalkingCharacter(spritePath: _homeRunSprite),
+              ),
             ),
         ],
       ),
@@ -1521,7 +1555,9 @@ class _SimpleTabMessage extends StatelessWidget {
 }
 
 class WalkingCharacter extends StatefulWidget {
-  const WalkingCharacter({super.key});
+  final String spritePath;
+
+  const WalkingCharacter({super.key, required this.spritePath});
 
   @override
   State<WalkingCharacter> createState() => _WalkingCharacterState();
@@ -1574,7 +1610,7 @@ class _WalkingCharacterState extends State<WalkingCharacter>
             maxHeight: _frameHeight,
             alignment: Alignment.topLeft,
             child: Image.asset(
-              'assets/images/character/run_right.png',
+              widget.spritePath,
               width: _frameWidth * _totalFrames,
               height: _frameHeight,
               fit: BoxFit.fill,

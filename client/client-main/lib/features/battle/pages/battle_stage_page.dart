@@ -78,9 +78,20 @@ const _kChapterStagePoints = <int, List<Offset>>{
     Offset(0.668, 0.52),
     Offset(0.841, 0.46),
   ],
+  3: [
+    Offset(0.12, 0.68),
+    Offset(0.31, 0.58),
+    Offset(0.5, 0.66),
+    Offset(0.69, 0.48),
+    Offset(0.87, 0.38),
+  ],
 };
 
-const _kChapterTitles = <int, String>{1: '1장 숲의 길', 2: '2장 그늘버섯 숲'};
+const _kChapterTitles = <int, String>{
+  1: '1장 숲의 길',
+  2: '2장 그늘버섯 숲',
+  3: '3장 고대 채석장',
+};
 
 const _kMonsterNameFallbacks = <int, String>{
   1: '기본 고블린',
@@ -93,6 +104,11 @@ const _kMonsterNameFallbacks = <int, String>{
   8: '독버섯 주술사',
   9: '서리 버섯병사',
   10: '장로 포자왕',
+  11: '금이 간 석상병',
+  12: '광맥 굴착 골렘',
+  13: '룬 각인 수호자',
+  14: '고대 파쇄 거인',
+  15: '거석왕 탈로스',
 };
 
 const _kMonsterHpFallbacks = <int, int>{
@@ -106,6 +122,11 @@ const _kMonsterHpFallbacks = <int, int>{
   8: 1020,
   9: 1180,
   10: 1700,
+  11: 250,
+  12: 300,
+  13: 360,
+  14: 450,
+  15: 760,
 };
 
 const _kRecommendedCombatPowerByStage = <int, int>{
@@ -114,16 +135,23 @@ const _kRecommendedCombatPowerByStage = <int, int>{
   3: 230,
   4: 280,
   5: 360,
-  6: 520,
-  7: 650,
-  8: 800,
-  9: 950,
-  10: 1100,
+  6: 300,
+  7: 420,
+  8: 540,
+  9: 680,
+  10: 820,
+  11: 900,
+  12: 1050,
+  13: 1220,
+  14: 1400,
+  15: 1650,
 };
 
 const _kBattlePreloadAssets = <String>[
   'assets/images/bg/stage1_battle_BG.png',
   'assets/images/bg/stage2_battle_shadow_mushroom_forest.png',
+  'assets/images/bg/stage3_battle_ancient_quarry_entrance_941x1672.png',
+  'assets/images/bg/stage3_ancient_quarry_entrance_map_1672x941.png',
   'assets/images/profile_frame.png',
   'assets/images/icon/coin_icon.png',
   'assets/images/icon/friend_icon.png',
@@ -137,6 +165,11 @@ const _kBattlePreloadAssets = <String>[
   MonsterAssetService.toxicShroom,
   MonsterAssetService.frostShroom,
   MonsterAssetService.elderSporeKing,
+  MonsterAssetService.pebbleGolem,
+  MonsterAssetService.crackedGolem,
+  MonsterAssetService.mossyGolem,
+  MonsterAssetService.oreGolem,
+  MonsterAssetService.quarryGuardianGolem,
   'assets/images/character/battle_back.png',
   'assets/images/nav/nav_shop.png',
   'assets/images/nav/nav_character.png',
@@ -379,6 +412,13 @@ class _BattleStagePageState extends State<BattleStagePage> {
           stageNo: 10,
           title: '그늘버섯 숲 - 2-5',
           previousStage: normalStages.where((stage) => stage.stageNo == 9),
+        ),
+      if (normalStages.any((stage) => stage.stageNo >= 11) &&
+          !normalStages.any((stage) => stage.stageNo == 15))
+        _bossStage(
+          stageNo: 15,
+          title: '고대 채석장 - 3-5',
+          previousStage: normalStages.where((stage) => stage.stageNo == 14),
         ),
     ];
   }
@@ -931,13 +971,15 @@ class _BattleStagePageState extends State<BattleStagePage> {
                 child: LayoutBuilder(
                   builder: (context, constraints) {
                     final mapRatio = constraints.maxWidth / mapHeight;
-                    final mapAsset = _currentChapter == 2
-                        ? 'assets/images/bg/stage2_shadow_mushroom_forest_map.png'
-                        : (mapRatio > 6
-                              ? 'assets/images/bg/stage1_forest_path_ui_strip.png'
-                              : (mapRatio > 2.15
-                                    ? 'assets/images/bg/stage1_forest_path_strip_map.png'
-                                    : 'assets/images/bg/stage1_forest_path_map.png'));
+                    final mapAsset = _currentChapter == 3
+                        ? 'assets/images/bg/stage3_ancient_quarry_entrance_map_1672x941.png'
+                        : (_currentChapter == 2
+                              ? 'assets/images/bg/stage2_shadow_mushroom_forest_map.png'
+                              : (mapRatio > 6
+                                    ? 'assets/images/bg/stage1_forest_path_ui_strip.png'
+                                    : (mapRatio > 2.15
+                                          ? 'assets/images/bg/stage1_forest_path_strip_map.png'
+                                          : 'assets/images/bg/stage1_forest_path_map.png')));
                     return Stack(
                       children: [
                         Positioned.fill(

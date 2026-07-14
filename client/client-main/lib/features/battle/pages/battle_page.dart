@@ -31,10 +31,23 @@ const _kPlayerRunSprite = 'assets/images/character/run_up.png';
 const _kChapter1BattleBg = 'assets/images/bg/stage1_battle_BG.png';
 const _kChapter2BattleBg =
     'assets/images/bg/stage2_battle_shadow_mushroom_forest.png';
-const _kPlayerAttackSprites = [
-  'assets/images/character/attack1_up.png',
-  'assets/images/character/attack2_up.png',
-];
+const _kChapter3BattleBg =
+    'assets/images/bg/stage3_battle_ancient_quarry_entrance_941x1672.png';
+const _kPlayerAttackSpritesByWeapon = <String, String>{
+  'sword': 'assets/images/character/weapon_attacks/attack_up_sword.png',
+  'dagger': 'assets/images/character/weapon_attacks/attack_up_dagger.png',
+  'axe': 'assets/images/character/weapon_attacks/attack_up_axe.png',
+  'spear': 'assets/images/character/weapon_attacks/attack_up_spear.png',
+  'greatsword':
+      'assets/images/character/weapon_attacks/attack_up_greatsword.png',
+};
+const _kSupportedPlayerWeaponTypes = <String>{
+  'sword',
+  'dagger',
+  'axe',
+  'spear',
+  'greatsword',
+};
 
 class BattlePage extends StatefulWidget {
   final String stageId;
@@ -83,10 +96,11 @@ class _BattlePageState extends State<BattlePage> with WidgetsBindingObserver {
   int _totalDamageTaken = 0;
   BattleRewardEquipment? _rewardEquipment;
   List<OwnedInventoryItem> _consumables = const [];
+  String _equippedWeaponType = '';
   String? _selectedConsumableTemplateId;
   bool _isConsumableSelectorExpanded = false;
   String _currentPlayerSpritePath = _kPlayerIdleSprite;
-  int _playerAttackSpriteIndex = 0;
+  int _currentPlayerSpriteFrameCount = _kPlayerAttackFrameCount;
   int _playerAnimationFrame = 0;
   double _playerSpriteOffsetY = 0;
   bool _isAttacking = false;
@@ -121,8 +135,9 @@ class _BattlePageState extends State<BattlePage> with WidgetsBindingObserver {
   bool get _isBossBattle => widget.initialResult.battle.battleType == 'boss';
   bool get _shouldRestartWhenLeavingPowerSaving =>
       _battleStatus == 'lose' || _battleStatus == 'flee';
-  String get _battleBackgroundAsset =>
-      widget.stageNo >= 6 ? _kChapter2BattleBg : _kChapter1BattleBg;
+  String get _battleBackgroundAsset => widget.stageNo >= 11
+      ? _kChapter3BattleBg
+      : (widget.stageNo >= 6 ? _kChapter2BattleBg : _kChapter1BattleBg);
 
   OwnedInventoryItem? get _selectedConsumable {
     for (final item in _consumables) {
@@ -130,6 +145,23 @@ class _BattlePageState extends State<BattlePage> with WidgetsBindingObserver {
     }
     return _consumables.isEmpty ? null : _consumables.first;
   }
+
+  String get _equippedWeaponAttackSprite =>
+      _kPlayerAttackSpritesByWeapon[_equippedWeaponType] ??
+      'assets/images/character/attack2_up.png';
+
+  String get _equippedWeaponIdleSprite =>
+      _kSupportedPlayerWeaponTypes.contains(_equippedWeaponType)
+      ? 'assets/images/character/weapon_attacks/idle_up_$_equippedWeaponType.png'
+      : _kPlayerIdleSprite;
+
+  String get _equippedWeaponRunSprite =>
+      _kSupportedPlayerWeaponTypes.contains(_equippedWeaponType)
+      ? 'assets/images/character/weapon_attacks/run_up_$_equippedWeaponType.png'
+      : _kPlayerRunSprite;
+
+  int get _equippedWeaponAttackFrameCount =>
+      _equippedWeaponType == 'spear' ? 9 : _kPlayerAttackFrameCount;
 
   @override
   void initState() {
@@ -282,9 +314,20 @@ class _BattlePageState extends State<BattlePage> with WidgetsBindingObserver {
                 item.quantity > 0,
           )
           .toList();
+      final equippedWeapons = items.where(
+        (item) => item.isEquipped && item.itemTemplate.isWeapon,
+      );
       if (!mounted) return;
       setState(() {
         _consumables = consumables;
+        _equippedWeaponType = equippedWeapons.isEmpty
+            ? ''
+            : equippedWeapons.first.itemTemplate.weaponType;
+        if (!_isAttacking) {
+          _currentPlayerSpritePath = _equippedWeaponIdleSprite;
+          _currentPlayerSpriteFrameCount = _kPlayerAttackFrameCount;
+          _playerAnimationFrame = 0;
+        }
         final selectedId = _selectedConsumableTemplateId;
         final hasSelected =
             selectedId != null &&
@@ -415,13 +458,9 @@ class _BattlePageState extends State<BattlePage> with WidgetsBindingObserver {
   }
 
   Future<void> _playPlayerAttackSequence() async {
-    final nextSpriteIndex =
-        (_playerAttackSpriteIndex + 1) % _kPlayerAttackSprites.length;
-    _playerAttackSpriteIndex = nextSpriteIndex;
-
     await Future.wait([
       _animatePlayerFrames(
-        _kPlayerRunSprite,
+        _equippedWeaponRunSprite,
         frameCount: 4,
         frameDuration: const Duration(milliseconds: 45),
       ),
@@ -429,14 +468,15 @@ class _BattlePageState extends State<BattlePage> with WidgetsBindingObserver {
     ]);
 
     await _animatePlayerFrames(
-      _kPlayerAttackSprites[_playerAttackSpriteIndex],
-      frameCount: _kPlayerAttackFrameCount,
+      _equippedWeaponAttackSprite,
+      frameCount: _equippedWeaponAttackFrameCount,
+      spriteSheetFrameCount: _equippedWeaponAttackFrameCount,
       frameDuration: const Duration(milliseconds: 70),
     );
 
     await Future.wait([
       _animatePlayerFrames(
-        _kPlayerRunSprite,
+        _equippedWeaponRunSprite,
         frameCount: 4,
         frameDuration: const Duration(milliseconds: 45),
       ),
@@ -445,7 +485,7 @@ class _BattlePageState extends State<BattlePage> with WidgetsBindingObserver {
 
     if (!mounted) return;
     setState(() {
-      _currentPlayerSpritePath = _kPlayerIdleSprite;
+      _currentPlayerSpritePath = _equippedWeaponIdleSprite;
       _playerAnimationFrame = 0;
     });
   }
@@ -453,11 +493,13 @@ class _BattlePageState extends State<BattlePage> with WidgetsBindingObserver {
   Future<void> _animatePlayerFrames(
     String spritePath, {
     required int frameCount,
+    int spriteSheetFrameCount = _kPlayerAttackFrameCount,
     required Duration frameDuration,
   }) async {
     if (!mounted) return;
     setState(() {
       _currentPlayerSpritePath = spritePath;
+      _currentPlayerSpriteFrameCount = spriteSheetFrameCount;
       _playerAnimationFrame = 0;
     });
 
@@ -1744,7 +1786,7 @@ class _BattlePageState extends State<BattlePage> with WidgetsBindingObserver {
               offset: Offset(-_playerAnimationFrame * displayWidth, 0),
               child: Image.asset(
                 _currentPlayerSpritePath,
-                width: displayWidth * _kPlayerAttackFrameCount,
+                width: displayWidth * _currentPlayerSpriteFrameCount,
                 height: displayHeight,
                 fit: BoxFit.fill,
                 filterQuality: FilterQuality.none,

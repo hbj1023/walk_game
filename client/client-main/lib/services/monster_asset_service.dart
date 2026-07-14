@@ -15,6 +15,16 @@ class MonsterAssetService {
   static const toxicShroom = 'assets/images/monsters/toxic_shroom.png';
   static const frostShroom = 'assets/images/monsters/frost_shroom.png';
   static const elderSporeKing = 'assets/images/monsters/elder_spore_king.png';
+  static const pebbleGolem =
+      'assets/images/monsters/monster_3-1_pebble_golem.png';
+  static const crackedGolem =
+      'assets/images/monsters/monster_3-2_cracked_golem.png';
+  static const mossyGolem =
+      'assets/images/monsters/monster_3-3_mossy_golem.png';
+  static const oreGolem = 'assets/images/monsters/monster_3-4_ore_golem.png';
+  static const quarryGuardianGolem =
+      'assets/images/monsters/monster_3-5_quarry_guardian_golem.png';
+  static const ancientQuarryGolem = quarryGuardianGolem;
 
   static const greenGoblin = 'assets/images/monsters/green_goblin.png';
 
@@ -30,6 +40,11 @@ class MonsterAssetService {
       8 => '독버섯 주술사',
       9 => '서리 버섯병사',
       10 => '장로 포자왕',
+      11 => '금이 간 석상병',
+      12 => '광맥 굴착 골렘',
+      13 => '룬 각인 수호자',
+      14 => '고대 파쇄 거인',
+      15 => '거석왕 탈로스',
       _ => fallback,
     };
   }
@@ -46,6 +61,11 @@ class MonsterAssetService {
       8 => toxicShroom,
       9 => frostShroom,
       10 => elderSporeKing,
+      11 => pebbleGolem,
+      12 => crackedGolem,
+      13 => mossyGolem,
+      14 => oreGolem,
+      15 => quarryGuardianGolem,
       _ => null,
     };
     if (stageAsset != null) return stageAsset;
@@ -56,6 +76,14 @@ class MonsterAssetService {
         normalizedName.contains('elder') ||
         normalizedName.contains('king')) {
       return elderSporeKing;
+    }
+    if (normalizedName.contains('석상') ||
+        normalizedName.contains('골렘') ||
+        normalizedName.contains('수호자') ||
+        normalizedName.contains('거인') ||
+        normalizedName.contains('탈로스') ||
+        normalizedName.contains('golem')) {
+      return ancientQuarryGolem;
     }
     if (normalizedName.contains('서리') ||
         normalizedName.contains('얼음') ||
