@@ -213,6 +213,17 @@ const disableMixedDuplicates = (app, canonicalIDs) => {
 }
 
 migrate((app) => {
+  for (const statement of [
+    "ALTER TABLE item_templates ADD COLUMN set_key TEXT NOT NULL DEFAULT ''",
+    "ALTER TABLE item_templates ADD COLUMN image_path TEXT NOT NULL DEFAULT ''",
+  ]) {
+    try {
+      app.db().newQuery(statement).execute()
+    } catch (error) {
+      if (!String(error).toLowerCase().includes("duplicate column")) throw error
+    }
+  }
+
   const chapter1 = upsertDefinitions(app, chapter1EpicItems, "")
   const chapter2 = upsertDefinitions(app, chapter2PoisonItems, "poison_assassin")
   const canonicalIDs = { ...chapter1.canonicalIDs, ...chapter2.canonicalIDs }
