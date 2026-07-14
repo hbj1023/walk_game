@@ -1896,7 +1896,7 @@ class _ShopPageState extends State<ShopPage> {
         'sentinel' => '창술사 보스 에픽 세트',
         'shadow' => '도적 보스 에픽 세트',
         'colossus' => '견습기사 보스 에픽 세트',
-        _ => '숲길 보스 에픽 세트',
+        _ => '1장 에픽 장비',
       };
     }
     return switch (key) {
