@@ -59,9 +59,13 @@ def classify(
 ) -> tuple[str, str]:
     active = bool(value(row, "is_active", 0))
     total_refs = sum(refs.values())
+    shop_refs = refs.get("shop_items", 0)
+    non_shop_refs = total_refs - shop_refs
     name = str(value(row, "name")).strip()
     image = str(value(row, "image_path")).strip()
     duplicate = names[name] > 1 or (image and images[image] > 1)
+    if not active and shop_refs > 0 and non_shop_refs == 0:
+        return "연결 정리 후 삭제 후보", f"상점 연결 {shop_refs}개만 남음"
     if total_refs > 0:
         return "유지 권장", f"참조 기록 {total_refs}개"
     if active:
@@ -116,7 +120,7 @@ def write_report(rows: list[dict[str, object]], output_dir: Path) -> None:
     with markdown_path.open("w", encoding="utf-8") as handle:
         handle.write("# Item catalog audit\n\n")
         handle.write(f"- 전체: {len(rows)}개\n")
-        for label in ("유지 권장", "검토 필요", "삭제 후보"):
+        for label in ("유지 권장", "검토 필요", "연결 정리 후 삭제 후보", "삭제 후보"):
             handle.write(f"- {label}: {summary[label]}개\n")
         handle.write("\n삭제 후보는 자동 삭제되지 않습니다. CSV에서 사용자가 최종 판단하세요.\n")
     print(f"CSV: {csv_path}")
