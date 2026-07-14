@@ -151,6 +151,29 @@ func TestEquipmentShopChapterKeepsChapter1PathInChapter1(t *testing.T) {
 	}
 }
 
+func TestEquipmentShopChapterRecognizesPoisonAssassinWithoutSetKey(t *testing.T) {
+	template := testEquipmentTemplate("epic", "helmet", "", "helmet")
+	template.Name = "맹독 암살자 복면"
+
+	if got := equipmentShopChapter(template); got != 2 {
+		t.Fatalf("equipmentShopChapter() = %d, want 2", got)
+	}
+}
+
+func TestChapter1EpicOnlyAllowsCanonicalBossEquipment(t *testing.T) {
+	canonical := testEquipmentTemplate("epic", "helmet", "", "helmet")
+	canonical.Name = "에픽 투구"
+	if !isSupportedChapterEpicTemplate(canonical) {
+		t.Fatal("canonical chapter 1 epic helmet should be supported")
+	}
+
+	retired := testEquipmentTemplate("epic", "helmet", "", "helmet")
+	retired.Name = "에픽 견습기사 투구"
+	if isSupportedChapterEpicTemplate(retired) {
+		t.Fatal("retired chapter 1 epic helmet should be hidden")
+	}
+}
+
 func TestEquipmentShopProgressHidesEpicBeforeBossClear(t *testing.T) {
 	epic := testEquipmentTemplate("epic", "helmet", "", "")
 

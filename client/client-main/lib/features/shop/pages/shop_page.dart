@@ -1916,6 +1916,11 @@ class _ShopPageState extends State<ShopPage> {
     final source =
         '${template.imagePath} ${template.displayImagePath} ${template.name}'
             .toLowerCase();
+    if (setKey == 'poison_assassin' ||
+        source.contains('맹독 암살자') ||
+        source.contains('poison_assassin')) {
+      return true;
+    }
     if (setKey == 'chapter1-adventurer' ||
         source.contains('/chapter1/') ||
         source.contains('부서진') ||

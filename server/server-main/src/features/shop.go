@@ -457,10 +457,29 @@ func isEquipmentTemplateVisibleInShopByChapter(template itemTemplateRecord, prog
 }
 
 func isSupportedChapterEpicTemplate(template itemTemplateRecord) bool {
-	if template.Rarity != "epic" || equipmentShopChapter(template) != 2 {
+	if template.Rarity != "epic" {
 		return true
 	}
-	return strings.TrimSpace(template.SetKey) == "poison_assassin"
+	switch equipmentShopChapter(template) {
+	case 1:
+		return isCanonicalChapter1EpicTemplate(template)
+	case 2:
+		return strings.TrimSpace(template.SetKey) == "poison_assassin"
+	default:
+		return true
+	}
+}
+
+func isCanonicalChapter1EpicTemplate(template itemTemplateRecord) bool {
+	pieceType := equipmentShopPieceType(template)
+	canonicalPieces := map[string]string{
+		"에픽 검":  "weapon",
+		"에픽 투구": "helmet",
+		"에픽 갑옷": "armor",
+		"에픽 신발": "shoes",
+	}
+	wantPiece, ok := canonicalPieces[strings.TrimSpace(template.Name)]
+	return ok && pieceType == wantPiece && strings.TrimSpace(template.SetKey) == ""
 }
 
 func isEquipmentShopRarity(rarity string) bool {
@@ -480,6 +499,11 @@ func equipmentShopRarityRank(rarity string) (int, bool) {
 func equipmentShopChapter(template itemTemplateRecord) int {
 	setKey := strings.TrimSpace(template.SetKey)
 	source := strings.ToLower(template.ImagePath + " " + template.Name)
+	if setKey == "poison_assassin" ||
+		strings.Contains(source, "맹독 암살자") ||
+		strings.Contains(source, "poison_assassin") {
+		return 2
+	}
 	if setKey == "chapter1-adventurer" ||
 		strings.Contains(source, "/chapter1/") ||
 		strings.Contains(source, "부서진") ||
