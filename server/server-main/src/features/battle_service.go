@@ -296,7 +296,8 @@ func attackNormalBattle(ctx context.Context, token string, userID string, req No
 		return NormalBattleResponse{}, statusError{status: http.StatusBadRequest, message: "battle is already finished"}
 	}
 
-	playerDamage := formulas.CalculateDamage(statContext.Stats.Attack, monster.Defense)
+	monsterDefense := adjustedMonsterDefense(monster.Defense, statContext.Effects)
+	playerDamage := formulas.CalculateDamage(statContext.Stats.Attack, monsterDefense)
 	playerDamage = adjustedPlayerDamage(playerDamage, battle.BattleType, statContext.Effects)
 	monsterCurrentHP := battle.MonsterCurrentHP - playerDamage
 	if monsterCurrentHP < 0 {
@@ -490,7 +491,8 @@ func attackBossBattle(ctx context.Context, token string, userID string, req Norm
 		}
 	}
 
-	playerDamage := formulas.CalculateDamage(statContext.Stats.Attack, monster.Defense)
+	monsterDefense := adjustedMonsterDefense(monster.Defense, statContext.Effects)
+	playerDamage := formulas.CalculateDamage(statContext.Stats.Attack, monsterDefense)
 	playerDamage = adjustedPlayerDamage(playerDamage, battle.BattleType, statContext.Effects)
 	monsterCurrentHP := battle.MonsterCurrentHP - playerDamage
 	if monsterCurrentHP < 0 {
@@ -1095,7 +1097,7 @@ func isBossRewardTemplateForStage(template itemTemplateRecord, stageNo int) bool
 	if chapter <= 0 {
 		chapter = 1
 	}
-	return equipmentShopChapter(template) == chapter
+	return equipmentShopChapter(template) == chapter && isSupportedChapterEpicTemplate(template)
 }
 
 func lockNormalBattle(battleID string) func() {
@@ -1161,6 +1163,11 @@ var recommendedCombatPowerByStage = map[int]int{
 	8:  540,
 	9:  680,
 	10: 820,
+	11: 900,
+	12: 1050,
+	13: 1220,
+	14: 1400,
+	15: 1650,
 }
 
 func normalBattleExpReward(stageNo int, isBoss bool, progress stageProgressRecord, progressFound bool, characterCombatPower int) int {

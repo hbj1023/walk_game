@@ -14,9 +14,22 @@ String resolveEquipmentImagePath({
   if (explicitImagePath.contains('ch2_epic_poison_assassin')) {
     return explicitImagePath;
   }
+  if (explicitImagePath.contains('/chapter3/')) {
+    return explicitImagePath;
+  }
 
   final chapter1ImagePath = _chapter1EquipmentImagePath(name);
   if (chapter1ImagePath.isNotEmpty) return chapter1ImagePath;
+
+  final chapter3WeaponImagePath = _chapter3WeaponImagePath(
+    equipmentSlot: equipmentSlot,
+    setPieceType: setPieceType,
+    weaponType: weaponType,
+    setKey: setKey,
+    name: name,
+    rarity: rarity,
+  );
+  if (chapter3WeaponImagePath.isNotEmpty) return chapter3WeaponImagePath;
 
   final weaponImagePath = _weaponImagePath(
     equipmentSlot: equipmentSlot,
@@ -230,6 +243,49 @@ String _chapter2WeaponImagePath(String weaponType, {String rarity = ''}) {
       isRare
           ? 'assets/images/equipment/chapter2/ch2_weapon_rare_greatsword.png'
           : 'assets/images/equipment/chapter2/ch2_weapon_colossus.png',
+    _ => '',
+  };
+}
+
+String _chapter3WeaponImagePath({
+  required String equipmentSlot,
+  required String setPieceType,
+  required String weaponType,
+  required String setKey,
+  required String name,
+  required String rarity,
+}) {
+  final normalizedSetKey = setKey.trim().toLowerCase();
+  final lowerName = name.toLowerCase();
+  final isChapter3 =
+      normalizedSetKey == 'crusher' ||
+      lowerName.contains('crusher') ||
+      name.contains('파쇄자');
+  if (!isChapter3) return '';
+  if (equipmentSlot != 'sword' && setPieceType != 'weapon') return '';
+
+  final inferredWeaponType = weaponType.isNotEmpty
+      ? weaponType
+      : _inferWeaponTypeFromName(name);
+  return _chapter3WeaponAssetPath(inferredWeaponType, rarity: rarity);
+}
+
+String _chapter3WeaponAssetPath(String weaponType, {String rarity = ''}) {
+  final normalizedRarity = rarity.trim().toLowerCase();
+  final rarityPrefix = normalizedRarity == 'rare' || normalizedRarity == 'epic'
+      ? 'rare_'
+      : '';
+  return switch (weaponType) {
+    'sword' =>
+      'assets/images/equipment/chapter3/ch3_weapon_${rarityPrefix}sword.png',
+    'axe' =>
+      'assets/images/equipment/chapter3/ch3_weapon_${rarityPrefix}axe.png',
+    'spear' =>
+      'assets/images/equipment/chapter3/ch3_weapon_${rarityPrefix}spear.png',
+    'dagger' =>
+      'assets/images/equipment/chapter3/ch3_weapon_${rarityPrefix}dagger.png',
+    'greatsword' =>
+      'assets/images/equipment/chapter3/ch3_weapon_${rarityPrefix}greatsword.png',
     _ => '',
   };
 }

@@ -15,10 +15,12 @@ import (
 const equipmentSetBonusesCollection = "equipment_set_bonuses"
 
 type battleSetEffects struct {
-	DamageTakenPercent    float64 `json:"damage_taken_percent"`
-	MonsterGaugePercent   float64 `json:"monster_gauge_percent"`
-	AttackDistancePercent float64 `json:"attack_distance_percent"`
-	BossDamagePercent     float64 `json:"boss_damage_percent"`
+	DamageTakenPercent        float64 `json:"damage_taken_percent"`
+	MonsterGaugePercent       float64 `json:"monster_gauge_percent"`
+	AttackDistancePercent     float64 `json:"attack_distance_percent"`
+	BossDamagePercent         float64 `json:"boss_damage_percent"`
+	DefensePenetrationPercent float64 `json:"defense_penetration_percent"`
+	FixedDamage               float64 `json:"fixed_damage"`
 }
 
 type battleStatContext struct {
@@ -314,6 +316,10 @@ func summarizeSetBonuses(rawStats statBlock, bonuses []equipmentSetBonusRecord) 
 			effects.AttackDistancePercent += bonus.BonusValue
 		case "boss_damage_percent":
 			effects.BossDamagePercent += bonus.BonusValue
+		case "defense_penetration_percent":
+			effects.DefensePenetrationPercent += bonus.BonusValue
+		case "fixed_damage":
+			effects.FixedDamage += bonus.BonusValue
 		}
 	}
 	return stats, effects
@@ -348,13 +354,35 @@ func adjustedMonsterGaugeGain(distanceM float64, effects battleSetEffects) float
 
 func adjustedPlayerDamage(damage int, battleType string, effects battleSetEffects) int {
 	if battleType != "boss" {
-		return damage
+		return damage + fixedSetDamage(effects)
 	}
-	return applyBattlePercentToDamage(damage, effects.BossDamagePercent)
+	return applyBattlePercentToDamage(damage, effects.BossDamagePercent) + fixedSetDamage(effects)
+}
+
+func fixedSetDamage(effects battleSetEffects) int {
+	if effects.FixedDamage <= 0 {
+		return 0
+	}
+	return int(math.Round(effects.FixedDamage))
 }
 
 func adjustedMonsterDamage(damage int, effects battleSetEffects) int {
 	return applyBattlePercentToDamage(damage, effects.DamageTakenPercent)
+}
+
+func adjustedMonsterDefense(defense int, effects battleSetEffects) int {
+	if defense <= 0 || effects.DefensePenetrationPercent <= 0 {
+		return defense
+	}
+	penetration := effects.DefensePenetrationPercent
+	if penetration > 100 {
+		penetration = 100
+	}
+	adjusted := int(math.Ceil(float64(defense) * (1 - penetration/100)))
+	if adjusted < 0 {
+		return 0
+	}
+	return adjusted
 }
 
 func applyBattlePercentToDistance(distanceM float64, percent float64) float64 {

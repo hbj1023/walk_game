@@ -24,6 +24,8 @@ func TestSummarizeSetBonusesAppliesStatAndBattleEffects(t *testing.T) {
 		{BonusType: "damage_taken_percent", BonusValue: -3},
 		{BonusType: "attack_distance_percent", BonusValue: -8},
 		{BonusType: "boss_damage_percent", BonusValue: 10},
+		{BonusType: "defense_penetration_percent", BonusValue: 30},
+		{BonusType: "fixed_damage", BonusValue: 12},
 	}
 
 	stats, effects := summarizeSetBonuses(raw, bonuses)
@@ -39,14 +41,22 @@ func TestSummarizeSetBonusesAppliesStatAndBattleEffects(t *testing.T) {
 	if effects.BossDamagePercent != 10 {
 		t.Fatalf("boss damage percent = %v, want 10", effects.BossDamagePercent)
 	}
+	if effects.DefensePenetrationPercent != 30 {
+		t.Fatalf("defense penetration percent = %v, want 30", effects.DefensePenetrationPercent)
+	}
+	if effects.FixedDamage != 12 {
+		t.Fatalf("fixed damage = %v, want 12", effects.FixedDamage)
+	}
 }
 
 func TestAdjustedBattleEffects(t *testing.T) {
 	effects := battleSetEffects{
-		DamageTakenPercent:    -3,
-		MonsterGaugePercent:   -8,
-		AttackDistancePercent: -8,
-		BossDamagePercent:     10,
+		DamageTakenPercent:        -3,
+		MonsterGaugePercent:       -8,
+		AttackDistancePercent:     -8,
+		BossDamagePercent:         10,
+		DefensePenetrationPercent: 30,
+		FixedDamage:               12,
 	}
 
 	if got := adjustedAttackDistance(100, effects); got != 92 {
@@ -55,13 +65,16 @@ func TestAdjustedBattleEffects(t *testing.T) {
 	if got := adjustedMonsterGaugeGain(100, effects); got != 92 {
 		t.Fatalf("adjusted monster gauge gain = %v, want 92", got)
 	}
-	if got := adjustedPlayerDamage(100, "boss", effects); got != 110 {
-		t.Fatalf("adjusted boss player damage = %d, want 110", got)
+	if got := adjustedPlayerDamage(100, "boss", effects); got != 122 {
+		t.Fatalf("adjusted boss player damage = %d, want 122", got)
 	}
-	if got := adjustedPlayerDamage(100, "normal", effects); got != 100 {
-		t.Fatalf("adjusted normal player damage = %d, want 100", got)
+	if got := adjustedPlayerDamage(100, "normal", effects); got != 112 {
+		t.Fatalf("adjusted normal player damage = %d, want 112", got)
 	}
 	if got := adjustedMonsterDamage(100, effects); got != 97 {
 		t.Fatalf("adjusted monster damage = %d, want 97", got)
+	}
+	if got := adjustedMonsterDefense(50, effects); got != 35 {
+		t.Fatalf("adjusted monster defense = %d, want 35", got)
 	}
 }

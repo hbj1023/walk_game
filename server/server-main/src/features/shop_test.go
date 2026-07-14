@@ -42,22 +42,22 @@ func TestEquipmentShopProgressShowsCommonAndRareBeforePurchase(t *testing.T) {
 	}
 }
 
-func TestEquipmentShopProgressHidesOwnedCommonButKeepsRareVisible(t *testing.T) {
+func TestEquipmentShopProgressKeepsOwnedCommonAndRareVisible(t *testing.T) {
 	common := testEquipmentTemplate("common", "helmet", "", "")
 	rare := testEquipmentTemplate("rare", "helmet", "", "")
 	progress := buildEquipmentShopProgress([]ownedEquipmentRecord{
 		testOwnedEquipment(common, "owned"),
 	})
 
-	if isEquipmentTemplateVisibleInShop(common, progress, false, nil) {
-		t.Fatal("owned common equipment should not remain visible")
+	if !isEquipmentTemplateVisibleInShop(common, progress, false, nil) {
+		t.Fatal("owned common equipment should remain visible")
 	}
 	if !isEquipmentTemplateVisibleInShop(rare, progress, false, nil) {
 		t.Fatal("rare equipment should remain visible after owning common")
 	}
 }
 
-func TestEquipmentShopProgressReopensHighestSoldTierOnly(t *testing.T) {
+func TestEquipmentShopProgressKeepsLowerAndSoldTiersVisible(t *testing.T) {
 	common := testEquipmentTemplate("common", "helmet", "", "")
 	rare := testEquipmentTemplate("rare", "helmet", "", "")
 	progress := buildEquipmentShopProgress([]ownedEquipmentRecord{
@@ -65,8 +65,8 @@ func TestEquipmentShopProgressReopensHighestSoldTierOnly(t *testing.T) {
 		testOwnedEquipment(rare, "sold"),
 	})
 
-	if isEquipmentTemplateVisibleInShop(common, progress, false, nil) {
-		t.Fatal("lower active tier should stay hidden after reaching rare")
+	if !isEquipmentTemplateVisibleInShop(common, progress, false, nil) {
+		t.Fatal("lower active tier should remain visible after reaching rare")
 	}
 	if !isEquipmentTemplateVisibleInShop(rare, progress, false, nil) {
 		t.Fatal("sold highest tier should be visible for repurchase")
@@ -95,8 +95,8 @@ func TestEquipmentShopProgressKeepsDifferentSetsIndependent(t *testing.T) {
 		testOwnedEquipment(shadowRare, "owned"),
 	})
 
-	if isEquipmentTemplateVisibleInShop(shadowRare, progress, true, nil) {
-		t.Fatal("owned rare item in the same set should stay hidden")
+	if !isEquipmentTemplateVisibleInShop(shadowRare, progress, true, nil) {
+		t.Fatal("owned rare item in the same set should remain visible")
 	}
 	if !isEquipmentTemplateVisibleInShop(vanguardRare, progress, true, nil) {
 		t.Fatal("owning one rare set should not block a different rare set")
@@ -115,8 +115,8 @@ func TestEquipmentShopProgressKeepsDifferentFallbackArmorSetsIndependent(t *test
 		testOwnedEquipment(shadowRare, "owned"),
 	})
 
-	if isEquipmentTemplateVisibleInShop(shadowRare, progress, true, nil) {
-		t.Fatal("owned fallback armor set item should stay hidden")
+	if !isEquipmentTemplateVisibleInShop(shadowRare, progress, true, nil) {
+		t.Fatal("owned fallback armor set item should remain visible")
 	}
 	if !isEquipmentTemplateVisibleInShop(vanguardRare, progress, true, nil) {
 		t.Fatal("fallback armor set key should keep different armor sets purchasable")
@@ -134,11 +134,46 @@ func TestEquipmentShopProgressHidesChapter2UntilUnlocked(t *testing.T) {
 	}
 }
 
+func TestEquipmentShopChapterRecognizesQuarrySet(t *testing.T) {
+	template := testEquipmentTemplate("rare", "sword", "quarry_swordsman", "weapon")
+
+	if got := equipmentShopChapter(template); got != 3 {
+		t.Fatalf("equipmentShopChapter() = %d, want 3", got)
+	}
+}
+
+func TestEquipmentShopChapterKeepsChapter1PathInChapter1(t *testing.T) {
+	template := testEquipmentTemplate("rare", "sword", "chapter1-adventurer", "weapon")
+	template.ImagePath = "assets/images/equipment/chapter1/tutorial_weapon_rare_sword.png"
+
+	if got := equipmentShopChapter(template); got != 1 {
+		t.Fatalf("equipmentShopChapter() = %d, want 1", got)
+	}
+}
+
 func TestEquipmentShopProgressHidesEpicBeforeBossClear(t *testing.T) {
 	epic := testEquipmentTemplate("epic", "helmet", "", "")
 
 	if isEquipmentTemplateVisibleInShop(epic, buildEquipmentShopProgress(nil), false, nil) {
 		t.Fatal("boss epic equipment should stay hidden before the boss is cleared")
+	}
+}
+
+func TestEquipmentShopProgressHidesRetiredChapter2Epic(t *testing.T) {
+	epic := testEquipmentTemplate("epic", "sword", "vanguard", "weapon")
+	bossShopUnlocks := map[int]bool{2: true}
+
+	if isEquipmentTemplateVisibleInShop(epic, buildEquipmentShopProgress(nil), true, bossShopUnlocks) {
+		t.Fatal("retired chapter 2 epic equipment should stay hidden after boss clear")
+	}
+}
+
+func TestEquipmentShopProgressShowsPoisonAssassinEpic(t *testing.T) {
+	epic := testEquipmentTemplate("epic", "sword", "poison_assassin", "weapon")
+	bossShopUnlocks := map[int]bool{2: true}
+
+	if !isEquipmentTemplateVisibleInShop(epic, buildEquipmentShopProgress(nil), true, bossShopUnlocks) {
+		t.Fatal("poison assassin epic equipment should show after chapter 2 boss clear")
 	}
 }
 
@@ -164,15 +199,30 @@ func TestEquipmentShopAvailabilityUnlocksEpicAfterBossClear(t *testing.T) {
 	}
 }
 
-func TestEquipmentShopProgressHidesOwnedEpicAfterBossClear(t *testing.T) {
+func TestEquipmentShopProgressKeepsOwnedEpicVisibleAfterBossClear(t *testing.T) {
 	epic := testEquipmentTemplate("epic", "helmet", "", "")
 	progress := buildEquipmentShopProgress([]ownedEquipmentRecord{
 		testOwnedEquipment(epic, "owned"),
 	})
 	bossShopUnlocks := map[int]bool{1: true}
 
-	if isEquipmentTemplateVisibleInShop(epic, progress, false, bossShopUnlocks) {
-		t.Fatal("owned epic equipment should not remain visible")
+	if !isEquipmentTemplateVisibleInShop(epic, progress, false, bossShopUnlocks) {
+		t.Fatal("owned epic equipment should remain visible")
+	}
+}
+
+func TestEquipmentShopAvailabilityLocksOwnedEquipmentPurchase(t *testing.T) {
+	common := testEquipmentTemplate("common", "helmet", "", "")
+	progress := buildEquipmentShopProgress([]ownedEquipmentRecord{
+		testOwnedEquipment(common, "owned"),
+	})
+
+	availability := equipmentShopAvailabilityForTemplate(common, progress, false, nil)
+	if !availability.include {
+		t.Fatal("owned equipment should remain included in the shop")
+	}
+	if availability.purchaseUnlocked {
+		t.Fatal("owned equipment should not be purchasable again")
 	}
 }
 

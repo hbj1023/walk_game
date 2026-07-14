@@ -253,6 +253,10 @@ func filterShopItemsByCharacterProgress(ctx context.Context, token string, chara
 	if err != nil {
 		return nil, err
 	}
+	chapter3Unlocked, err := isChapter3EquipmentShopUnlocked(ctx, token, characterID)
+	if err != nil {
+		return nil, err
+	}
 	bossShopUnlocks, err := getClearedBossEquipmentShopUnlocks(ctx, token, characterID)
 	if err != nil {
 		log.Printf("failed to get cleared boss equipment shop unlocks: character=%s err=%v", characterID, err)
@@ -266,7 +270,7 @@ func filterShopItemsByCharacterProgress(ctx context.Context, token string, chara
 			filtered = append(filtered, item)
 			continue
 		}
-		availability := equipmentShopAvailabilityForTemplate(template, progress, chapter2Unlocked, bossShopUnlocks)
+		availability := equipmentShopAvailabilityForTemplateByChapter(template, progress, chapter2Unlocked, chapter3Unlocked, bossShopUnlocks)
 		if !availability.include {
 			continue
 		}
@@ -369,6 +373,10 @@ type equipmentShopAvailabilityResult struct {
 }
 
 func equipmentShopAvailabilityForTemplate(template itemTemplateRecord, progress equipmentShopProgress, chapter2Unlocked bool, bossShopUnlocks map[int]bool) equipmentShopAvailabilityResult {
+	return equipmentShopAvailabilityForTemplateByChapter(template, progress, chapter2Unlocked, true, bossShopUnlocks)
+}
+
+func equipmentShopAvailabilityForTemplateByChapter(template itemTemplateRecord, progress equipmentShopProgress, chapter2Unlocked bool, chapter3Unlocked bool, bossShopUnlocks map[int]bool) equipmentShopAvailabilityResult {
 	locked := func(reason string) equipmentShopAvailabilityResult {
 		return equipmentShopAvailabilityResult{include: true, purchaseUnlocked: false, lockedReason: reason}
 	}
@@ -377,7 +385,13 @@ func equipmentShopAvailabilityForTemplate(template itemTemplateRecord, progress 
 	if !isEquipmentShopRarity(template.Rarity) {
 		return equipmentShopAvailabilityResult{}
 	}
+	if !isSupportedChapterEpicTemplate(template) {
+		return equipmentShopAvailabilityResult{}
+	}
 	if equipmentShopChapter(template) >= 2 && !chapter2Unlocked {
+		return equipmentShopAvailabilityResult{}
+	}
+	if equipmentShopChapter(template) >= 3 && !chapter3Unlocked {
 		return equipmentShopAvailabilityResult{}
 	}
 
@@ -390,16 +404,9 @@ func equipmentShopAvailabilityForTemplate(template itemTemplateRecord, progress 
 		return equipmentShopAvailabilityResult{}
 	}
 
-	reachedRank, hasReached := progress.reachedRankByLine[lineKey]
 	activeRank, hasActive := progress.activeRankByLine[lineKey]
-	if hasActive && activeRank > rank {
-		return equipmentShopAvailabilityResult{}
-	}
 	if hasActive && activeRank == rank {
 		return locked("이미 보유 중인 등급입니다.")
-	}
-	if hasReached && reachedRank > rank {
-		return equipmentShopAvailabilityResult{}
 	}
 	if rank == 2 && !isBossEquipmentShopUnlockedForTemplate(template, bossShopUnlocks) {
 		return locked("해당 장 보스를 클리어하면 판매됩니다.")
@@ -410,17 +417,24 @@ func equipmentShopAvailabilityForTemplate(template itemTemplateRecord, progress 
 	if rank <= 1 {
 		return available
 	}
-	if rank == reachedRank && (!hasActive || activeRank < reachedRank) {
-		return available
-	}
 	return equipmentShopAvailabilityResult{}
 }
 
 func isEquipmentTemplateVisibleInShop(template itemTemplateRecord, progress equipmentShopProgress, chapter2Unlocked bool, bossShopUnlocks map[int]bool) bool {
+	return isEquipmentTemplateVisibleInShopByChapter(template, progress, chapter2Unlocked, true, bossShopUnlocks)
+}
+
+func isEquipmentTemplateVisibleInShopByChapter(template itemTemplateRecord, progress equipmentShopProgress, chapter2Unlocked bool, chapter3Unlocked bool, bossShopUnlocks map[int]bool) bool {
 	if !isEquipmentShopRarity(template.Rarity) {
 		return false
 	}
+	if !isSupportedChapterEpicTemplate(template) {
+		return false
+	}
 	if equipmentShopChapter(template) >= 2 && !chapter2Unlocked {
+		return false
+	}
+	if equipmentShopChapter(template) >= 3 && !chapter3Unlocked {
 		return false
 	}
 
@@ -433,28 +447,20 @@ func isEquipmentTemplateVisibleInShop(template itemTemplateRecord, progress equi
 		return false
 	}
 
-	reachedRank, hasReached := progress.reachedRankByLine[lineKey]
-	activeRank, hasActive := progress.activeRankByLine[lineKey]
 	if rank == 2 {
-		if !isBossEquipmentShopUnlockedForTemplate(template, bossShopUnlocks) {
-			return false
-		}
-		if hasActive && activeRank >= rank {
-			return false
-		}
-		return true
-	}
-
-	if hasActive && activeRank >= rank {
-		return false
-	}
-	if hasReached && reachedRank > rank {
-		return false
+		return isBossEquipmentShopUnlockedForTemplate(template, bossShopUnlocks)
 	}
 	if rank <= 1 {
 		return true
 	}
 	return false
+}
+
+func isSupportedChapterEpicTemplate(template itemTemplateRecord) bool {
+	if template.Rarity != "epic" || equipmentShopChapter(template) != 2 {
+		return true
+	}
+	return strings.TrimSpace(template.SetKey) == "poison_assassin"
 }
 
 func isEquipmentShopRarity(rarity string) bool {
@@ -472,7 +478,23 @@ func equipmentShopRarityRank(rarity string) (int, bool) {
 }
 
 func equipmentShopChapter(template itemTemplateRecord) int {
-	if strings.TrimSpace(template.SetKey) != "" ||
+	setKey := strings.TrimSpace(template.SetKey)
+	source := strings.ToLower(template.ImagePath + " " + template.Name)
+	if setKey == "chapter1-adventurer" ||
+		strings.Contains(source, "/chapter1/") ||
+		strings.Contains(source, "부서진") ||
+		strings.Contains(source, "낡은") ||
+		strings.Contains(source, "튼튼한") {
+		return 1
+	}
+	if strings.HasPrefix(setKey, "quarry_") ||
+		setKey == "crusher" ||
+		strings.Contains(strings.ToLower(template.ImagePath), "/chapter3/") ||
+		strings.Contains(strings.ToLower(template.Name), "파쇄자") ||
+		strings.Contains(strings.ToLower(template.Name), "채석단") {
+		return 3
+	}
+	if setKey != "" ||
 		strings.Contains(strings.ToLower(template.ImagePath), "/chapter2/") ||
 		strings.Contains(strings.ToLower(template.Name), "견습기사") ||
 		strings.Contains(strings.ToLower(template.Name), "모험가") ||
@@ -509,7 +531,10 @@ func equipmentShopInferredSetKey(template itemTemplateRecord) string {
 	}
 
 	source := strings.ToLower(template.ImagePath + " " + template.Name)
-	for _, setKey := range []string{"vanguard", "berserker", "sentinel", "shadow", "colossus"} {
+	for _, setKey := range []string{
+		"vanguard", "berserker", "sentinel", "shadow", "colossus",
+		"quarry_swordsman", "quarry_berserker", "quarry_spearmaster", "quarry_rogue", "quarry_knight",
+	} {
 		if strings.Contains(source, setKey) {
 			return setKey
 		}
@@ -576,6 +601,32 @@ func isChapter2EquipmentShopUnlocked(ctx context.Context, token string, characte
 	}
 
 	if bossStage, err := getBossStageByNo(ctx, token, 5); err == nil {
+		progress, found, err := getStageProgress(ctx, token, characterID, bossStage.ID)
+		if err != nil {
+			return false, err
+		}
+		return isStageCleared(progress, found), nil
+	} else if !isNotFoundStatusError(err) {
+		return false, err
+	}
+
+	return false, nil
+}
+
+func isChapter3EquipmentShopUnlocked(ctx context.Context, token string, characterID string) (bool, error) {
+	if stage, err := getNormalStageByNo(ctx, token, 11); err == nil {
+		progress, found, err := getStageProgress(ctx, token, characterID, stage.ID)
+		if err != nil {
+			return false, err
+		}
+		if found && progress.Status != "locked" {
+			return true, nil
+		}
+	} else if !isNotFoundStatusError(err) {
+		return false, err
+	}
+
+	if bossStage, err := getBossStageByNo(ctx, token, 10); err == nil {
 		progress, found, err := getStageProgress(ctx, token, characterID, bossStage.ID)
 		if err != nil {
 			return false, err
@@ -687,12 +738,26 @@ func ensureEquipmentShopPurchaseUnlocked(ctx context.Context, token string, char
 	if err != nil {
 		return err
 	}
+	chapter3Unlocked, err := isChapter3EquipmentShopUnlocked(ctx, token, characterID)
+	if err != nil {
+		return err
+	}
 	bossShopUnlocks, err := getClearedBossEquipmentShopUnlocks(ctx, token, characterID)
 	if err != nil {
 		return err
 	}
-	if !isEquipmentTemplateVisibleInShop(template, progress, chapter2Unlocked, bossShopUnlocks) {
+	availability := equipmentShopAvailabilityForTemplateByChapter(
+		template,
+		progress,
+		chapter2Unlocked,
+		chapter3Unlocked,
+		bossShopUnlocks,
+	)
+	if !availability.include {
 		return statusError{status: http.StatusForbidden, message: "equipment is not unlocked in shop"}
+	}
+	if !availability.purchaseUnlocked {
+		return statusError{status: http.StatusConflict, message: availability.lockedReason}
 	}
 	return nil
 }

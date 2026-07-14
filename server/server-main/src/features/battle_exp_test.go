@@ -19,8 +19,11 @@ func TestRecommendedCombatPowerForStage(t *testing.T) {
 	if got := recommendedCombatPowerForStage(10); got != 820 {
 		t.Fatalf("stage 10 recommended power = %d, want 820", got)
 	}
-	if got := recommendedCombatPowerForStage(11); got != 1650 {
-		t.Fatalf("stage 11 fallback recommended power = %d, want 1650", got)
+	if got := recommendedCombatPowerForStage(11); got != 900 {
+		t.Fatalf("stage 11 recommended power = %d, want 900", got)
+	}
+	if got := recommendedCombatPowerForStage(15); got != 1650 {
+		t.Fatalf("stage 15 recommended power = %d, want 1650", got)
 	}
 }
 

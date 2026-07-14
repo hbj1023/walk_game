@@ -55,6 +55,14 @@ func listNormalStageProgress(ctx context.Context, token string, userID string) (
 	for _, stage := range stages {
 		progress, found := progressByStageID[stage.ID]
 		stageResponse := buildNormalStageResponse(stage, progress, found)
+		if stage.StageType == "normal" && !found {
+			if unlocked, err := isNormalStageUnlockedForList(ctx, token, progressByStageID, stage.StageNo); err != nil {
+				return NormalStageListResponse{}, err
+			} else if unlocked {
+				stageResponse.Status = "unlocked"
+				stageResponse.IsUnlocked = true
+			}
+		}
 		if stage.StageType == "boss" && !found {
 			if unlocked, err := isBossStageUnlockedForList(ctx, token, progressByStageID, stage.StageNo); err != nil {
 				return NormalStageListResponse{}, err
@@ -71,6 +79,18 @@ func listNormalStageProgress(ctx context.Context, token string, userID string) (
 		response.Stages = append(response.Stages, stageResponse)
 	}
 	return response, nil
+}
+
+func isNormalStageUnlockedForList(ctx context.Context, token string, progressByStageID map[string]stageProgressRecord, stageNo int) (bool, error) {
+	if stageNo <= firstNormalStageNo {
+		return true, nil
+	}
+	previousStage, err := previousStageForUnlock(ctx, token, stageNo)
+	if err != nil {
+		return false, err
+	}
+	previousProgress, found := progressByStageID[previousStage.ID]
+	return isStageCleared(previousProgress, found), nil
 }
 
 func isBossStageUnlockedForList(ctx context.Context, token string, progressByStageID map[string]stageProgressRecord, bossStageNo int) (bool, error) {

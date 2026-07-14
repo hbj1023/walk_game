@@ -32,4 +32,37 @@ void main() {
     expect(armorPath(' BERSERKER ', 'rare'), contains('armor_rare_shadow_'));
     expect(armorPath(' SHADOW ', 'common'), contains('armor_vanguard_'));
   });
+
+  test('3장 명시 이미지 경로는 그대로 사용한다', () {
+    final path = resolveEquipmentImagePath(
+      imagePath: 'assets/images/equipment/chapter3/ch3_weapon_rare_sword.png',
+      rarity: 'rare',
+      itemType: 'equipment',
+      equipmentSlot: 'sword',
+      weaponType: 'sword',
+      setKey: 'vanguard',
+      setPieceType: 'weapon',
+      name: '',
+    );
+
+    expect(path, 'assets/images/equipment/chapter3/ch3_weapon_rare_sword.png');
+  });
+
+  test('파쇄자 무기는 3장 무기 에셋을 사용한다', () {
+    final path = resolveEquipmentImagePath(
+      imagePath: '',
+      rarity: 'rare',
+      itemType: 'equipment',
+      equipmentSlot: 'sword',
+      weaponType: 'greatsword',
+      setKey: 'crusher',
+      setPieceType: 'weapon',
+      name: '파쇄자 대검',
+    );
+
+    expect(
+      path,
+      'assets/images/equipment/chapter3/ch3_weapon_rare_greatsword.png',
+    );
+  });
 }

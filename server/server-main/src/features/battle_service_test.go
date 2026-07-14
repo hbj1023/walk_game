@@ -51,13 +51,25 @@ func TestIsBossRewardTemplateForStage(t *testing.T) {
 			want: false,
 		},
 		{
-			name:    "chapter 2 boss accepts chapter 2 set equipment",
+			name:    "chapter 2 boss rejects retired chapter 2 epic equipment",
 			stageNo: 10,
 			template: itemTemplateRecord{
 				Name:          "에픽 모험가 검",
 				ItemType:      "equipment",
 				EquipmentSlot: "sword",
 				SetKey:        "vanguard",
+				Rarity:        "epic",
+			},
+			want: false,
+		},
+		{
+			name:    "chapter 2 boss accepts poison assassin epic equipment",
+			stageNo: 10,
+			template: itemTemplateRecord{
+				Name:          "맹독 암살자 단검",
+				ItemType:      "equipment",
+				EquipmentSlot: "sword",
+				SetKey:        "poison_assassin",
 				Rarity:        "epic",
 			},
 			want: true,

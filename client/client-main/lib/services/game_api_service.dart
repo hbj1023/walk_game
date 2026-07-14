@@ -283,16 +283,19 @@ String equipmentSetNameForKey(String setKey) {
     'sentinel' => '창술사 세트',
     'shadow' => '도적 세트',
     'colossus' => '견습기사 세트',
+    'crusher' => '파쇄자 세트',
+    'quarry_swordsman' => '채석단 검사 세트',
+    'quarry_berserker' => '채석단 광전사 세트',
+    'quarry_spearmaster' => '채석단 창술사 세트',
+    'quarry_rogue' => '채석단 도적 세트',
+    'quarry_knight' => '채석단 기사 세트',
     _ => '',
   };
 }
 
 List<String> equipmentSetEffectLinesForKey(String setKey) {
   if (setKey.trim() == 'poison_assassin') {
-    return const [
-      '3세트: 민첩 +15% / 받는 피해 -5%',
-      '4세트: 공격 필요 거리 -12% / 보스 피해 +12%',
-    ];
+    return const ['3세트: 적 방어력 15% 감소', '4세트: 공격 시 고정 독 피해 12'];
   }
   return switch (setKey.trim()) {
     'vanguard' => const [
@@ -312,6 +315,12 @@ List<String> equipmentSetEffectLinesForKey(String setKey) {
       '3세트: 방어력 +15% / 최대 HP +10%',
       '4세트: 받는 피해 -8% / 보스 피해 +8%',
     ],
+    'crusher' => const ['3세트: 공격력 +8%', '4세트: 적 방어력 30% 무시'],
+    'quarry_swordsman' => const ['3세트: 공격력 +8%', '4세트: 적 방어력 15% 무시'],
+    'quarry_berserker' => const ['3세트: 공격력 +12%', '4세트: 보스 피해 +15%'],
+    'quarry_spearmaster' => const ['3세트: 방어력 +12%', '4세트: 몬스터 공격 게이지 -10%'],
+    'quarry_rogue' => const ['3세트: 민첩 +12%', '4세트: 공격 필요 거리 -10%'],
+    'quarry_knight' => const ['3세트: 방어력 +15%', '4세트: 최대 HP +10%'],
     _ => const [],
   };
 }

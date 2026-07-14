@@ -43,6 +43,8 @@ class ShopPage extends StatefulWidget {
 
 class _ShopPageState extends State<ShopPage> {
   int _selectedTab = 0;
+  int _selectedEquipmentChapter = 1;
+  bool _didInitializeEquipmentChapter = false;
   String _userName = '...';
   bool _isLoading = true;
   bool _isBuying = false;
@@ -52,6 +54,7 @@ class _ShopPageState extends State<ShopPage> {
   List<OwnedInventoryItem> _inventoryItems = const [];
   Set<String> _ownedEquipmentTemplateIds = const {};
   bool _chapter2EquipmentUnlocked = false;
+  bool _chapter3EquipmentUnlocked = false;
   Shop? _selectedShop;
   final _gs = GameState.instance;
 
@@ -106,6 +109,14 @@ class _ShopPageState extends State<ShopPage> {
                 stage.stageType == 'boss' &&
                 stage.isCleared,
           );
+      final chapter3Unlocked =
+          stages.any((stage) => stage.stageNo >= 11 && stage.isUnlocked) ||
+          stages.any(
+            (stage) =>
+                stage.stageNo == 10 &&
+                stage.stageType == 'boss' &&
+                stage.isCleared,
+          );
       final ownedEquipmentTemplateIds = inventoryItems
           .where((item) => item.itemTemplate.isEquipment && !item.isRemoved)
           .map((item) => item.itemTemplate.id)
@@ -119,6 +130,15 @@ class _ShopPageState extends State<ShopPage> {
         _inventoryItems = inventoryItems;
         _ownedEquipmentTemplateIds = ownedEquipmentTemplateIds;
         _chapter2EquipmentUnlocked = chapter2Unlocked;
+        _chapter3EquipmentUnlocked = chapter3Unlocked;
+        if (!_didInitializeEquipmentChapter) {
+          _selectedEquipmentChapter = chapter3Unlocked
+              ? 3
+              : chapter2Unlocked
+              ? 2
+              : 1;
+          _didInitializeEquipmentChapter = true;
+        }
         _isLoading = false;
       });
     } catch (e) {
@@ -138,9 +158,13 @@ class _ShopPageState extends State<ShopPage> {
               (item) =>
                   item.itemTemplate.isEquipment &&
                   item.isActive &&
+                  _isSupportedChapterEpic(item.itemTemplate) &&
                   (_chapter2EquipmentUnlocked ||
                       !_isChapter2Equipment(item.itemTemplate)) &&
-                  !_ownedEquipmentTemplateIds.contains(item.itemTemplate.id),
+                  (_chapter3EquipmentUnlocked ||
+                      !_isChapter3Equipment(item.itemTemplate)) &&
+                  _equipmentChapter(item.itemTemplate) ==
+                      _selectedEquipmentChapter,
             )
             .toList(),
       1 => _items.where((item) => item.itemTemplate.isConsumable).toList(),
@@ -622,6 +646,7 @@ class _ShopPageState extends State<ShopPage> {
                 _buildTopBar(),
                 _buildShopTitle(),
                 _buildTabBar(),
+                if (_selectedTab == 0) _buildEquipmentChapterSelector(),
                 Expanded(child: _buildBody()),
               ],
             ),
@@ -826,6 +851,135 @@ class _ShopPageState extends State<ShopPage> {
     );
   }
 
+  List<int> get _availableEquipmentChapters => [
+    1,
+    if (_chapter2EquipmentUnlocked) 2,
+    if (_chapter3EquipmentUnlocked) 3,
+  ];
+
+  Widget _buildEquipmentChapterSelector() {
+    final chapters = _availableEquipmentChapters;
+    final selectedIndex = chapters.indexOf(_selectedEquipmentChapter);
+    final canGoPrevious = selectedIndex > 0;
+    final canGoNext = selectedIndex >= 0 && selectedIndex < chapters.length - 1;
+    return Container(
+      height: 46,
+      margin: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+      decoration: BoxDecoration(
+        color: _kSlotColor,
+        border: Border.all(color: _kBorderColor),
+        borderRadius: BorderRadius.circular(7),
+      ),
+      child: Row(
+        children: [
+          IconButton(
+            tooltip: '이전 장',
+            onPressed: canGoPrevious
+                ? () => setState(() {
+                    _selectedEquipmentChapter = chapters[selectedIndex - 1];
+                  })
+                : null,
+            icon: const Icon(Icons.chevron_left_rounded),
+            color: _kGold,
+            disabledColor: _kTextGray,
+          ),
+          Expanded(
+            child: InkWell(
+              onTap: _openEquipmentChapterPicker,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Flexible(
+                    child: Text(
+                      _equipmentChapterTitle(_selectedEquipmentChapter),
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: _kTextLight,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  const Icon(Icons.arrow_drop_down, color: _kGold),
+                ],
+              ),
+            ),
+          ),
+          IconButton(
+            tooltip: '다음 장',
+            onPressed: canGoNext
+                ? () => setState(() {
+                    _selectedEquipmentChapter = chapters[selectedIndex + 1];
+                  })
+                : null,
+            icon: const Icon(Icons.chevron_right_rounded),
+            color: _kGold,
+            disabledColor: _kTextGray,
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _equipmentChapterTitle(int chapter) => switch (chapter) {
+    1 => '1장 · 숲의 길',
+    2 => '2장 · 그늘버섯 숲',
+    3 => '3장 · 고대 채석장',
+    _ => '$chapter장 · 모험 지역',
+  };
+
+  Future<void> _openEquipmentChapterPicker() async {
+    final selected = await showModalBottomSheet<int>(
+      context: context,
+      backgroundColor: _kPanelColor,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(8)),
+      ),
+      builder: (context) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(12, 14, 12, 18),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Padding(
+                padding: EdgeInsets.only(left: 8, bottom: 8),
+                child: Text(
+                  '장 선택',
+                  style: TextStyle(
+                    color: _kGold,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
+              ..._availableEquipmentChapters.reversed.map((chapter) {
+                final active = chapter == _selectedEquipmentChapter;
+                return ListTile(
+                  leading: Icon(
+                    active ? Icons.check_rounded : Icons.map_outlined,
+                    color: active ? _kGold : _kTextGray,
+                  ),
+                  title: Text(
+                    _equipmentChapterTitle(chapter),
+                    style: TextStyle(
+                      color: active ? _kTextLight : _kTextGray,
+                      fontWeight: active ? FontWeight.w900 : FontWeight.w600,
+                    ),
+                  ),
+                  onTap: () => Navigator.of(context).pop(chapter),
+                );
+              }),
+            ],
+          ),
+        ),
+      ),
+    );
+    if (selected == null || !mounted) return;
+    setState(() => _selectedEquipmentChapter = selected);
+  }
+
   Widget _buildBody() {
     if (_isLoading) {
       return const Center(child: CircularProgressIndicator(color: _kGold));
@@ -902,6 +1056,8 @@ class _ShopPageState extends State<ShopPage> {
       bool equipped = false,
     }) {
       if (!template.isEquipment) return;
+      if (!_isSupportedChapterEpic(template)) return;
+      if (_equipmentChapter(template) != _selectedEquipmentChapter) return;
       final slot = _equipmentPieceType(template);
       if (!_equipmentSlotOrder.contains(slot)) return;
       final rarity = _equipmentRarity(template);
@@ -1668,6 +1824,7 @@ class _ShopPageState extends State<ShopPage> {
   }
 
   int _equipmentChapter(ItemTemplate template) {
+    if (_isChapter3Equipment(template)) return 3;
     return _isChapter2Equipment(template) ? 2 : 1;
   }
 
@@ -1675,6 +1832,12 @@ class _ShopPageState extends State<ShopPage> {
     final key = _equipmentBaseSetKey(template);
     final offset = _equipmentRarity(template) == 'epic' ? 100 : 0;
     if (key == 'poison_assassin') return 45 + offset;
+    if (key == 'crusher') return 60 + offset;
+    if (key == 'quarry_swordsman') return 60 + offset;
+    if (key == 'quarry_berserker') return 61 + offset;
+    if (key == 'quarry_spearmaster') return 62 + offset;
+    if (key == 'quarry_rogue') return 63 + offset;
+    if (key == 'quarry_knight') return 64 + offset;
     return switch (key) {
       'chapter1-adventurer' => 0 + offset,
       'vanguard' => 10 + offset,
@@ -1720,6 +1883,12 @@ class _ShopPageState extends State<ShopPage> {
   String _equipmentSetName(ItemTemplate template) {
     final key = _equipmentBaseSetKey(template);
     if (key == 'poison_assassin') return '맹독 암살자 세트';
+    if (key == 'crusher') return '파쇄자 세트';
+    if (key == 'quarry_swordsman') return '채석단 검사 세트';
+    if (key == 'quarry_berserker') return '채석단 광전사 세트';
+    if (key == 'quarry_spearmaster') return '채석단 창술사 세트';
+    if (key == 'quarry_rogue') return '채석단 도적 세트';
+    if (key == 'quarry_knight') return '채석단 기사 세트';
     if (_equipmentRarity(template) == 'epic') {
       return switch (key) {
         'vanguard' => '모험가 보스 에픽 세트',
@@ -1742,6 +1911,18 @@ class _ShopPageState extends State<ShopPage> {
 
   bool _isChapter2Equipment(ItemTemplate template) {
     if (!template.isEquipment) return false;
+    if (_isChapter3Equipment(template)) return false;
+    final setKey = template.setKey.trim().toLowerCase();
+    final source =
+        '${template.imagePath} ${template.displayImagePath} ${template.name}'
+            .toLowerCase();
+    if (setKey == 'chapter1-adventurer' ||
+        source.contains('/chapter1/') ||
+        source.contains('부서진') ||
+        source.contains('낡은') ||
+        source.contains('튼튼한')) {
+      return false;
+    }
     if (template.setKey.trim().isNotEmpty) return true;
 
     final imagePath = '${template.imagePath} ${template.displayImagePath}'
@@ -1762,6 +1943,24 @@ class _ShopPageState extends State<ShopPage> {
         name.contains('sentinel') ||
         name.contains('shadow') ||
         name.contains('colossus');
+  }
+
+  bool _isChapter3Equipment(ItemTemplate template) {
+    if (!template.isEquipment) return false;
+    final setKey = template.setKey.trim().toLowerCase();
+    if (setKey == 'crusher' || setKey.startsWith('quarry_')) return true;
+    final source = '${template.imagePath} ${template.name}'.toLowerCase();
+    return source.contains('/chapter3/') ||
+        source.contains('파쇄자') ||
+        source.contains('채석단');
+  }
+
+  bool _isSupportedChapterEpic(ItemTemplate template) {
+    if (_equipmentRarity(template) != 'epic' ||
+        _equipmentChapter(template) != 2) {
+      return true;
+    }
+    return template.setKey.trim().toLowerCase() == 'poison_assassin';
   }
 
   String _itemMeta(ShopItem item) {
