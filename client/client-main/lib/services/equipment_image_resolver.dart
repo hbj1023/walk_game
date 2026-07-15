@@ -267,11 +267,15 @@ String _chapter3WeaponImagePath({
   final lowerName = name.toLowerCase();
   final isChapter3 =
       normalizedSetKey == 'crusher' ||
+      normalizedSetKey == 'riftbreaker' ||
       normalizedSetKey.startsWith('quarry_') ||
       lowerName.contains('crusher') ||
       name.contains('파쇄자');
   if (!isChapter3) return '';
   if (equipmentSlot != 'sword' && setPieceType != 'weapon') return '';
+  if (normalizedSetKey == 'riftbreaker') {
+    return 'assets/images/equipment/chapter3/ch3_epic_riftstone_greatsword.png';
+  }
 
   final inferredWeaponType = weaponType.isNotEmpty
       ? weaponType
@@ -285,7 +289,19 @@ String _chapter3ArmorImagePath({
   required String setKey,
   required String rarity,
 }) {
-  final armorKey = switch (setKey.trim().toLowerCase()) {
+  final normalizedSetKey = setKey.trim().toLowerCase();
+  final piece = setPieceType.isNotEmpty ? setPieceType : equipmentSlot;
+  final assetPiece = piece == 'shoes' ? 'boots' : piece;
+  if (assetPiece != 'helmet' &&
+      assetPiece != 'armor' &&
+      assetPiece != 'boots') {
+    return '';
+  }
+  if (normalizedSetKey == 'riftbreaker') {
+    return 'assets/images/equipment/chapter3/ch3_epic_riftstone_$assetPiece.png';
+  }
+
+  final armorKey = switch (normalizedSetKey) {
     'quarry_swordsman' => 'vanguard',
     'quarry_berserker' => 'berserker',
     'quarry_spearmaster' => 'sentinel',
@@ -294,14 +310,6 @@ String _chapter3ArmorImagePath({
     _ => '',
   };
   if (armorKey.isEmpty) return '';
-
-  final piece = setPieceType.isNotEmpty ? setPieceType : equipmentSlot;
-  final assetPiece = piece == 'shoes' ? 'boots' : piece;
-  if (assetPiece != 'helmet' &&
-      assetPiece != 'armor' &&
-      assetPiece != 'boots') {
-    return '';
-  }
   final grade = rarity.trim().toLowerCase() == 'rare' ? 'rare' : 'common';
   return 'assets/images/equipment/chapter3/ch3_${grade}_${armorKey}_$assetPiece.png';
 }

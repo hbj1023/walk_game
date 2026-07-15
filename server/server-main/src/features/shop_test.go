@@ -142,6 +142,14 @@ func TestEquipmentShopChapterRecognizesQuarrySet(t *testing.T) {
 	}
 }
 
+func TestEquipmentShopChapterRecognizesRiftbreakerSet(t *testing.T) {
+	template := testEquipmentTemplate("epic", "sword", "riftbreaker", "weapon")
+
+	if got := equipmentShopChapter(template); got != 3 {
+		t.Fatalf("equipmentShopChapter() = %d, want 3", got)
+	}
+}
+
 func TestEquipmentShopChapterKeepsChapter1PathInChapter1(t *testing.T) {
 	template := testEquipmentTemplate("rare", "sword", "chapter1-adventurer", "weapon")
 	template.ImagePath = "assets/images/equipment/chapter1/tutorial_weapon_rare_sword.png"

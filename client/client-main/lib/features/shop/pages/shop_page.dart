@@ -1833,6 +1833,7 @@ class _ShopPageState extends State<ShopPage> {
     final offset = _equipmentRarity(template) == 'epic' ? 100 : 0;
     if (key == 'poison_assassin') return 45 + offset;
     if (key == 'crusher') return 60 + offset;
+    if (key == 'riftbreaker') return 65 + offset;
     if (key == 'quarry_swordsman') return 60 + offset;
     if (key == 'quarry_berserker') return 61 + offset;
     if (key == 'quarry_spearmaster') return 62 + offset;
@@ -1884,6 +1885,7 @@ class _ShopPageState extends State<ShopPage> {
     final key = _equipmentBaseSetKey(template);
     if (key == 'poison_assassin') return '맹독 암살자 세트';
     if (key == 'crusher') return '파쇄자 세트';
+    if (key == 'riftbreaker') return '균열자 세트';
     if (key == 'quarry_swordsman') return '채석단 검사 세트';
     if (key == 'quarry_berserker') return '채석단 광전사 세트';
     if (key == 'quarry_spearmaster') return '채석단 창술사 세트';
@@ -1953,7 +1955,11 @@ class _ShopPageState extends State<ShopPage> {
   bool _isChapter3Equipment(ItemTemplate template) {
     if (!template.isEquipment) return false;
     final setKey = template.setKey.trim().toLowerCase();
-    if (setKey == 'crusher' || setKey.startsWith('quarry_')) return true;
+    if (setKey == 'crusher' ||
+        setKey == 'riftbreaker' ||
+        setKey.startsWith('quarry_')) {
+      return true;
+    }
     final source = '${template.imagePath} ${template.name}'.toLowerCase();
     return source.contains('/chapter3/') ||
         source.contains('파쇄자') ||

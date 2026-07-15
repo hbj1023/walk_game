@@ -95,4 +95,36 @@ void main() {
 
     expect(path, 'assets/images/equipment/chapter3/ch3_weapon_rare_axe.png');
   });
+
+  test('균열자 세트는 이미지 경로가 없어도 에픽 전용 에셋을 사용한다', () {
+    final weaponPath = resolveEquipmentImagePath(
+      imagePath: '',
+      rarity: 'epic',
+      itemType: 'equipment',
+      equipmentSlot: 'sword',
+      weaponType: 'greatsword',
+      setKey: 'riftbreaker',
+      setPieceType: 'weapon',
+      name: '균열자 대검',
+    );
+    final armorPath = resolveEquipmentImagePath(
+      imagePath: '',
+      rarity: 'epic',
+      itemType: 'equipment',
+      equipmentSlot: 'armor',
+      weaponType: '',
+      setKey: 'riftbreaker',
+      setPieceType: 'armor',
+      name: '균열자 갑옷',
+    );
+
+    expect(
+      weaponPath,
+      'assets/images/equipment/chapter3/ch3_epic_riftstone_greatsword.png',
+    );
+    expect(
+      armorPath,
+      'assets/images/equipment/chapter3/ch3_epic_riftstone_armor.png',
+    );
+  });
 }

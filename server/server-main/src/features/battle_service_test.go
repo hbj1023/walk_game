@@ -114,6 +114,24 @@ func TestChapter2BossAcceptsEveryPoisonAssassinPiece(t *testing.T) {
 	}
 }
 
+func TestChapter3BossAcceptsRiftbreakerEpic(t *testing.T) {
+	template := itemTemplateRecord{
+		Name:          "균열자 대검",
+		ItemType:      "equipment",
+		EquipmentSlot: "sword",
+		SetKey:        "riftbreaker",
+		SetPieceType:  "weapon",
+		Rarity:        "epic",
+	}
+
+	if !isBossRewardTemplateForStage(template, 15) {
+		t.Fatal("chapter 3 boss should accept riftbreaker epic equipment")
+	}
+	if isBossRewardTemplateForStage(template, 10) {
+		t.Fatal("chapter 2 boss should reject riftbreaker epic equipment")
+	}
+}
+
 func TestBossClearRequiresTicket(t *testing.T) {
 	if bossClearRequiresTicket(stageProgressRecord{}, false) {
 		t.Fatal("missing progress should not require a boss ticket")

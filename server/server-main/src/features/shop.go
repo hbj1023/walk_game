@@ -525,6 +525,7 @@ func equipmentShopChapter(template itemTemplateRecord) int {
 	}
 	if strings.HasPrefix(setKey, "quarry_") ||
 		setKey == "crusher" ||
+		setKey == "riftbreaker" ||
 		strings.Contains(strings.ToLower(template.ImagePath), "/chapter3/") ||
 		strings.Contains(strings.ToLower(template.Name), "파쇄자") ||
 		strings.Contains(strings.ToLower(template.Name), "채석단") {

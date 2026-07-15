@@ -270,6 +270,7 @@ class _InventoryPageState extends State<InventoryPage> {
       'shadow' => 3,
       'colossus' => 4,
       'crusher' => 5,
+      'riftbreaker' => 15,
       'quarry_swordsman' => 10,
       'quarry_berserker' => 11,
       'quarry_spearmaster' => 12,
