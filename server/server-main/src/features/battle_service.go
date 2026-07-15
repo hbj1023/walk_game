@@ -296,7 +296,7 @@ func attackNormalBattle(ctx context.Context, token string, userID string, req No
 		return NormalBattleResponse{}, statusError{status: http.StatusBadRequest, message: "battle is already finished"}
 	}
 
-	monsterDefense := adjustedMonsterDefense(monster.Defense, statContext.Effects)
+	monsterDefense := adjustedMonsterDefenseForHit(monster.Defense, statContext.Effects, battle.AttackCountUsed+1)
 	playerDamage := formulas.CalculateDamage(statContext.Stats.Attack, monsterDefense)
 	playerDamage = adjustedPlayerDamage(playerDamage, battle.BattleType, statContext.Effects)
 	monsterCurrentHP := battle.MonsterCurrentHP - playerDamage
@@ -491,7 +491,7 @@ func attackBossBattle(ctx context.Context, token string, userID string, req Norm
 		}
 	}
 
-	monsterDefense := adjustedMonsterDefense(monster.Defense, statContext.Effects)
+	monsterDefense := adjustedMonsterDefenseForHit(monster.Defense, statContext.Effects, battle.AttackCountUsed+1)
 	playerDamage := formulas.CalculateDamage(statContext.Stats.Attack, monsterDefense)
 	playerDamage = adjustedPlayerDamage(playerDamage, battle.BattleType, statContext.Effects)
 	monsterCurrentHP := battle.MonsterCurrentHP - playerDamage

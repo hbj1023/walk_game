@@ -20,6 +20,7 @@ type battleSetEffects struct {
 	AttackDistancePercent     float64 `json:"attack_distance_percent"`
 	BossDamagePercent         float64 `json:"boss_damage_percent"`
 	DefensePenetrationPercent float64 `json:"defense_penetration_percent"`
+	DefenseShredPerHit        float64 `json:"defense_shred_per_hit"`
 	FixedDamage               float64 `json:"fixed_damage"`
 }
 
@@ -318,6 +319,8 @@ func summarizeSetBonuses(rawStats statBlock, bonuses []equipmentSetBonusRecord) 
 			effects.BossDamagePercent += bonus.BonusValue
 		case "defense_penetration_percent":
 			effects.DefensePenetrationPercent += bonus.BonusValue
+		case "defense_shred_per_hit":
+			effects.DefenseShredPerHit += bonus.BonusValue
 		case "fixed_damage":
 			effects.FixedDamage += bonus.BonusValue
 		}
@@ -383,6 +386,22 @@ func adjustedMonsterDefense(defense int, effects battleSetEffects) int {
 		return 0
 	}
 	return adjusted
+}
+
+func adjustedMonsterDefenseForHit(defense int, effects battleSetEffects, attackNumber int) int {
+	adjusted := adjustedMonsterDefense(defense, effects)
+	if adjusted <= 0 || effects.DefenseShredPerHit <= 0 || attackNumber <= 0 {
+		return adjusted
+	}
+	stacks := attackNumber
+	if stacks > 3 {
+		stacks = 3
+	}
+	shred := int(math.Round(effects.DefenseShredPerHit)) * stacks
+	if shred >= adjusted {
+		return 0
+	}
+	return adjusted - shred
 }
 
 func applyBattlePercentToDistance(distanceM float64, percent float64) float64 {
