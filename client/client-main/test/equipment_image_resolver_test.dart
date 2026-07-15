@@ -96,6 +96,67 @@ void main() {
     expect(path, 'assets/images/equipment/chapter3/ch3_weapon_rare_axe.png');
   });
 
+  test('세트 키가 없어도 채석단 무기 이름으로 3장 에셋을 사용한다', () {
+    final commonPath = resolveEquipmentImagePath(
+      imagePath: '',
+      rarity: 'common',
+      itemType: 'equipment',
+      equipmentSlot: 'sword',
+      weaponType: 'spear',
+      setKey: '',
+      setPieceType: 'weapon',
+      name: '채석단 창술사 창',
+    );
+    final rarePath = resolveEquipmentImagePath(
+      imagePath: '',
+      rarity: 'rare',
+      itemType: 'equipment',
+      equipmentSlot: 'sword',
+      weaponType: 'dagger',
+      setKey: '',
+      setPieceType: 'weapon',
+      name: '+채석단 도적 단검',
+    );
+
+    expect(commonPath, 'assets/images/equipment/chapter3/ch3_weapon_spear.png');
+    expect(
+      rarePath,
+      'assets/images/equipment/chapter3/ch3_weapon_rare_dagger.png',
+    );
+  });
+
+  test('세트 키가 없어도 채석단 방어구 이름으로 세트 이미지를 찾는다', () {
+    final commonPath = resolveEquipmentImagePath(
+      imagePath: '',
+      rarity: 'common',
+      itemType: 'equipment',
+      equipmentSlot: 'helmet',
+      weaponType: '',
+      setKey: '',
+      setPieceType: 'helmet',
+      name: '채석단 검사 투구',
+    );
+    final rarePath = resolveEquipmentImagePath(
+      imagePath: '',
+      rarity: 'rare',
+      itemType: 'equipment',
+      equipmentSlot: 'shoes',
+      weaponType: '',
+      setKey: '',
+      setPieceType: 'shoes',
+      name: '+채석단 기사 장화',
+    );
+
+    expect(
+      commonPath,
+      'assets/images/equipment/chapter3/ch3_common_vanguard_helmet.png',
+    );
+    expect(
+      rarePath,
+      'assets/images/equipment/chapter3/ch3_rare_colossus_boots.png',
+    );
+  });
+
   test('균열자 세트는 이미지 경로가 없어도 에픽 전용 에셋을 사용한다', () {
     final weaponPath = resolveEquipmentImagePath(
       imagePath: '',

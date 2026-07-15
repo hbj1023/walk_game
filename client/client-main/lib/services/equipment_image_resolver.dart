@@ -25,6 +25,7 @@ String resolveEquipmentImagePath({
     equipmentSlot: equipmentSlot,
     setPieceType: setPieceType,
     setKey: setKey,
+    name: name,
     rarity: rarity,
   );
   if (chapter3ArmorImagePath.isNotEmpty) return chapter3ArmorImagePath;
@@ -270,7 +271,9 @@ String _chapter3WeaponImagePath({
       normalizedSetKey == 'riftbreaker' ||
       normalizedSetKey.startsWith('quarry_') ||
       lowerName.contains('crusher') ||
-      name.contains('파쇄자');
+      name.contains('파쇄자') ||
+      name.contains('채석단 ') ||
+      name.contains('균열자 ');
   if (!isChapter3) return '';
   if (equipmentSlot != 'sword' && setPieceType != 'weapon') return '';
   if (normalizedSetKey == 'riftbreaker') {
@@ -287,6 +290,7 @@ String _chapter3ArmorImagePath({
   required String equipmentSlot,
   required String setPieceType,
   required String setKey,
+  required String name,
   required String rarity,
 }) {
   final normalizedSetKey = setKey.trim().toLowerCase();
@@ -297,11 +301,11 @@ String _chapter3ArmorImagePath({
       assetPiece != 'boots') {
     return '';
   }
-  if (normalizedSetKey == 'riftbreaker') {
+  if (normalizedSetKey == 'riftbreaker' || name.contains('균열자 ')) {
     return 'assets/images/equipment/chapter3/ch3_epic_riftstone_$assetPiece.png';
   }
 
-  final armorKey = switch (normalizedSetKey) {
+  var armorKey = switch (normalizedSetKey) {
     'quarry_swordsman' => 'vanguard',
     'quarry_berserker' => 'berserker',
     'quarry_spearmaster' => 'sentinel',
@@ -309,9 +313,21 @@ String _chapter3ArmorImagePath({
     'quarry_knight' => 'colossus',
     _ => '',
   };
+  if (armorKey.isEmpty) {
+    armorKey = _chapter3ArmorKeyFromName(name);
+  }
   if (armorKey.isEmpty) return '';
   final grade = rarity.trim().toLowerCase() == 'rare' ? 'rare' : 'common';
   return 'assets/images/equipment/chapter3/ch3_${grade}_${armorKey}_$assetPiece.png';
+}
+
+String _chapter3ArmorKeyFromName(String name) {
+  if (name.contains('채석단 검사')) return 'vanguard';
+  if (name.contains('채석단 광전사')) return 'berserker';
+  if (name.contains('채석단 창술사')) return 'sentinel';
+  if (name.contains('채석단 도적')) return 'shadow';
+  if (name.contains('채석단 기사')) return 'colossus';
+  return '';
 }
 
 String _chapter3WeaponAssetPath(String weaponType, {String rarity = ''}) {
