@@ -48,7 +48,7 @@ func TestRaidMonsterComingSoonFlagsWyvern(t *testing.T) {
 func TestGolemRaidChapter3FourPlayerAttackCycleTargets(t *testing.T) {
 	const (
 		golemHP      = 3000
-		golemDefense = 30
+		golemDefense = 40
 	)
 
 	cases := []struct {
@@ -59,17 +59,17 @@ func TestGolemRaidChapter3FourPlayerAttackCycleTargets(t *testing.T) {
 		{
 			name:    "chapter 3-3 party can clear with tight pacing",
 			attacks: []int{75, 75, 75, 75},
-			want:    17,
+			want:    22,
 		},
 		{
 			name:    "chapter 3-5 party clears comfortably",
 			attacks: []int{95, 95, 95, 95},
-			want:    12,
+			want:    14,
 		},
 		{
 			name:    "mixed chapter 3 party stays inside target range",
 			attacks: []int{75, 85, 95, 105},
-			want:    13,
+			want:    15,
 		},
 	}
 
@@ -91,24 +91,24 @@ func TestRaidMonsterAttackDistanceAppliesPartyAveragedGaugeReduction(t *testing.
 	}
 }
 
-func TestGolemRaidVerifiedRolePartyClearsInFourteenCyclesWithBerserkerAtRisk(t *testing.T) {
+func TestGolemRaidVerifiedRolePartyClearsInSeventeenCyclesWithBerserkerAtRisk(t *testing.T) {
 	berserkerDamage := adjustedPlayerDamage(
-		raidParticipantCycleDamage(107, 30, 1),
+		raidParticipantCycleDamage(107, 40, 1),
 		"boss",
 		battleSetEffects{BossDamagePercent: 15},
 	)
-	swordsmanDefense := adjustedMonsterDefense(30, battleSetEffects{DefensePenetrationPercent: 15})
+	swordsmanDefense := adjustedMonsterDefense(40, battleSetEffects{DefensePenetrationPercent: 15})
 	partyDamage := berserkerDamage +
 		raidParticipantCycleDamage(73, swordsmanDefense, 1) +
-		raidParticipantCycleDamage(56, 30, 1) +
-		raidParticipantCycleDamage(88, 30, 1)
-	if got := (3000 + partyDamage - 1) / partyDamage; got != 14 {
-		t.Fatalf("verified party clear cycles = %d, want 14 (damage=%d)", got, partyDamage)
+		raidParticipantCycleDamage(56, 40, 1) +
+		raidParticipantCycleDamage(88, 40, 1)
+	if got := (3000 + partyDamage - 1) / partyDamage; got != 17 {
+		t.Fatalf("verified party clear cycles = %d, want 17 (damage=%d)", got, partyDamage)
 	}
 
-	berserkerRemainingHP := 548 - formulas.CalculateDamage(86, 42)*12
-	if berserkerRemainingHP != 20 {
-		t.Fatalf("berserker HP before final attack = %d, want 20", berserkerRemainingHP)
+	berserkerRemainingHP := 548 - formulas.CalculateDamage(81, 42)*14
+	if berserkerRemainingHP != 2 {
+		t.Fatalf("berserker HP before final attack = %d, want 2", berserkerRemainingHP)
 	}
 }
 
