@@ -31,8 +31,9 @@ migrate((app) => {
     app.save(bonus)
   }
 
-  const templates = app.findRecordsByFilter("item_templates", `set_key="riftbreaker"`, "", 100, 0)
+  const templates = app.findRecordsByFilter("item_templates", `rarity="epic"`, "", 5000, 0)
   for (const template of templates) {
+    if (!text(template, "name").startsWith("균열자 ")) continue
     const baseDescription = text(template, "description").split(". 3세트:")[0]
     template.set(
       "description",

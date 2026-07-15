@@ -21,8 +21,9 @@ migrate((app) => {
     app.save(bonus)
   }
 
-  const templates = app.findRecordsByFilter("item_templates", `set_key="riftbreaker"`, "", 100, 0)
+  const templates = app.findRecordsByFilter("item_templates", `rarity="epic"`, "", 5000, 0)
   for (const template of templates) {
+    if (!String(template.get("name") || "").startsWith("균열자 ")) continue
     const description = String(template.get("description") || "")
       .replace("4세트: 적 방어력 30% 무시", "4세트: 타격마다 적 방어력 10 감소 (최대 3중첩)")
     template.set("description", description)
