@@ -18,7 +18,7 @@ import (
 
 var normalBattleLocks sync.Map
 
-const bossEntranceTicketName = "5스테이지 보스 입장권"
+const bossEntranceTicketName = "보스 입장권"
 
 func startNormalBattle(ctx context.Context, token string, userID string, req NormalBattleStartRequest) (NormalBattleResponse, error) {
 	stage, err := resolveNormalStage(ctx, token, req)

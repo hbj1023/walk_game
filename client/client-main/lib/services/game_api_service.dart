@@ -11,7 +11,7 @@ import 'auth_service.dart';
 import 'equipment_image_resolver.dart';
 import 'game_state.dart';
 
-const kBossEntranceTicketName = '5스테이지 보스 입장권';
+const kBossEntranceTicketName = '보스 입장권';
 const kBossEntranceTicketFragmentName = '보스 입장권 조각';
 const kBossEntranceTicketFragmentCost = 10;
 
@@ -381,7 +381,7 @@ class ShopItem {
     );
   }
 
-  bool get usesBossTicketFragments => itemTemplate.isBossEntranceTicket;
+  bool get usesBossTicketFragments => false;
   int get bossTicketFragmentCost =>
       usesBossTicketFragments ? kBossEntranceTicketFragmentCost : 0;
 }

@@ -990,7 +990,7 @@ func purchaseShopItem(ctx context.Context, token string, shopID string, characte
 		}
 	}
 
-	usesBossTicketFragments := isBossEntranceTicketTemplate(itemTemplate)
+	usesBossTicketFragments := false
 	totalPrice := 0
 	bossTicketFragmentCost := 0
 	if usesBossTicketFragments {
