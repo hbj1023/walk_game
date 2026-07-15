@@ -40,6 +40,13 @@ String resolveEquipmentImagePath({
   );
   if (chapter3WeaponImagePath.isNotEmpty) return chapter3WeaponImagePath;
 
+  final poisonAssassinImagePath = _poisonAssassinImagePath(
+    equipmentSlot: equipmentSlot,
+    setPieceType: setPieceType,
+    setKey: setKey,
+  );
+  if (poisonAssassinImagePath.isNotEmpty) return poisonAssassinImagePath;
+
   final weaponImagePath = _weaponImagePath(
     equipmentSlot: equipmentSlot,
     setPieceType: setPieceType,
@@ -62,6 +69,29 @@ String resolveEquipmentImagePath({
   if (explicitImagePath.isNotEmpty) return explicitImagePath;
 
   return '';
+}
+
+String _poisonAssassinImagePath({
+  required String equipmentSlot,
+  required String setPieceType,
+  required String setKey,
+}) {
+  if (setKey.trim().toLowerCase() != 'poison_assassin') return '';
+
+  final pieceType = setPieceType.isNotEmpty
+      ? setPieceType
+      : equipmentSlot == 'sword'
+      ? 'weapon'
+      : equipmentSlot;
+  final suffix = switch (pieceType) {
+    'weapon' => 'dagger',
+    'helmet' => 'helmet',
+    'armor' => 'armor',
+    'shoes' => 'boots',
+    _ => '',
+  };
+  if (suffix.isEmpty) return '';
+  return 'assets/images/equipment/chapter2/ch2_epic_poison_assassin_$suffix.png';
 }
 
 String _chapter1EquipmentImagePath(String name) {
