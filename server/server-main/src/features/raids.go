@@ -2299,17 +2299,33 @@ func calculateRaidCycleDamage(
 	if attackCycles <= 0 || len(participants) == 0 {
 		return 0, 0, participantDamages, nil
 	}
-	totalDamage := 0
+	participantAttacks := make([]int, 0, len(participants))
 	for _, participant := range participants {
 		stats, err := getRaidCharacterStats(ctx, token, participant.Character)
 		if err != nil {
 			return 0, 0, nil, err
 		}
-		damage := formulas.CalculateDamage(stats.Attack, monster.Defense) * attackCycles
+		participantAttacks = append(participantAttacks, stats.Attack)
+		damage := raidParticipantCycleDamage(stats.Attack, monster.Defense, attackCycles)
 		participantDamages[participant.ID] = damage
-		totalDamage += damage
 	}
+	totalDamage := raidPartyCycleDamage(participantAttacks, monster.Defense, attackCycles)
 	return totalDamage, attackCycles * len(participants), participantDamages, nil
+}
+
+func raidParticipantCycleDamage(attack int, monsterDefense int, attackCycles int) int {
+	if attackCycles <= 0 {
+		return 0
+	}
+	return formulas.CalculateDamage(attack, monsterDefense) * attackCycles
+}
+
+func raidPartyCycleDamage(participantAttacks []int, monsterDefense int, attackCycles int) int {
+	totalDamage := 0
+	for _, attack := range participantAttacks {
+		totalDamage += raidParticipantCycleDamage(attack, monsterDefense, attackCycles)
+	}
+	return totalDamage
 }
 
 func applyRaidMonsterAreaAttack(

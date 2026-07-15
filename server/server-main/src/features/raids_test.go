@@ -1,16 +1,12 @@
 package features
 
 import (
-	"server/src/utils/formulas"
 	"testing"
 	"time"
 )
 
 func raidCyclesToDefeatForTest(hp int, defense int, participantAttacks []int) int {
-	damagePerCycle := 0
-	for _, attack := range participantAttacks {
-		damagePerCycle += formulas.CalculateDamage(attack, defense)
-	}
+	damagePerCycle := raidPartyCycleDamage(participantAttacks, defense, 1)
 	if damagePerCycle <= 0 {
 		return 0
 	}
@@ -18,17 +14,17 @@ func raidCyclesToDefeatForTest(hp int, defense int, participantAttacks []int) in
 }
 
 func TestRaidMonsterScaledHPUsesFourPlayerBaseline(t *testing.T) {
-	monster := monsterRecord{HP: 1800}
+	monster := monsterRecord{HP: 4000}
 
 	cases := []struct {
 		participants int
 		want         int
 	}{
-		{participants: 4, want: 1800},
-		{participants: 3, want: 1620},
-		{participants: 2, want: 1440},
-		{participants: 1, want: 1260},
-		{participants: 0, want: 1260},
+		{participants: 4, want: 4000},
+		{participants: 3, want: 3600},
+		{participants: 2, want: 3200},
+		{participants: 1, want: 2800},
+		{participants: 0, want: 2800},
 	}
 
 	for _, tc := range cases {
@@ -68,6 +64,11 @@ func TestGolemRaidChapter3FourPlayerAttackCycleTargets(t *testing.T) {
 			attacks: []int{95, 95, 95, 95},
 			want:    15,
 		},
+		{
+			name:    "mixed chapter 3 party stays inside target range",
+			attacks: []int{75, 85, 95, 105},
+			want:    16,
+		},
 	}
 
 	for _, tc := range cases {
@@ -76,6 +77,16 @@ func TestGolemRaidChapter3FourPlayerAttackCycleTargets(t *testing.T) {
 				t.Fatalf("raid cycles = %d, want %d", got, tc.want)
 			}
 		})
+	}
+}
+
+func TestRaidPartyCycleDamageCountsEveryParticipantAndCycle(t *testing.T) {
+	attacks := []int{75, 85, 95, 105}
+	if got := raidPartyCycleDamage(attacks, 24, 2); got != 528 {
+		t.Fatalf("two raid cycles damage = %d, want 528", got)
+	}
+	if got := raidPartyCycleDamage(attacks, 24, 0); got != 0 {
+		t.Fatalf("zero raid cycles damage = %d, want 0", got)
 	}
 }
 
