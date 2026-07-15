@@ -1860,6 +1860,16 @@ class _ShopPageState extends State<ShopPage> {
 
   String _equipmentBaseSetKey(ItemTemplate template) {
     if (template.setKey.trim().isNotEmpty) return template.setKey.trim();
+    final name = template.name.toLowerCase();
+    if (name.contains('파쇄자') || name.contains('crusher')) return 'crusher';
+    if (name.contains('균열자') || name.contains('riftbreaker')) {
+      return 'riftbreaker';
+    }
+    if (name.contains('채석단 검사')) return 'quarry_swordsman';
+    if (name.contains('채석단 광전사')) return 'quarry_berserker';
+    if (name.contains('채석단 창술사')) return 'quarry_spearmaster';
+    if (name.contains('채석단 도적')) return 'quarry_rogue';
+    if (name.contains('채석단 기사')) return 'quarry_knight';
     final source =
         '${template.imagePath} ${template.displayImagePath} ${template.name} ${template.weaponType}'
             .toLowerCase();
@@ -1868,7 +1878,6 @@ class _ShopPageState extends State<ShopPage> {
     if (source.contains('sentinel')) return 'sentinel';
     if (source.contains('shadow')) return 'shadow';
     if (source.contains('colossus')) return 'colossus';
-    final name = template.name.toLowerCase();
     if (name.contains('모험가') || name.contains('vanguard')) return 'vanguard';
     if (name.contains('광전사') || name.contains('berserker')) {
       return 'berserker';
