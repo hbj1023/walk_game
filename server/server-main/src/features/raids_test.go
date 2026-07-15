@@ -2,6 +2,7 @@ package features
 
 import (
 	"math"
+	"server/src/utils/formulas"
 	"testing"
 	"time"
 )
@@ -15,17 +16,17 @@ func raidCyclesToDefeatForTest(hp int, defense int, participantAttacks []int) in
 }
 
 func TestRaidMonsterScaledHPUsesFourPlayerBaseline(t *testing.T) {
-	monster := monsterRecord{HP: 3400}
+	monster := monsterRecord{HP: 3000}
 
 	cases := []struct {
 		participants int
 		want         int
 	}{
-		{participants: 4, want: 3400},
-		{participants: 3, want: 3060},
-		{participants: 2, want: 2720},
-		{participants: 1, want: 2380},
-		{participants: 0, want: 2380},
+		{participants: 4, want: 3000},
+		{participants: 3, want: 2700},
+		{participants: 2, want: 2400},
+		{participants: 1, want: 2100},
+		{participants: 0, want: 2100},
 	}
 
 	for _, tc := range cases {
@@ -46,8 +47,8 @@ func TestRaidMonsterComingSoonFlagsWyvern(t *testing.T) {
 
 func TestGolemRaidChapter3FourPlayerAttackCycleTargets(t *testing.T) {
 	const (
-		golemHP      = 3400
-		golemDefense = 24
+		golemHP      = 3000
+		golemDefense = 30
 	)
 
 	cases := []struct {
@@ -87,6 +88,27 @@ func TestRaidMonsterAttackDistanceAppliesPartyAveragedGaugeReduction(t *testing.
 	}
 	if got := raidMonsterAttackDistance(0); got != 1000 {
 		t.Fatalf("base monster attack distance = %.3f, want 1000", got)
+	}
+}
+
+func TestGolemRaidVerifiedRolePartyClearsInFourteenCyclesWithBerserkerAtRisk(t *testing.T) {
+	berserkerDamage := adjustedPlayerDamage(
+		raidParticipantCycleDamage(107, 30, 1),
+		"boss",
+		battleSetEffects{BossDamagePercent: 15},
+	)
+	swordsmanDefense := adjustedMonsterDefense(30, battleSetEffects{DefensePenetrationPercent: 15})
+	partyDamage := berserkerDamage +
+		raidParticipantCycleDamage(73, swordsmanDefense, 1) +
+		raidParticipantCycleDamage(56, 30, 1) +
+		raidParticipantCycleDamage(88, 30, 1)
+	if got := (3000 + partyDamage - 1) / partyDamage; got != 14 {
+		t.Fatalf("verified party clear cycles = %d, want 14 (damage=%d)", got, partyDamage)
+	}
+
+	berserkerRemainingHP := 548 - formulas.CalculateDamage(86, 42)*12
+	if berserkerRemainingHP != 20 {
+		t.Fatalf("berserker HP before final attack = %d, want 20", berserkerRemainingHP)
 	}
 }
 
