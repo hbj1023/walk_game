@@ -83,16 +83,19 @@ func TestAdjustedBattleEffects(t *testing.T) {
 	}
 }
 
-func TestAdjustedMonsterDefenseForHitCapsAtThreeStacks(t *testing.T) {
-	effects := battleSetEffects{DefenseShredPerHit: 10}
+func TestAdjustedMonsterDefenseForHitStacksWithoutLimitAndStopsAtZero(t *testing.T) {
+	effects := battleSetEffects{DefenseShredPerHit: 3}
 
-	if got := adjustedMonsterDefenseForHit(50, effects, 1); got != 40 {
-		t.Fatalf("first hit defense = %d, want 40", got)
+	if got := adjustedMonsterDefenseForHit(50, effects, 1); got != 47 {
+		t.Fatalf("first hit defense = %d, want 47", got)
 	}
-	if got := adjustedMonsterDefenseForHit(50, effects, 2); got != 30 {
-		t.Fatalf("second hit defense = %d, want 30", got)
+	if got := adjustedMonsterDefenseForHit(50, effects, 4); got != 38 {
+		t.Fatalf("fourth hit defense = %d, want 38", got)
 	}
-	if got := adjustedMonsterDefenseForHit(50, effects, 4); got != 20 {
-		t.Fatalf("fourth hit defense = %d, want capped 20", got)
+	if got := adjustedMonsterDefenseForHit(50, effects, 17); got != 0 {
+		t.Fatalf("seventeenth hit defense = %d, want 0", got)
+	}
+	if got := adjustedMonsterDefenseForHit(50, effects, 100); got != 0 {
+		t.Fatalf("defense after excessive stacks = %d, want floor 0", got)
 	}
 }

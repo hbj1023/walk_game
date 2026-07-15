@@ -393,11 +393,7 @@ func adjustedMonsterDefenseForHit(defense int, effects battleSetEffects, attackN
 	if adjusted <= 0 || effects.DefenseShredPerHit <= 0 || attackNumber <= 0 {
 		return adjusted
 	}
-	stacks := attackNumber
-	if stacks > 3 {
-		stacks = 3
-	}
-	shred := int(math.Round(effects.DefenseShredPerHit)) * stacks
+	shred := int(math.Round(effects.DefenseShredPerHit)) * attackNumber
 	if shred >= adjusted {
 		return 0
 	}

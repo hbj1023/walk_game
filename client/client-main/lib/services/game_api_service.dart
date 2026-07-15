@@ -317,7 +317,7 @@ List<String> equipmentSetEffectLinesForKey(String setKey) {
       '4세트: 받는 피해 -8% / 보스 피해 +8%',
     ],
     'crusher' => const ['3세트: 공격력 +8%', '4세트: 적 방어력 30% 무시'],
-    'riftbreaker' => const ['3세트: 공격력 +12%', '4세트: 타격마다 적 방어력 10 감소 (최대 3중첩)'],
+    'riftbreaker' => const ['3세트: 방어력 +12%, 민첩 -10%', '4세트: 타격마다 적 방어력 3 감소 (최소 0)'],
     'quarry_swordsman' => const ['3세트: 공격력 +8%', '4세트: 적 방어력 15% 무시'],
     'quarry_berserker' => const ['3세트: 공격력 +12%', '4세트: 보스 피해 +15%'],
     'quarry_spearmaster' => const ['3세트: 방어력 +12%', '4세트: 몬스터 공격 게이지 -10%'],
