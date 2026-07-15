@@ -1,0 +1,7 @@
+{
+  "20260514004000": ["20260514004000_ensure_monster_battle_stats.js", "20260514004000_raid_invitations_collection.js"],
+  "20260514005000": ["20260514005000_friendship_api_rules.js", "20260514005000_stage_progress_rules.js"],
+  "20260527010000": ["20260527010000_ensure_common_equipment_shop_items.js", "20260527010000_seed_weapon_shop_items.js"],
+  "20260708010000": ["20260708010000_golem_raid_four_player_baseline.js", "20260708010000_rebalance_chapter2_armor_prices.js"],
+  "20260714080000": ["20260714080000_delete_reviewed_shop_only_item_templates.js", "20260714080000_repair_chapter1_boss_epic_catalog.js"]
+}

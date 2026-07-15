@@ -271,6 +271,7 @@ func TestChapter2EpicRejectsRetiredPoisonAssassinEquipment(t *testing.T) {
 
 func TestEquipmentShopProgressShowsEpicAfterBossClear(t *testing.T) {
 	epic := testEquipmentTemplate("epic", "helmet", "", "")
+	epic.Name = "모험가의 투구"
 	bossShopUnlocks := map[int]bool{1: true}
 
 	if !isEquipmentTemplateVisibleInShop(epic, buildEquipmentShopProgress(nil), false, bossShopUnlocks) {
@@ -280,6 +281,7 @@ func TestEquipmentShopProgressShowsEpicAfterBossClear(t *testing.T) {
 
 func TestEquipmentShopAvailabilityUnlocksEpicAfterBossClear(t *testing.T) {
 	epic := testEquipmentTemplate("epic", "helmet", "", "")
+	epic.Name = "모험가의 투구"
 	bossShopUnlocks := map[int]bool{1: true}
 
 	availability := equipmentShopAvailabilityForTemplate(epic, buildEquipmentShopProgress(nil), false, bossShopUnlocks)
@@ -293,6 +295,7 @@ func TestEquipmentShopAvailabilityUnlocksEpicAfterBossClear(t *testing.T) {
 
 func TestEquipmentShopProgressKeepsOwnedEpicVisibleAfterBossClear(t *testing.T) {
 	epic := testEquipmentTemplate("epic", "helmet", "", "")
+	epic.Name = "모험가의 투구"
 	progress := buildEquipmentShopProgress([]ownedEquipmentRecord{
 		testOwnedEquipment(epic, "owned"),
 	})
@@ -359,6 +362,29 @@ func TestEquipmentShopWeaponTemplateRejectsArmor(t *testing.T) {
 
 	if isEquipmentShopWeaponTemplate(template) {
 		t.Fatal("armor template should not be treated as a weapon")
+	}
+}
+
+func TestEquipmentShopChapterPrefersCatalogKey(t *testing.T) {
+	template := testEquipmentTemplate("epic", "sword", "", "weapon")
+	template.Name = "legacy ambiguous name"
+	template.CatalogKey = "chapter2.epic.poison_assassin.weapon"
+
+	if got := equipmentShopChapter(template); got != 2 {
+		t.Fatalf("equipmentShopChapter() = %d, want 2", got)
+	}
+}
+
+func TestCanonicalChapterEpicPrefersCatalogKey(t *testing.T) {
+	template := testEquipmentTemplate("epic", "sword", "", "weapon")
+	template.Name = "renamed item"
+	template.CatalogKey = "chapter1.epic.adventurer.weapon"
+
+	if !isCanonicalChapter1EpicTemplate(template) {
+		t.Fatal("catalog key should preserve canonical identity after display name changes")
+	}
+	if isCanonicalChapter2EpicTemplate(template) {
+		t.Fatal("chapter 1 catalog key must not be accepted as chapter 2 equipment")
 	}
 }
 

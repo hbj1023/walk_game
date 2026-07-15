@@ -473,6 +473,9 @@ func isSupportedChapterEpicTemplate(template itemTemplateRecord) bool {
 }
 
 func isCanonicalChapter3EpicTemplate(template itemTemplateRecord) bool {
+	if template.CatalogKey != "" {
+		return strings.HasPrefix(template.CatalogKey, "chapter3.epic.")
+	}
 	pieceType := equipmentShopPieceType(template)
 	canonicalPieces := map[string]string{
 		"균열자 대검": "weapon",
@@ -489,6 +492,9 @@ func isCanonicalChapter3EpicTemplate(template itemTemplateRecord) bool {
 }
 
 func isCanonicalChapter2EpicTemplate(template itemTemplateRecord) bool {
+	if template.CatalogKey != "" {
+		return strings.HasPrefix(template.CatalogKey, "chapter2.epic.poison_assassin.")
+	}
 	pieceType := equipmentShopPieceType(template)
 	canonicalPieces := map[string]string{
 		"맹독 암살자 단검": "weapon",
@@ -501,6 +507,9 @@ func isCanonicalChapter2EpicTemplate(template itemTemplateRecord) bool {
 }
 
 func isCanonicalChapter1EpicTemplate(template itemTemplateRecord) bool {
+	if template.CatalogKey != "" {
+		return strings.HasPrefix(template.CatalogKey, "chapter1.epic.adventurer.")
+	}
 	pieceType := equipmentShopPieceType(template)
 	canonicalPieces := map[string]string{
 		"모험가의 검":  "weapon",
@@ -527,6 +536,19 @@ func equipmentShopRarityRank(rarity string) (int, bool) {
 }
 
 func equipmentShopChapter(template itemTemplateRecord) int {
+	if strings.HasPrefix(template.CatalogKey, "chapter1.") {
+		return 1
+	}
+	if strings.HasPrefix(template.CatalogKey, "chapter2.") {
+		return 2
+	}
+	if strings.HasPrefix(template.CatalogKey, "chapter3.") {
+		return 3
+	}
+	switch strings.TrimSpace(template.Name) {
+	case "모험가의 검", "모험가의 투구", "모험가의 갑옷", "모험가의 신발":
+		return 1
+	}
 	setKey := strings.TrimSpace(template.SetKey)
 	source := strings.ToLower(template.ImagePath + " " + template.Name)
 	if setKey == "poison_assassin" ||

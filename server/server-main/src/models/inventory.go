@@ -15,6 +15,7 @@ type ItemTemplateRecord struct {
 	ItemType      string  `json:"item_type"`
 	EquipmentSlot string  `json:"equipment_slot"`
 	WeaponType    string  `json:"weapon_type"`
+	CatalogKey    string  `json:"catalog_key"`
 	SetKey        string  `json:"set_key"`
 	SetPieceType  string  `json:"set_piece_type"`
 	ImagePath     string  `json:"image_path"`
