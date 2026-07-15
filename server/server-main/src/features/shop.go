@@ -485,10 +485,10 @@ func isCanonicalChapter2EpicTemplate(template itemTemplateRecord) bool {
 func isCanonicalChapter1EpicTemplate(template itemTemplateRecord) bool {
 	pieceType := equipmentShopPieceType(template)
 	canonicalPieces := map[string]string{
-		"에픽 검":  "weapon",
-		"에픽 투구": "helmet",
-		"에픽 갑옷": "armor",
-		"에픽 신발": "shoes",
+		"모험가의 검":  "weapon",
+		"모험가의 투구": "helmet",
+		"모험가의 갑옷": "armor",
+		"모험가의 신발": "shoes",
 	}
 	wantPiece, ok := canonicalPieces[strings.TrimSpace(template.Name)]
 	return ok && pieceType == wantPiece && strings.TrimSpace(template.SetKey) == ""

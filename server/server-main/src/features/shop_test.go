@@ -162,7 +162,7 @@ func TestEquipmentShopChapterRecognizesPoisonAssassinWithoutSetKey(t *testing.T)
 
 func TestChapter1EpicOnlyAllowsCanonicalBossEquipment(t *testing.T) {
 	canonical := testEquipmentTemplate("epic", "helmet", "", "helmet")
-	canonical.Name = "에픽 투구"
+	canonical.Name = "모험가의 투구"
 	if !isSupportedChapterEpicTemplate(canonical) {
 		t.Fatal("canonical chapter 1 epic helmet should be supported")
 	}

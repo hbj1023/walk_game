@@ -31,7 +31,7 @@ func TestIsBossRewardTemplateForStage(t *testing.T) {
 			name:    "chapter 1 boss accepts tutorial epic equipment",
 			stageNo: 5,
 			template: itemTemplateRecord{
-				Name:          "에픽 검",
+				Name:          "모험가의 검",
 				ItemType:      "equipment",
 				EquipmentSlot: "sword",
 				Rarity:        "epic",
