@@ -16,17 +16,17 @@ func raidCyclesToDefeatForTest(hp int, defense int, participantAttacks []int) in
 }
 
 func TestRaidMonsterScaledHPUsesFourPlayerBaseline(t *testing.T) {
-	monster := monsterRecord{HP: 3000}
+	monster := monsterRecord{HP: 2900}
 
 	cases := []struct {
 		participants int
 		want         int
 	}{
-		{participants: 4, want: 3000},
-		{participants: 3, want: 2700},
-		{participants: 2, want: 2400},
-		{participants: 1, want: 2100},
-		{participants: 0, want: 2100},
+		{participants: 4, want: 2900},
+		{participants: 3, want: 2610},
+		{participants: 2, want: 2320},
+		{participants: 1, want: 2030},
+		{participants: 0, want: 2030},
 	}
 
 	for _, tc := range cases {
@@ -47,7 +47,7 @@ func TestRaidMonsterComingSoonFlagsWyvern(t *testing.T) {
 
 func TestGolemRaidChapter3FourPlayerAttackCycleTargets(t *testing.T) {
 	const (
-		golemHP      = 3000
+		golemHP      = 2900
 		golemDefense = 40
 	)
 
@@ -59,7 +59,7 @@ func TestGolemRaidChapter3FourPlayerAttackCycleTargets(t *testing.T) {
 		{
 			name:    "chapter 3-3 party can clear with tight pacing",
 			attacks: []int{75, 75, 75, 75},
-			want:    22,
+			want:    21,
 		},
 		{
 			name:    "chapter 3-5 party clears comfortably",
@@ -91,7 +91,7 @@ func TestRaidMonsterAttackDistanceAppliesPartyAveragedGaugeReduction(t *testing.
 	}
 }
 
-func TestGolemRaidVerifiedRolePartyClearsInSeventeenCyclesWithBerserkerAtRisk(t *testing.T) {
+func TestGolemRaidVerifiedRolePartyLosesBerserkerTwoCyclesBeforeClear(t *testing.T) {
 	berserkerDamage := adjustedPlayerDamage(
 		raidParticipantCycleDamage(107, 40, 1),
 		"boss",
@@ -102,13 +102,16 @@ func TestGolemRaidVerifiedRolePartyClearsInSeventeenCyclesWithBerserkerAtRisk(t 
 		raidParticipantCycleDamage(73, swordsmanDefense, 1) +
 		raidParticipantCycleDamage(56, 40, 1) +
 		raidParticipantCycleDamage(88, 40, 1)
-	if got := (3000 + partyDamage - 1) / partyDamage; got != 17 {
-		t.Fatalf("verified party clear cycles = %d, want 17 (damage=%d)", got, partyDamage)
+	remainingAfterFifteen := 2900 - partyDamage*15
+	remainingPartyDamage := partyDamage - berserkerDamage
+	clearCycles := 15 + (remainingAfterFifteen+remainingPartyDamage-1)/remainingPartyDamage
+	if clearCycles != 17 {
+		t.Fatalf("verified party clear cycles = %d, want 17 (full=%d remaining=%d)", clearCycles, partyDamage, remainingPartyDamage)
 	}
 
-	berserkerRemainingHP := 548 - formulas.CalculateDamage(81, 42)*14
-	if berserkerRemainingHP != 2 {
-		t.Fatalf("berserker HP before final attack = %d, want 2", berserkerRemainingHP)
+	berserkerRemainingHP := 548 - formulas.CalculateDamage(85, 42)*13
+	if berserkerRemainingHP > 0 {
+		t.Fatalf("berserker HP after cycle 15 = %d, want defeated", berserkerRemainingHP)
 	}
 }
 
