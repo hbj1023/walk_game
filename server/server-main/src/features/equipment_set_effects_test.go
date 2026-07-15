@@ -17,6 +17,21 @@ func TestCountEquippedSetPiecesUsesUniquePieces(t *testing.T) {
 	}
 }
 
+func TestEquippedItemSetKeyRecognizesChapter3QuarryNamesBeforeLegacyRoles(t *testing.T) {
+	cases := map[string]string{
+		"+채석단 검사 검":     "quarry_swordsman",
+		"+채석단 광전사 도끼":   "quarry_berserker",
+		"+채석단 창술사 사슬갑옷": "quarry_spearmaster",
+		"+채석단 도적 장화":    "quarry_rogue",
+		"+채석단 기사 대검":    "quarry_knight",
+	}
+	for name, want := range cases {
+		if got := equippedItemSetKey(equippedStatItem{Name: name}); got != want {
+			t.Fatalf("equippedItemSetKey(%q) = %q, want %q", name, got, want)
+		}
+	}
+}
+
 func TestSummarizeSetBonusesAppliesStatAndBattleEffects(t *testing.T) {
 	raw := statBlock{HP: 300, Attack: 80, Defense: 40, Agility: 50}
 	bonuses := []equipmentSetBonusRecord{

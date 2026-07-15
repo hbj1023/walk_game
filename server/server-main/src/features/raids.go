@@ -1196,7 +1196,7 @@ func addRaidDistance(ctx context.Context, token string, userID string, raidID st
 	attackCycles := int(math.Floor(nextCycleDistance / attackDistanceM))
 	nextCycleDistance = math.Mod(nextCycleDistance, attackDistanceM)
 	nextTotalAttackCycles := progress.TotalAttackCycles + float64(attackCycles)
-	damageDealt, totalAttackCount, participantDamages, err := calculateRaidCycleDamage(ctx, token, attackCycles, participants.Items, monster)
+	damageDealt, totalAttackCount, participantDamages, participantAttackCounts, err := calculateRaidCycleDamage(ctx, token, attackCycles, participants.Items, monster)
 	if err != nil {
 		return nil, err
 	}
@@ -1263,7 +1263,7 @@ func addRaidDistance(ctx context.Context, token string, userID string, raidID st
 	for _, activeParticipant := range participants.Items {
 		payload := map[string]any{
 			"contribution_damage":       activeParticipant.ContributionDamage + float64(participantDamages[activeParticipant.ID]),
-			"contribution_attack_count": activeParticipant.ContributionAttackCount + float64(attackCycles),
+			"contribution_attack_count": activeParticipant.ContributionAttackCount + float64(participantAttackCounts[activeParticipant.ID]),
 		}
 		if activeParticipant.ID == participant.ID {
 			payload["contribution_distance_m"] = activeParticipant.ContributionDistanceM + req.DistanceM
@@ -2327,23 +2327,36 @@ func calculateRaidCycleDamage(
 	attackCycles int,
 	participants []raidParticipantRecord,
 	monster monsterRecord,
-) (int, int, map[string]int, error) {
+) (int, int, map[string]int, map[string]int, error) {
 	participantDamages := make(map[string]int, len(participants))
+	participantAttackCounts := make(map[string]int, len(participants))
 	if attackCycles <= 0 || len(participants) == 0 {
-		return 0, 0, participantDamages, nil
+		return 0, 0, participantDamages, participantAttackCounts, nil
 	}
-	participantAttacks := make([]int, 0, len(participants))
+	totalDamage := 0
+	activeAttackers := 0
 	for _, participant := range participants {
-		stats, err := getRaidCharacterStats(ctx, token, participant.Character)
+		character, err := getBattleCharacterByID(ctx, token, participant.Character)
 		if err != nil {
-			return 0, 0, nil, err
+			return 0, 0, nil, nil, err
 		}
-		participantAttacks = append(participantAttacks, stats.Attack)
-		damage := raidParticipantCycleDamage(stats.Attack, monster.Defense, attackCycles)
+		if character.CurrentHP <= 0 {
+			participantDamages[participant.ID] = 0
+			continue
+		}
+		activeAttackers++
+		statContext, err := getRaidCharacterStatContext(ctx, token, participant.Character)
+		if err != nil {
+			return 0, 0, nil, nil, err
+		}
+		monsterDefense := adjustedMonsterDefense(monster.Defense, statContext.Effects)
+		baseDamage := raidParticipantCycleDamage(statContext.Stats.Attack, monsterDefense, 1)
+		damage := adjustedPlayerDamage(baseDamage, "boss", statContext.Effects) * attackCycles
 		participantDamages[participant.ID] = damage
+		participantAttackCounts[participant.ID] = attackCycles
+		totalDamage += damage
 	}
-	totalDamage := raidPartyCycleDamage(participantAttacks, monster.Defense, attackCycles)
-	return totalDamage, attackCycles * len(participants), participantDamages, nil
+	return totalDamage, attackCycles * activeAttackers, participantDamages, participantAttackCounts, nil
 }
 
 func raidParticipantCycleDamage(attack int, monsterDefense int, attackCycles int) int {
@@ -2383,11 +2396,12 @@ func applyRaidMonsterAreaAttack(
 			defeatedParticipants = append(defeatedParticipants, participant.Character)
 			continue
 		}
-		stats, err := getRaidCharacterStats(ctx, token, participant.Character)
+		statContext, err := getRaidCharacterStatContext(ctx, token, participant.Character)
 		if err != nil {
 			return 0, nil, err
 		}
-		damage := formulas.CalculateDamage(monster.Attack, stats.Defense) * monsterAttackCycles
+		damage := formulas.CalculateDamage(monster.Attack, statContext.Stats.Defense) * monsterAttackCycles
+		damage = adjustedMonsterDamage(damage, statContext.Effects)
 		nextHP := character.CurrentHP - damage
 		if nextHP < 0 {
 			nextHP = 0
@@ -2407,15 +2421,15 @@ func applyRaidMonsterAreaAttack(
 
 func restoreRaidParticipantsHP(ctx context.Context, token string, participants []raidParticipantRecord) error {
 	for _, participant := range participants {
-		stats, err := getRaidCharacterStats(ctx, token, participant.Character)
+		statContext, err := getRaidCharacterStatContext(ctx, token, participant.Character)
 		if err != nil {
 			return err
 		}
-		if stats.HP <= 0 {
+		if statContext.Stats.HP <= 0 {
 			continue
 		}
 		if _, err := patchBattleCharacter(ctx, token, participant.Character, map[string]any{
-			"current_hp": stats.HP,
+			"current_hp": statContext.Stats.HP,
 		}); err != nil {
 			return err
 		}
@@ -2424,23 +2438,19 @@ func restoreRaidParticipantsHP(ctx context.Context, token string, participants [
 }
 
 func getRaidCharacterStats(ctx context.Context, token string, characterID string) (statBlock, error) {
+	statContext, err := getRaidCharacterStatContext(ctx, token, characterID)
+	if err != nil {
+		return statBlock{}, err
+	}
+	return statContext.Stats, nil
+}
+
+func getRaidCharacterStatContext(ctx context.Context, token string, characterID string) (battleStatContext, error) {
 	stats, err := getBattleCharacterStats(ctx, token, characterID)
 	if err != nil {
-		return statBlock{}, err
+		return battleStatContext{}, err
 	}
-	equipmentStats, _, err := getEquippedStats(ctx, token, characterID)
-	if err != nil {
-		return statBlock{}, err
-	}
-	return addStatBlocks(
-		statBlock{
-			HP:      stats.BaseHP + stats.UpgradedHP,
-			Attack:  stats.BaseAttack + stats.UpgradedAttack,
-			Defense: stats.BaseDefense + stats.UpgradedDefense,
-			Agility: stats.BaseAgility + stats.UpgradedAgility,
-		},
-		equipmentStats,
-	), nil
+	return getBattleStatContext(ctx, token, characterID, stats)
 }
 
 func calculateRaidTeamAgility(ctx context.Context, token string, participants []raidParticipantRecord) (int, error) {

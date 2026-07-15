@@ -101,6 +101,18 @@ func equippedItemSetKey(item equippedStatItem) string {
 	if setKey := strings.TrimSpace(item.SetKey); setKey != "" {
 		return setKey
 	}
+	chapter3Names := map[string]string{
+		"채석단 검사":  "quarry_swordsman",
+		"채석단 광전사": "quarry_berserker",
+		"채석단 창술사": "quarry_spearmaster",
+		"채석단 도적":  "quarry_rogue",
+		"채석단 기사":  "quarry_knight",
+	}
+	for name, setKey := range chapter3Names {
+		if strings.Contains(item.Name, name) {
+			return setKey
+		}
+	}
 	source := strings.ToLower(strings.Join([]string{
 		item.Name,
 		item.WeaponType,
