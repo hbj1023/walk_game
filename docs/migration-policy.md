@@ -13,7 +13,7 @@
 node server/server-main/scripts/migrations/create.js descriptive_english_name
 ```
 
-Each new migration has one responsibility: schema, catalog content, balance, shop linkage, or reviewed deletion. Required records must fail loudly; empty `catch` blocks and silent skips are forbidden. Add PocketBase fields through the collection field API and `app.save(collection)`, not raw `ALTER TABLE`.
+Each new migration has one responsibility: schema, catalog content, balance, shop linkage, or reviewed deletion. Schema fields and record data must never be changed in the same migration because PocketBase may not expose the new SQLite column until the schema migration commits. Required records must fail loudly; empty `catch` blocks and silent skips are forbidden. Add PocketBase fields through the collection field API and `app.save(collection)`, not raw `ALTER TABLE`.
 
 Destructive migrations require a reference audit, explicit user review of record ids, immediate reference checks, and the marker `// migration-policy: destructive-reviewed`.
 

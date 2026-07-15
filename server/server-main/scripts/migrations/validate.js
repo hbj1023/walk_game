@@ -32,6 +32,9 @@ for (const fileName of migrationFiles) {
   if (/ALTER\s+TABLE\s+item_templates\s+(ADD|DROP)\s+COLUMN/i.test(source)) {
     errors.push(`${fileName}: manage item_templates fields through PocketBase collection fields`)
   }
+  if (/\.fields\.add\s*\(/.test(source) && /(findRecordsByFilter|findFirstRecordByFilter|app\.save\s*\(\s*(template|record))/i.test(source)) {
+    errors.push(`${fileName}: schema fields and record data must be changed in separate migrations`)
+  }
   if (/\.length\s*===\s*0\)\s*continue/.test(source)) errors.push(`${fileName}: silently skipping required records is forbidden`)
   if (/(app\.delete\(|DELETE\s+FROM)/i.test(source) && !source.includes("migration-policy: destructive-reviewed")) {
     errors.push(`${fileName}: destructive migrations require a reviewed policy marker`)
