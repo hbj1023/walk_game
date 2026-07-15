@@ -91,6 +91,26 @@ func TestRaidAttackDistanceAppliesPartyAveragedGaugeReduction(t *testing.T) {
 	}
 }
 
+func TestRaidMonsterAttackCyclesDueEveryThreeMinutes(t *testing.T) {
+	started := time.Date(2026, 7, 15, 12, 0, 0, 0, time.UTC)
+	cases := []struct {
+		elapsed   time.Duration
+		completed int
+		want      int
+	}{
+		{elapsed: 2*time.Minute + 59*time.Second, completed: 0, want: 0},
+		{elapsed: 3 * time.Minute, completed: 0, want: 1},
+		{elapsed: 6*time.Minute + 10*time.Second, completed: 1, want: 1},
+		{elapsed: 9 * time.Minute, completed: 1, want: 2},
+		{elapsed: 3 * time.Minute, completed: 1, want: 0},
+	}
+	for _, tc := range cases {
+		if got := raidMonsterAttackCyclesDue(started.Format(time.RFC3339), started.Add(tc.elapsed), tc.completed); got != tc.want {
+			t.Fatalf("elapsed=%s completed=%d due=%d, want %d", tc.elapsed, tc.completed, got, tc.want)
+		}
+	}
+}
+
 func TestGolemRaidVerifiedRolePartyLosesBerserkerTwoCyclesBeforeClear(t *testing.T) {
 	berserkerDamage := adjustedPlayerDamage(
 		raidParticipantCycleDamage(107, 40, 1),

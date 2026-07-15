@@ -24,7 +24,7 @@ const (
 	raidWeeklyClearsCollection = "raid_weekly_clears"
 	friendshipsCollection      = "friendships"
 	baseRaidAttackDistanceM    = 1000
-	baseRaidMonsterAttackM     = 1000
+	raidMonsterAttackInterval  = 3 * time.Minute
 	defaultRaidMonsterHP       = 1800
 	minRaidEntryLevel          = 5
 )
@@ -416,8 +416,8 @@ func handleRaidDistance(w http.ResponseWriter, r *http.Request, raidID string) {
 		return
 	}
 	req.CharacterID = strings.TrimSpace(req.CharacterID)
-	if req.CharacterID == "" || req.DistanceM <= 0 {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"message": "invalid request", "error": "characterId and positive distanceM are required"})
+	if req.CharacterID == "" || req.DistanceM < 0 {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"message": "invalid request", "error": "characterId and non-negative distanceM are required"})
 		return
 	}
 
@@ -1206,13 +1206,12 @@ func addRaidDistance(ctx context.Context, token string, userID string, raidID st
 		return nil, err
 	}
 	nextMonsterHP := applyRaidDamage(progress.MonsterCurrentHP, damageDealt)
-	nextMonsterAttackDistance := progress.DistanceSinceLastMonsterAttackM + req.DistanceM
+	nextMonsterAttackDistance := 0.0
 	monsterAttackCycles := 0
 	totalMonsterDamage := 0
 	defeatedParticipants := []string{}
 	if nextMonsterHP > 0 {
-		monsterAttackCycles = int(math.Floor(nextMonsterAttackDistance / baseRaidMonsterAttackM))
-		nextMonsterAttackDistance = math.Mod(nextMonsterAttackDistance, baseRaidMonsterAttackM)
+		monsterAttackCycles = raidMonsterAttackCyclesDue(progress.StartedAt, nowTime, int(progress.TotalMonsterAttackCycles))
 		totalMonsterDamage, defeatedParticipants, err = applyRaidMonsterAreaAttack(ctx, token, monster, participants.Items, monsterAttackCycles)
 		if err != nil {
 			return nil, err
@@ -1313,7 +1312,8 @@ func addRaidDistance(ctx context.Context, token string, userID string, raidID st
 		"active_participants":       len(participants.Items),
 		"team_agility":              teamAgility,
 		"attack_distance_m":         attackDistanceM,
-		"monster_attack_distance_m": baseRaidMonsterAttackM,
+		"monster_attack_distance_m": 0,
+		"monster_attack_interval_s": int(raidMonsterAttackInterval.Seconds()),
 	}, nil
 }
 
@@ -1402,7 +1402,8 @@ func getRaidProgressSummary(ctx context.Context, token string, raidID string) (m
 		"active_participants":       len(activeParticipants),
 		"team_agility":              teamAgility,
 		"attack_distance_m":         attackDistanceM,
-		"monster_attack_distance_m": baseRaidMonsterAttackM,
+		"monster_attack_distance_m": 0,
+		"monster_attack_interval_s": int(raidMonsterAttackInterval.Seconds()),
 		"lobby_path":                raidLobbyPath(raidID),
 	}, nil
 }
@@ -2477,6 +2478,19 @@ func calculateRaidTeamAgility(ctx context.Context, token string, participants []
 
 func calculateRaidAttackDistance(teamAgility int) float64 {
 	return formulas.CalculateDistanceWithAgility(baseRaidAttackDistanceM, teamAgility)
+}
+
+func raidMonsterAttackCyclesDue(startedAt string, now time.Time, completedCycles int) int {
+	startedTime, err := time.Parse(time.RFC3339Nano, strings.TrimSpace(startedAt))
+	if err != nil || !now.After(startedTime) {
+		return 0
+	}
+	totalDue := int(now.Sub(startedTime) / raidMonsterAttackInterval)
+	remaining := totalDue - completedCycles
+	if remaining < 0 {
+		return 0
+	}
+	return remaining
 }
 
 func calculateRaidAttackGaugePercent(ctx context.Context, token string, participants []raidParticipantRecord) (float64, error) {
