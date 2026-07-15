@@ -193,10 +193,20 @@ func TestEquipmentShopProgressHidesRetiredChapter2Epic(t *testing.T) {
 
 func TestEquipmentShopProgressShowsPoisonAssassinEpic(t *testing.T) {
 	epic := testEquipmentTemplate("epic", "sword", "poison_assassin", "weapon")
+	epic.Name = "맹독 암살자 단검"
 	bossShopUnlocks := map[int]bool{2: true}
 
 	if !isEquipmentTemplateVisibleInShop(epic, buildEquipmentShopProgress(nil), true, bossShopUnlocks) {
 		t.Fatal("poison assassin epic equipment should show after chapter 2 boss clear")
+	}
+}
+
+func TestChapter2EpicRejectsRetiredPoisonAssassinEquipment(t *testing.T) {
+	retired := testEquipmentTemplate("epic", "sword", "poison_assassin", "weapon")
+	retired.Name = "에픽 도적 단검"
+
+	if isSupportedChapterEpicTemplate(retired) {
+		t.Fatal("retired chapter 2 epic equipment should be hidden")
 	}
 }
 

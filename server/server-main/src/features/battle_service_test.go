@@ -96,6 +96,24 @@ func TestIsBossRewardTemplateForStage(t *testing.T) {
 	}
 }
 
+func TestChapter2BossAcceptsEveryPoisonAssassinPiece(t *testing.T) {
+	tests := []itemTemplateRecord{
+		{Name: "맹독 암살자 단검", EquipmentSlot: "sword", SetPieceType: "weapon"},
+		{Name: "맹독 암살자 복면", EquipmentSlot: "helmet", SetPieceType: "helmet"},
+		{Name: "맹독 암살자 갑옷", EquipmentSlot: "armor", SetPieceType: "armor"},
+		{Name: "맹독 암살자 장화", EquipmentSlot: "shoes", SetPieceType: "shoes"},
+	}
+
+	for _, template := range tests {
+		template.ItemType = "equipment"
+		template.SetKey = "poison_assassin"
+		template.Rarity = "epic"
+		if !isBossRewardTemplateForStage(template, 10) {
+			t.Fatalf("chapter 2 boss should accept %+v", template)
+		}
+	}
+}
+
 func TestBossClearRequiresTicket(t *testing.T) {
 	if bossClearRequiresTicket(stageProgressRecord{}, false) {
 		t.Fatal("missing progress should not require a boss ticket")

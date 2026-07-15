@@ -464,10 +464,22 @@ func isSupportedChapterEpicTemplate(template itemTemplateRecord) bool {
 	case 1:
 		return isCanonicalChapter1EpicTemplate(template)
 	case 2:
-		return strings.TrimSpace(template.SetKey) == "poison_assassin"
+		return isCanonicalChapter2EpicTemplate(template)
 	default:
 		return true
 	}
+}
+
+func isCanonicalChapter2EpicTemplate(template itemTemplateRecord) bool {
+	pieceType := equipmentShopPieceType(template)
+	canonicalPieces := map[string]string{
+		"맹독 암살자 단검": "weapon",
+		"맹독 암살자 복면": "helmet",
+		"맹독 암살자 갑옷": "armor",
+		"맹독 암살자 장화": "shoes",
+	}
+	wantPiece, ok := canonicalPieces[strings.TrimSpace(template.Name)]
+	return ok && pieceType == wantPiece && strings.TrimSpace(template.SetKey) == "poison_assassin"
 }
 
 func isCanonicalChapter1EpicTemplate(template itemTemplateRecord) bool {
