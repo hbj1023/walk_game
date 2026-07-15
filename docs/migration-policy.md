@@ -15,6 +15,8 @@ node server/server-main/scripts/migrations/create.js descriptive_english_name
 
 Each new migration has one responsibility: schema, catalog content, balance, shop linkage, or reviewed deletion. Schema fields and record data must never be changed in the same migration because PocketBase may not expose the new SQLite column until the schema migration commits. Required records must fail loudly; empty `catch` blocks and silent skips are forbidden. Add PocketBase fields through the collection field API and `app.save(collection)`, not raw `ALTER TABLE`.
 
+If the PocketBase collection schema contains a field but the physical SQLite column is still missing after the schema migration commits, add a separate repair migration before any data migration. A reviewed repair may use `ALTER TABLE ... ADD COLUMN` with the marker `// migration-policy: schema-drift-repair-reviewed`, must tolerate only the duplicate-column case, and must rethrow every other SQL error.
+
 Destructive migrations require a reference audit, explicit user review of record ids, immediate reference checks, and the marker `// migration-policy: destructive-reviewed`.
 
 ## Validation and deployment

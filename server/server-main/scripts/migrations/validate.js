@@ -29,7 +29,8 @@ for (const fileName of migrationFiles) {
 
   const source = fs.readFileSync(path.join(migrationDir, fileName), "utf8")
   if (/catch\s*\([^)]*\)\s*\{\s*\}/s.test(source)) errors.push(`${fileName}: empty catch blocks are forbidden`)
-  if (/ALTER\s+TABLE\s+item_templates\s+(ADD|DROP)\s+COLUMN/i.test(source)) {
+  if (/ALTER\s+TABLE\s+item_templates\s+(ADD|DROP)\s+COLUMN/i.test(source) &&
+      !source.includes("migration-policy: schema-drift-repair-reviewed")) {
     errors.push(`${fileName}: manage item_templates fields through PocketBase collection fields`)
   }
   if (/\.fields\.add\s*\(/.test(source) && /(findRecordsByFilter|findFirstRecordByFilter|app\.save\s*\(\s*(template|record))/i.test(source)) {
