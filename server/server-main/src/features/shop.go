@@ -465,9 +465,27 @@ func isSupportedChapterEpicTemplate(template itemTemplateRecord) bool {
 		return isCanonicalChapter1EpicTemplate(template)
 	case 2:
 		return isCanonicalChapter2EpicTemplate(template)
+	case 3:
+		return isCanonicalChapter3EpicTemplate(template)
 	default:
 		return true
 	}
+}
+
+func isCanonicalChapter3EpicTemplate(template itemTemplateRecord) bool {
+	pieceType := equipmentShopPieceType(template)
+	canonicalPieces := map[string]string{
+		"균열자 대검": "weapon",
+		"균열자 투구": "helmet",
+		"균열자 갑옷": "armor",
+		"균열자 장화": "shoes",
+	}
+	wantPiece, ok := canonicalPieces[strings.TrimSpace(template.Name)]
+	if !ok || pieceType != wantPiece {
+		return false
+	}
+	setKey := strings.TrimSpace(template.SetKey)
+	return setKey == "" || setKey == "riftbreaker"
 }
 
 func isCanonicalChapter2EpicTemplate(template itemTemplateRecord) bool {
@@ -568,6 +586,23 @@ func equipmentShopInferredSetKey(template itemTemplateRecord) string {
 	}
 
 	source := strings.ToLower(template.ImagePath + " " + template.Name)
+	name := strings.TrimSpace(template.Name)
+	switch {
+	case strings.Contains(name, "균열자"):
+		return "riftbreaker"
+	case strings.Contains(name, "파쇄자"):
+		return "crusher"
+	case strings.Contains(name, "채석단 검사"):
+		return "quarry_swordsman"
+	case strings.Contains(name, "채석단 광전사"):
+		return "quarry_berserker"
+	case strings.Contains(name, "채석단 창술사"):
+		return "quarry_spearmaster"
+	case strings.Contains(name, "채석단 도적"):
+		return "quarry_rogue"
+	case strings.Contains(name, "채석단 기사"):
+		return "quarry_knight"
+	}
 	for _, setKey := range []string{
 		"vanguard", "berserker", "sentinel", "shadow", "colossus",
 		"quarry_swordsman", "quarry_berserker", "quarry_spearmaster", "quarry_rogue", "quarry_knight",

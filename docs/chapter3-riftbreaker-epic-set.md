@@ -16,3 +16,5 @@
 - 방어력 감소는 첫 타격부터 적용되며 전투가 끝나면 초기화된다.
 - 획득: 3장 보스 에픽 무작위 드롭
 - 상점: 3장 보스 클리어 후 판매
+- 드롭 확률: 보스 클리어 시 60%, 실패 시 장비 없음 40%
+- 원본 이미지: `equipment_concepts/chapter3_epic_riftstone_greatsword_set_v1/png_transparent_256`

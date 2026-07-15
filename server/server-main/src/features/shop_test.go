@@ -150,6 +150,57 @@ func TestEquipmentShopChapterRecognizesRiftbreakerSet(t *testing.T) {
 	}
 }
 
+func TestChapter3EpicOnlyAllowsCanonicalRiftbreakerEquipment(t *testing.T) {
+	canonical := testEquipmentTemplate("epic", "sword", "riftbreaker", "weapon")
+	canonical.Name = "균열자 대검"
+	canonical.ImagePath = "assets/images/equipment/chapter3/ch3_epic_riftstone_greatsword.png"
+	if !isSupportedChapterEpicTemplate(canonical) {
+		t.Fatal("canonical riftbreaker greatsword should be supported")
+	}
+
+	withoutSetKey := testEquipmentTemplate("epic", "helmet", "", "helmet")
+	withoutSetKey.Name = "균열자 투구"
+	withoutSetKey.ImagePath = "assets/images/equipment/chapter3/ch3_epic_riftstone_helmet.png"
+	if !isSupportedChapterEpicTemplate(withoutSetKey) {
+		t.Fatal("canonical riftbreaker helmet should work without legacy set_key")
+	}
+
+	retired := testEquipmentTemplate("epic", "helmet", "crusher", "helmet")
+	retired.Name = "파쇄자 투구"
+	retired.ImagePath = "assets/images/equipment/chapter3/ch3_rare_colossus_helmet.png"
+	if isSupportedChapterEpicTemplate(retired) {
+		t.Fatal("non-riftbreaker chapter 3 epic equipment should stay hidden")
+	}
+}
+
+func TestChapter3EpicShopUnlockRequiresChapter3BossClear(t *testing.T) {
+	epic := testEquipmentTemplate("epic", "armor", "riftbreaker", "armor")
+	epic.Name = "균열자 갑옷"
+	epic.ImagePath = "assets/images/equipment/chapter3/ch3_epic_riftstone_armor.png"
+
+	locked := equipmentShopAvailabilityForTemplateByChapter(
+		epic,
+		buildEquipmentShopProgress(nil),
+		true,
+		true,
+		nil,
+	)
+	if !locked.include || locked.purchaseUnlocked {
+		t.Fatal("riftbreaker epic should stay locked before chapter 3 boss clear")
+	}
+
+	unlocked := equipmentShopAvailabilityForTemplateByChapter(
+		epic,
+		buildEquipmentShopProgress(nil),
+		true,
+		true,
+		map[int]bool{3: true},
+	)
+	if !unlocked.include || !unlocked.purchaseUnlocked {
+		t.Fatal("riftbreaker epic should unlock after chapter 3 boss clear")
+	}
+}
+
 func TestEquipmentShopChapterKeepsChapter1PathInChapter1(t *testing.T) {
 	template := testEquipmentTemplate("rare", "sword", "chapter1-adventurer", "weapon")
 	template.ImagePath = "assets/images/equipment/chapter1/tutorial_weapon_rare_sword.png"
