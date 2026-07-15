@@ -1,6 +1,7 @@
 package features
 
 import (
+	"math"
 	"testing"
 	"time"
 )
@@ -14,17 +15,17 @@ func raidCyclesToDefeatForTest(hp int, defense int, participantAttacks []int) in
 }
 
 func TestRaidMonsterScaledHPUsesFourPlayerBaseline(t *testing.T) {
-	monster := monsterRecord{HP: 4000}
+	monster := monsterRecord{HP: 3400}
 
 	cases := []struct {
 		participants int
 		want         int
 	}{
-		{participants: 4, want: 4000},
-		{participants: 3, want: 3600},
-		{participants: 2, want: 3200},
-		{participants: 1, want: 2800},
-		{participants: 0, want: 2800},
+		{participants: 4, want: 3400},
+		{participants: 3, want: 3060},
+		{participants: 2, want: 2720},
+		{participants: 1, want: 2380},
+		{participants: 0, want: 2380},
 	}
 
 	for _, tc := range cases {
@@ -45,7 +46,7 @@ func TestRaidMonsterComingSoonFlagsWyvern(t *testing.T) {
 
 func TestGolemRaidChapter3FourPlayerAttackCycleTargets(t *testing.T) {
 	const (
-		golemHP      = 4000
+		golemHP      = 3400
 		golemDefense = 24
 	)
 
@@ -57,17 +58,17 @@ func TestGolemRaidChapter3FourPlayerAttackCycleTargets(t *testing.T) {
 		{
 			name:    "chapter 3-3 party can clear with tight pacing",
 			attacks: []int{75, 75, 75, 75},
-			want:    20,
+			want:    17,
 		},
 		{
 			name:    "chapter 3-5 party clears comfortably",
 			attacks: []int{95, 95, 95, 95},
-			want:    15,
+			want:    12,
 		},
 		{
 			name:    "mixed chapter 3 party stays inside target range",
 			attacks: []int{75, 85, 95, 105},
-			want:    16,
+			want:    13,
 		},
 	}
 
@@ -77,6 +78,15 @@ func TestGolemRaidChapter3FourPlayerAttackCycleTargets(t *testing.T) {
 				t.Fatalf("raid cycles = %d, want %d", got, tc.want)
 			}
 		})
+	}
+}
+
+func TestRaidMonsterAttackDistanceAppliesPartyAveragedGaugeReduction(t *testing.T) {
+	if got := raidMonsterAttackDistance(-2.5); math.Abs(got-1025.6410256) > 0.001 {
+		t.Fatalf("monster attack distance = %.3f, want 1025.641", got)
+	}
+	if got := raidMonsterAttackDistance(0); got != 1000 {
+		t.Fatalf("base monster attack distance = %.3f, want 1000", got)
 	}
 }
 
