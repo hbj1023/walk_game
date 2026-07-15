@@ -1248,8 +1248,13 @@ func addRaidDistance(ctx context.Context, token string, userID string, raidID st
 			return nil, err
 		}
 	}
+	rewardCoin := 0
 	if nextProgressStatus == "cleared" {
 		if err := createRaidWeeklyClearsForParticipants(ctx, token, raid, participants.Items, nowTime); err != nil {
+			return nil, err
+		}
+		rewardCoin = randomCoin(monster.RewardCoinMin, monster.RewardCoinMax)
+		if err := awardRaidCoinToParticipants(ctx, token, participants.Items, rewardCoin); err != nil {
 			return nil, err
 		}
 	}
@@ -1281,6 +1286,7 @@ func addRaidDistance(ctx context.Context, token string, userID string, raidID st
 		if nextProgressStatus == "cleared" || nextProgressStatus == "failed" {
 			raidPayload["status"] = "ended"
 			raidPayload["end_time"] = now
+			raidPayload["reward_coin"] = rewardCoin
 		}
 		updatedRaid, err = patchRaid(ctx, token, raid.ID, raidPayload)
 		if err != nil {
@@ -1297,12 +1303,39 @@ func addRaidDistance(ctx context.Context, token string, userID string, raidID st
 		"damage_dealt":              damageDealt,
 		"monster_attack_cycles":     monsterAttackCycles,
 		"monster_damage_dealt":      totalMonsterDamage,
+		"reward_coin":               rewardCoin,
 		"defeated_participants":     defeatedParticipants,
 		"active_participants":       len(participants.Items),
 		"team_agility":              teamAgility,
 		"attack_distance_m":         attackDistanceM,
 		"monster_attack_distance_m": baseRaidMonsterAttackM,
 	}, nil
+}
+
+func awardRaidCoinToParticipants(
+	ctx context.Context,
+	token string,
+	participants []raidParticipantRecord,
+	rewardCoin int,
+) error {
+	if rewardCoin <= 0 {
+		return nil
+	}
+	for _, participant := range participants {
+		if participant.JoinStatus != "joined" {
+			continue
+		}
+		character, err := getBattleCharacterByID(ctx, token, participant.Character)
+		if err != nil {
+			return err
+		}
+		if _, err := patchBattleCharacter(ctx, token, character.ID, map[string]any{
+			"coin_balance": character.CoinBalance + rewardCoin,
+		}); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func getRaidProgressSummary(ctx context.Context, token string, raidID string) (map[string]any, error) {

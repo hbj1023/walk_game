@@ -90,6 +90,15 @@ func TestRaidPartyCycleDamageCountsEveryParticipantAndCycle(t *testing.T) {
 	}
 }
 
+func TestGolemRaidRewardCoinStaysInsideConfiguredRange(t *testing.T) {
+	for range 100 {
+		got := randomCoin(2200, 2800)
+		if got < 2200 || got > 2800 {
+			t.Fatalf("raid reward coin = %d, want 2200..2800", got)
+		}
+	}
+}
+
 func TestRaidWeekStartDateUsesKoreanMonday(t *testing.T) {
 	cases := []struct {
 		name string
