@@ -1,9 +1,21 @@
 package features
 
 import (
+	"server/src/utils/formulas"
 	"testing"
 	"time"
 )
+
+func raidCyclesToDefeatForTest(hp int, defense int, participantAttacks []int) int {
+	damagePerCycle := 0
+	for _, attack := range participantAttacks {
+		damagePerCycle += formulas.CalculateDamage(attack, defense)
+	}
+	if damagePerCycle <= 0 {
+		return 0
+	}
+	return (hp + damagePerCycle - 1) / damagePerCycle
+}
 
 func TestRaidMonsterScaledHPUsesFourPlayerBaseline(t *testing.T) {
 	monster := monsterRecord{HP: 1800}
@@ -32,6 +44,38 @@ func TestRaidMonsterComingSoonFlagsWyvern(t *testing.T) {
 	}
 	if isRaidMonsterComingSoon(monsterRecord{Name: "골렘"}) {
 		t.Fatal("golem raid should be available")
+	}
+}
+
+func TestGolemRaidChapter3FourPlayerAttackCycleTargets(t *testing.T) {
+	const (
+		golemHP      = 4000
+		golemDefense = 24
+	)
+
+	cases := []struct {
+		name    string
+		attacks []int
+		want    int
+	}{
+		{
+			name:    "chapter 3-3 party can clear with tight pacing",
+			attacks: []int{75, 75, 75, 75},
+			want:    20,
+		},
+		{
+			name:    "chapter 3-5 party clears comfortably",
+			attacks: []int{95, 95, 95, 95},
+			want:    15,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := raidCyclesToDefeatForTest(golemHP, golemDefense, tc.attacks); got != tc.want {
+				t.Fatalf("raid cycles = %d, want %d", got, tc.want)
+			}
+		})
 	}
 }
 

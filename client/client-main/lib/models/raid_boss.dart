@@ -99,7 +99,7 @@ int _raidDifficulty(RaidMonsterInfo monster) {
 int _raidRecommendedLevel(RaidMonsterInfo _) => 5;
 
 const _kMinimumRaidRecommendedCombatPower = 980;
-const _kGolemRaidRecommendedCombatPower = 1100;
+const _kGolemRaidRecommendedCombatPower = 1220;
 
 int _raidRecommendedCombatPower(RaidMonsterInfo monster) {
   final name = monster.name.trim();
