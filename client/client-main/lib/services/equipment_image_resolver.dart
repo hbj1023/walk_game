@@ -21,6 +21,14 @@ String resolveEquipmentImagePath({
   final chapter1ImagePath = _chapter1EquipmentImagePath(name);
   if (chapter1ImagePath.isNotEmpty) return chapter1ImagePath;
 
+  final chapter3ArmorImagePath = _chapter3ArmorImagePath(
+    equipmentSlot: equipmentSlot,
+    setPieceType: setPieceType,
+    setKey: setKey,
+    rarity: rarity,
+  );
+  if (chapter3ArmorImagePath.isNotEmpty) return chapter3ArmorImagePath;
+
   final chapter3WeaponImagePath = _chapter3WeaponImagePath(
     equipmentSlot: equipmentSlot,
     setPieceType: setPieceType,
@@ -259,6 +267,7 @@ String _chapter3WeaponImagePath({
   final lowerName = name.toLowerCase();
   final isChapter3 =
       normalizedSetKey == 'crusher' ||
+      normalizedSetKey.startsWith('quarry_') ||
       lowerName.contains('crusher') ||
       name.contains('파쇄자');
   if (!isChapter3) return '';
@@ -268,6 +277,33 @@ String _chapter3WeaponImagePath({
       ? weaponType
       : _inferWeaponTypeFromName(name);
   return _chapter3WeaponAssetPath(inferredWeaponType, rarity: rarity);
+}
+
+String _chapter3ArmorImagePath({
+  required String equipmentSlot,
+  required String setPieceType,
+  required String setKey,
+  required String rarity,
+}) {
+  final armorKey = switch (setKey.trim().toLowerCase()) {
+    'quarry_swordsman' => 'vanguard',
+    'quarry_berserker' => 'berserker',
+    'quarry_spearmaster' => 'sentinel',
+    'quarry_rogue' => 'shadow',
+    'quarry_knight' => 'colossus',
+    _ => '',
+  };
+  if (armorKey.isEmpty) return '';
+
+  final piece = setPieceType.isNotEmpty ? setPieceType : equipmentSlot;
+  final assetPiece = piece == 'shoes' ? 'boots' : piece;
+  if (assetPiece != 'helmet' &&
+      assetPiece != 'armor' &&
+      assetPiece != 'boots') {
+    return '';
+  }
+  final grade = rarity.trim().toLowerCase() == 'rare' ? 'rare' : 'common';
+  return 'assets/images/equipment/chapter3/ch3_${grade}_${armorKey}_$assetPiece.png';
 }
 
 String _chapter3WeaponAssetPath(String weaponType, {String rarity = ''}) {

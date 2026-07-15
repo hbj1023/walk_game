@@ -65,4 +65,34 @@ void main() {
       'assets/images/equipment/chapter3/ch3_weapon_rare_greatsword.png',
     );
   });
+
+  test('3장 채석단 방어구는 세트와 등급별 전용 에셋을 사용한다', () {
+    expect(
+      armorPath('quarry_swordsman', 'common'),
+      'assets/images/equipment/chapter3/ch3_common_vanguard_armor.png',
+    );
+    expect(
+      armorPath('quarry_rogue', 'rare'),
+      'assets/images/equipment/chapter3/ch3_rare_shadow_armor.png',
+    );
+    expect(
+      armorPath('quarry_knight', 'rare'),
+      'assets/images/equipment/chapter3/ch3_rare_colossus_armor.png',
+    );
+  });
+
+  test('3장 채석단 무기는 세트 키만으로 3장 에셋을 사용한다', () {
+    final path = resolveEquipmentImagePath(
+      imagePath: '',
+      rarity: 'rare',
+      itemType: 'equipment',
+      equipmentSlot: 'sword',
+      weaponType: 'axe',
+      setKey: 'quarry_berserker',
+      setPieceType: 'weapon',
+      name: '+채석단 광전사 도끼',
+    );
+
+    expect(path, 'assets/images/equipment/chapter3/ch3_weapon_rare_axe.png');
+  });
 }
