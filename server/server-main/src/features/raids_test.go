@@ -82,12 +82,12 @@ func TestGolemRaidChapter3FourPlayerAttackCycleTargets(t *testing.T) {
 	}
 }
 
-func TestRaidMonsterAttackDistanceAppliesPartyAveragedGaugeReduction(t *testing.T) {
-	if got := raidMonsterAttackDistance(-2.5); math.Abs(got-1025.6410256) > 0.001 {
-		t.Fatalf("monster attack distance = %.3f, want 1025.641", got)
+func TestRaidAttackDistanceAppliesPartyAveragedGaugeReduction(t *testing.T) {
+	if got := applyBattlePercentToDistance(948, -2.5); math.Abs(got-924.3) > 0.001 {
+		t.Fatalf("party attack distance = %.3f, want 924.3", got)
 	}
-	if got := raidMonsterAttackDistance(0); got != 1000 {
-		t.Fatalf("base monster attack distance = %.3f, want 1000", got)
+	if got := applyBattlePercentToDistance(948, 0); got != 948 {
+		t.Fatalf("base party attack distance = %.3f, want 948", got)
 	}
 }
 
