@@ -45,3 +45,34 @@ func TestChapter3EntryCounterattackPressure(t *testing.T) {
 		t.Fatalf("remaining HP after stage 3-1 entry pressure = %d, want 80..180", remainingHP)
 	}
 }
+
+func TestChapter3CommonFourPieceSetsCanClearStage33(t *testing.T) {
+	const (
+		stage33HP      = 280
+		stage33Defense = 32
+	)
+
+	builds := []struct {
+		name               string
+		attack             int
+		penetrationPercent int
+		maxHitCount        int
+	}{
+		{name: "swordsman", attack: 63, penetrationPercent: 30, maxHitCount: 8},
+		{name: "berserker", attack: 90, penetrationPercent: 20, maxHitCount: 5},
+		{name: "spearmaster", attack: 48, penetrationPercent: 30, maxHitCount: 13},
+		{name: "rogue", attack: 51, penetrationPercent: 25, maxHitCount: 11},
+		{name: "knight", attack: 74, penetrationPercent: 20, maxHitCount: 6},
+	}
+
+	for _, build := range builds {
+		t.Run(build.name, func(t *testing.T) {
+			effectiveDefense := stage33Defense * (100 - build.penetrationPercent) / 100
+			damage := formulas.CalculateDamageAtPercent(build.attack, effectiveDefense, 100)
+			hits := ceilDiv(stage33HP, damage)
+			if hits > build.maxHitCount {
+				t.Fatalf("stage 3-3 hits = %d, want at most %d", hits, build.maxHitCount)
+			}
+		})
+	}
+}
