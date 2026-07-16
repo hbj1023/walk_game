@@ -1256,6 +1256,76 @@ class GameApiService {
     if (characterId == null || characterId.isEmpty) {
       throw const GameApiException('캐릭터 정보를 불러오지 못했습니다.');
     }
+class GoldMineEventStatus {
+  final bool unlocked;
+  final bool attemptedToday;
+  final int durationSeconds;
+  final int clearDistanceM;
+  final int maxRewardDistanceM;
+  final double maxSpeedKmh;
+
+  const GoldMineEventStatus({
+    required this.unlocked,
+    required this.attemptedToday,
+    required this.durationSeconds,
+    required this.clearDistanceM,
+    required this.maxRewardDistanceM,
+    required this.maxSpeedKmh,
+  });
+
+  factory GoldMineEventStatus.fromJson(Map<String, dynamic> json) =>
+      GoldMineEventStatus(
+        unlocked: json['unlocked'] == true,
+        attemptedToday: json['attempted_today'] == true,
+        durationSeconds: _asInt(json['duration_seconds']),
+        clearDistanceM: _asInt(json['clear_distance_m']),
+        maxRewardDistanceM: _asInt(json['max_reward_distance_m']),
+        maxSpeedKmh: _asDouble(json['max_speed_kmh']),
+      );
+}
+
+class GoldMineEventStart {
+  final String runId;
+  final int durationSeconds;
+  const GoldMineEventStart({
+    required this.runId,
+    required this.durationSeconds,
+  });
+  factory GoldMineEventStart.fromJson(Map<String, dynamic> json) {
+    final run = _asMap(json['run']);
+    return GoldMineEventStart(
+      runId: _asString(run['id']),
+      durationSeconds: _asInt(json['duration_seconds']),
+    );
+  }
+}
+
+class GoldMineEventResult {
+  final double distanceM;
+  final int rewardDistanceM;
+  final int rewardCoin;
+  final int rewardStatExp;
+  final int rewardTicketFragments;
+  final bool cleared;
+  const GoldMineEventResult({
+    required this.distanceM,
+    required this.rewardDistanceM,
+    required this.rewardCoin,
+    required this.rewardStatExp,
+    required this.rewardTicketFragments,
+    required this.cleared,
+  });
+  factory GoldMineEventResult.fromJson(Map<String, dynamic> json) =>
+      GoldMineEventResult(
+        distanceM: _asDouble(json['distance_m']),
+        rewardDistanceM: _asInt(json['reward_distance_m']),
+        rewardCoin: _asInt(json['reward_coin']),
+        rewardStatExp: _asInt(json['reward_stat_exp']),
+        rewardTicketFragments: _asInt(json['reward_ticket_fragments']),
+        cleared: json['cleared'] == true,
+      );
+}
+
     return characterId;
   }
 
@@ -1283,6 +1353,44 @@ class GameApiService {
     return _dataItems(response)
         .map(ShopItem.fromJson)
         .where((item) => item.id.isNotEmpty && item.itemTemplate.id.isNotEmpty)
+  static Future<GoldMineEventStatus> fetchGoldMineEventStatus() async {
+    final response = await _get('/api/events/gold-mine/status');
+    return GoldMineEventStatus.fromJson(_asMap(response['data']));
+  }
+
+  static Future<GoldMineEventStart> startGoldMineEvent() async {
+    final response = await _post('/api/events/gold-mine/start', const {});
+    return GoldMineEventStart.fromJson(_asMap(response['data']));
+  }
+
+  static Future<GoldMineEventResult> finishGoldMineEvent({
+    required String runId,
+    required double distanceM,
+    required int stepCount,
+    required double maxSpeedKmh,
+  }) async {
+    final response = await _post('/api/events/gold-mine/finish', {
+      'run_id': runId,
+      'distance_m': distanceM,
+      'step_count': stepCount,
+      'max_speed_kmh': maxSpeedKmh,
+    });
+    final data = _asMap(response['data']);
+    final character = _asMap(data['character']);
+    if (character.containsKey('coin_balance')) {
+      GameState.instance.setCoins(_asInt(character['coin_balance']));
+    }
+    if (character.containsKey('stat_exp')) {
+      GameState.instance.setStatExp(_asInt(character['stat_exp']));
+    }
+    if (data.containsKey('boss_ticket_fragment_balance')) {
+      GameState.instance.setBossTicketFragments(
+        _asInt(data['boss_ticket_fragment_balance']),
+      );
+    }
+    return GoldMineEventResult.fromJson(data);
+  }
+
         .toList();
   }
 

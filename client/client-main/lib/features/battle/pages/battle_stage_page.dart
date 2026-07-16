@@ -11,6 +11,7 @@ import 'package:capstone_app/services/game_state.dart';
 import 'package:capstone_app/services/monster_asset_service.dart';
 import 'package:capstone_app/features/battle/pages/battle_page.dart';
 import 'package:capstone_app/features/home/pages/home_page.dart';
+import 'package:capstone_app/features/battle/pages/gold_mine_event_page.dart';
 import 'package:capstone_app/features/inventory/pages/inventory_page.dart';
 import 'package:capstone_app/features/raid/pages/raid_list_page.dart';
 import 'package:capstone_app/features/shop/pages/shop_page.dart';
@@ -1572,6 +1573,16 @@ class _BattleStagePageState extends State<BattleStagePage> {
               padding: const EdgeInsets.fromLTRB(8, 8, 8, 9),
               decoration: BoxDecoration(
                 color: (locked || _isStarting)
+  bool get _goldMineEventUnlocked =>
+      _allStages.any((stage) => stage.stageNo == 13 && stage.cleared);
+
+  Future<void> _openGoldMineEvent() async {
+    await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(builder: (_) => const GoldMineEventPage()),
+    );
+  }
+
                     ? const Color(0xFF555555)
                     : _kStartBtn,
                 borderRadius: BorderRadius.circular(10),
@@ -1581,6 +1592,36 @@ class _BattleStagePageState extends State<BattleStagePage> {
                       : _kStartBtnBorder,
                   width: 2,
                 ),
+          if (_currentChapter == 3 && _goldMineEventUnlocked) ...[
+            GestureDetector(
+              onTap: _isStarting ? null : _openGoldMineEvent,
+              child: Container(
+                width: double.infinity,
+                margin: const EdgeInsets.only(bottom: 7),
+                padding: const EdgeInsets.symmetric(vertical: 10),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF9A6515),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: _kGold, width: 2),
+                ),
+                child: const Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.diamond_outlined, color: _kGold, size: 22),
+                    SizedBox(width: 8),
+                    Text(
+                      '황금 광맥 발견',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
               ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
