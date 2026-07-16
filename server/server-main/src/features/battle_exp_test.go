@@ -13,20 +13,20 @@ func TestRecommendedCombatPowerForStage(t *testing.T) {
 	if got := recommendedCombatPowerForStage(5); got != 360 {
 		t.Fatalf("stage 5 recommended power = %d, want 360", got)
 	}
-	if got := recommendedCombatPowerForStage(6); got != 300 {
-		t.Fatalf("stage 6 recommended power = %d, want 300", got)
+	if got := recommendedCombatPowerForStage(6); got != 460 {
+		t.Fatalf("stage 6 recommended power = %d, want 460", got)
 	}
-	if got := recommendedCombatPowerForStage(10); got != 820 {
-		t.Fatalf("stage 10 recommended power = %d, want 820", got)
+	if got := recommendedCombatPowerForStage(10); got != 830 {
+		t.Fatalf("stage 10 recommended power = %d, want 830", got)
 	}
-	if got := recommendedCombatPowerForStage(11); got != 900 {
-		t.Fatalf("stage 11 recommended power = %d, want 900", got)
+	if got := recommendedCombatPowerForStage(11); got != 850 {
+		t.Fatalf("stage 11 recommended power = %d, want 850", got)
 	}
-	if got := recommendedCombatPowerForStage(13); got != 1200 {
-		t.Fatalf("stage 13 recommended power = %d, want 1200", got)
+	if got := recommendedCombatPowerForStage(13); got != 1050 {
+		t.Fatalf("stage 13 recommended power = %d, want 1050", got)
 	}
-	if got := recommendedCombatPowerForStage(15); got != 1550 {
-		t.Fatalf("stage 15 recommended power = %d, want 1550", got)
+	if got := recommendedCombatPowerForStage(15); got != 1350 {
+		t.Fatalf("stage 15 recommended power = %d, want 1350", got)
 	}
 }
 
