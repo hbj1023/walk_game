@@ -14,6 +14,31 @@ func TestCalculateDamageAttackMinusDefense(t *testing.T) {
 	}
 }
 
+func TestCalculateDamageAtPercentAppliesDefenseAfterVariance(t *testing.T) {
+	tests := []struct {
+		percent int
+		want    int
+	}{
+		{percent: 85, want: 27},
+		{percent: 100, want: 35},
+		{percent: 115, want: 42},
+	}
+	for _, tt := range tests {
+		if got := CalculateDamageAtPercent(50, 15, tt.percent); got != tt.want {
+			t.Fatalf("CalculateDamageAtPercent(50, 15, %d) = %d, want %d", tt.percent, got, tt.want)
+		}
+	}
+}
+
+func TestCalculateRandomDamageStaysWithinConfiguredRange(t *testing.T) {
+	for i := 0; i < 1000; i++ {
+		got := CalculateRandomDamage(50, 15)
+		if got < 27 || got > 42 {
+			t.Fatalf("CalculateRandomDamage() = %d, want between 27 and 42", got)
+		}
+	}
+}
+
 func TestCalculateAttackDistance(t *testing.T) {
 	got := CalculateAttackDistance(100)
 	want := 1.0

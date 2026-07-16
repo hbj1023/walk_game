@@ -2361,8 +2361,11 @@ func calculateRaidCycleDamage(
 			return 0, 0, nil, nil, err
 		}
 		monsterDefense := adjustedMonsterDefense(monster.Defense, statContext.Effects)
-		baseDamage := raidParticipantCycleDamage(statContext.Stats.Attack, monsterDefense, 1)
-		damage := adjustedPlayerDamage(baseDamage, "boss", statContext.Effects) * attackCycles
+		damage := 0
+		for range attackCycles {
+			baseDamage := formulas.CalculateRandomDamage(statContext.Stats.Attack, monsterDefense)
+			damage += adjustedPlayerDamage(baseDamage, "boss", statContext.Effects)
+		}
 		participantDamages[participant.ID] = damage
 		participantAttackCounts[participant.ID] = attackCycles
 		totalDamage += damage
@@ -2411,8 +2414,11 @@ func applyRaidMonsterAreaAttack(
 		if err != nil {
 			return 0, nil, err
 		}
-		damage := formulas.CalculateDamage(monster.Attack, statContext.Stats.Defense) * monsterAttackCycles
-		damage = adjustedMonsterDamage(damage, statContext.Effects)
+		damage := 0
+		for range monsterAttackCycles {
+			baseDamage := formulas.CalculateRandomDamage(monster.Attack, statContext.Stats.Defense)
+			damage += adjustedMonsterDamage(baseDamage, statContext.Effects)
+		}
 		nextHP := character.CurrentHP - damage
 		if nextHP < 0 {
 			nextHP = 0

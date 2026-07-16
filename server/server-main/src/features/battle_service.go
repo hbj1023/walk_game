@@ -297,7 +297,7 @@ func attackNormalBattle(ctx context.Context, token string, userID string, req No
 	}
 
 	monsterDefense := adjustedMonsterDefenseForHit(monster.Defense, statContext.Effects, battle.AttackCountUsed+1)
-	playerDamage := formulas.CalculateDamage(statContext.Stats.Attack, monsterDefense)
+	playerDamage := formulas.CalculateRandomDamage(statContext.Stats.Attack, monsterDefense)
 	playerDamage = adjustedPlayerDamage(playerDamage, battle.BattleType, statContext.Effects)
 	monsterCurrentHP := battle.MonsterCurrentHP - playerDamage
 	if monsterCurrentHP < 0 {
@@ -338,7 +338,7 @@ func attackNormalBattle(ctx context.Context, token string, userID string, req No
 		monsterAttackGaugeM = 0
 	} else if monsterAttackGaugeM >= monsterAttackDistanceM {
 		monsterAttacked = true
-		monsterDamage = formulas.CalculateDamage(monster.Attack, statContext.Stats.Defense)
+		monsterDamage = formulas.CalculateRandomDamage(monster.Attack, statContext.Stats.Defense)
 		monsterDamage = adjustedMonsterDamage(monsterDamage, statContext.Effects)
 		characterCurrentHP -= monsterDamage
 		if characterCurrentHP < 0 {
@@ -492,7 +492,7 @@ func attackBossBattle(ctx context.Context, token string, userID string, req Norm
 	}
 
 	monsterDefense := adjustedMonsterDefenseForHit(monster.Defense, statContext.Effects, battle.AttackCountUsed+1)
-	playerDamage := formulas.CalculateDamage(statContext.Stats.Attack, monsterDefense)
+	playerDamage := formulas.CalculateRandomDamage(statContext.Stats.Attack, monsterDefense)
 	playerDamage = adjustedPlayerDamage(playerDamage, battle.BattleType, statContext.Effects)
 	monsterCurrentHP := battle.MonsterCurrentHP - playerDamage
 	if monsterCurrentHP < 0 {
@@ -535,7 +535,7 @@ func attackBossBattle(ctx context.Context, token string, userID string, req Norm
 		monsterAttackGaugeM = 0
 	} else if monsterAttackGaugeM >= monsterAttackDistanceM {
 		monsterAttacked = true
-		monsterDamage = formulas.CalculateDamage(monster.Attack, statContext.Stats.Defense)
+		monsterDamage = formulas.CalculateRandomDamage(monster.Attack, statContext.Stats.Defense)
 		monsterDamage = adjustedMonsterDamage(monsterDamage, statContext.Effects)
 		characterCurrentHP -= monsterDamage
 		if characterCurrentHP < 0 {
