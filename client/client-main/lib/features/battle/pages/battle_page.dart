@@ -27,7 +27,6 @@ const _kPlayerAttackFrameCount = 8;
 const _kPlayerAttackFrameWidth = 96.0;
 const _kPlayerAttackFrameHeight = 80.0;
 const _kPlayerIdleSprite = 'assets/images/character/idle_up.png';
-const _kPlayerRunSprite = 'assets/images/character/run_up.png';
 const _kChapter1BattleBg = 'assets/images/bg/stage1_battle_BG.png';
 const _kChapter2BattleBg =
     'assets/images/bg/stage2_battle_shadow_mushroom_forest.png';
@@ -154,11 +153,6 @@ class _BattlePageState extends State<BattlePage> with WidgetsBindingObserver {
       _kSupportedPlayerWeaponTypes.contains(_equippedWeaponType)
       ? 'assets/images/character/weapon_attacks/idle_up_$_equippedWeaponType.png'
       : _kPlayerIdleSprite;
-
-  String get _equippedWeaponRunSprite =>
-      _kSupportedPlayerWeaponTypes.contains(_equippedWeaponType)
-      ? 'assets/images/character/weapon_attacks/run_up_$_equippedWeaponType.png'
-      : _kPlayerRunSprite;
 
   int get _equippedWeaponAttackFrameCount =>
       _equippedWeaponType == 'spear' ? 9 : _kPlayerAttackFrameCount;
@@ -458,15 +452,6 @@ class _BattlePageState extends State<BattlePage> with WidgetsBindingObserver {
   }
 
   Future<void> _playPlayerAttackSequence() async {
-    await Future.wait([
-      _animatePlayerFrames(
-        _equippedWeaponRunSprite,
-        frameCount: 4,
-        frameDuration: const Duration(milliseconds: 45),
-      ),
-      _animatePlayerOffset(-0.52),
-    ]);
-
     await _animatePlayerFrames(
       _equippedWeaponAttackSprite,
       frameCount: _equippedWeaponAttackFrameCount,
@@ -474,19 +459,11 @@ class _BattlePageState extends State<BattlePage> with WidgetsBindingObserver {
       frameDuration: const Duration(milliseconds: 70),
     );
 
-    await Future.wait([
-      _animatePlayerFrames(
-        _equippedWeaponRunSprite,
-        frameCount: 4,
-        frameDuration: const Duration(milliseconds: 45),
-      ),
-      _animatePlayerOffset(0),
-    ]);
-
     if (!mounted) return;
     setState(() {
       _currentPlayerSpritePath = _equippedWeaponIdleSprite;
       _playerAnimationFrame = 0;
+      _playerSpriteOffsetY = 0;
     });
   }
 
@@ -508,12 +485,6 @@ class _BattlePageState extends State<BattlePage> with WidgetsBindingObserver {
       if (!mounted) return;
       setState(() => _playerAnimationFrame = i);
     }
-  }
-
-  Future<void> _animatePlayerOffset(double offsetY) async {
-    if (!mounted) return;
-    setState(() => _playerSpriteOffsetY = offsetY);
-    await Future.delayed(const Duration(milliseconds: 180));
   }
 
   Future<void> _useSelectedConsumable() async {
