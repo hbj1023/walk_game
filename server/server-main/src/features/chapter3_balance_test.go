@@ -30,3 +30,18 @@ func TestChapter3RarePacingAtAverageDamage(t *testing.T) {
 		})
 	}
 }
+
+func TestChapter3EntryCounterattackPressure(t *testing.T) {
+	const (
+		chapter2RareHP      = 522
+		chapter2RareDefense = 55
+		stage31Attack       = 88
+		counterattacks      = 12
+	)
+
+	damage := formulas.CalculateDamageAtPercent(stage31Attack, chapter2RareDefense, 100)
+	remainingHP := chapter2RareHP - damage*counterattacks
+	if remainingHP < 80 || remainingHP > 180 {
+		t.Fatalf("remaining HP after stage 3-1 entry pressure = %d, want 80..180", remainingHP)
+	}
+}
