@@ -127,6 +127,8 @@ class NormalBattleResult {
   final int rewardCoin;
   final int rewardExp;
   final int statExpReward;
+  final int bossTicketFragmentEarned;
+  final int bossTicketFragmentBalance;
   final int attackCountBalance;
   final double monsterAttackGaugeM;
   final double monsterAttackDistanceM;
@@ -143,6 +145,8 @@ class NormalBattleResult {
     required this.rewardCoin,
     required this.rewardExp,
     required this.statExpReward,
+    required this.bossTicketFragmentEarned,
+    required this.bossTicketFragmentBalance,
     required this.attackCountBalance,
     required this.monsterAttackGaugeM,
     required this.monsterAttackDistanceM,
@@ -161,6 +165,12 @@ class NormalBattleResult {
       rewardCoin: _asInt(json['reward_coin']),
       rewardExp: _asInt(json['reward_exp']),
       statExpReward: _asInt(json['stat_exp_reward']),
+      bossTicketFragmentEarned: _asInt(
+        json['boss_ticket_fragment_earned'],
+      ),
+      bossTicketFragmentBalance: _asInt(
+        json['boss_ticket_fragment_balance'],
+      ),
       attackCountBalance: _asInt(json['attack_count_balance']),
       monsterAttackGaugeM: _asDouble(json['monster_attack_gauge_m']),
       monsterAttackDistanceM: _asDouble(json['monster_attack_distance_m']),

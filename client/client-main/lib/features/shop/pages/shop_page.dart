@@ -188,7 +188,7 @@ class _ShopPageState extends State<ShopPage> {
 
   String _shopItemPriceLabel(ShopItem item, {int quantity = 1}) {
     if (item.usesBossTicketFragments) {
-      return '보스 조각 ${item.bossTicketFragmentCost * quantity}개';
+      return '찢어진 보스 입장권 ${item.bossTicketFragmentCost * quantity}개';
     }
     return '${item.priceCoin * quantity} 코인';
   }
@@ -228,7 +228,7 @@ class _ShopPageState extends State<ShopPage> {
       showGameToast(
         context,
         item.usesBossTicketFragments
-            ? '보스 조각이 부족합니다. 앱을 켜고 걸어 조각을 모아주세요.'
+            ? '찢어진 보스 입장권이 부족합니다. 앱을 켜고 걷거나 스테이지를 클리어해 모아주세요.'
             : '코인이 부족합니다. 전투 보상으로 코인을 모아주세요.',
         type: GameToastType.warning,
       );
@@ -264,7 +264,7 @@ class _ShopPageState extends State<ShopPage> {
       showGameToast(
         context,
         item.usesBossTicketFragments
-            ? '${item.itemTemplate.displayName} $quantity개 구매 완료. 남은 보스 조각: ${_gs.bossTicketFragments}'
+            ? '${item.itemTemplate.displayName} $quantity개 구매 완료. 남은 찢어진 입장권: ${_gs.bossTicketFragments}'
             : item.itemTemplate.isConsumable
             ? '${item.itemTemplate.displayName} $quantity개 구매 완료. 남은 코인: ${_gs.coins}'
             : '${item.itemTemplate.displayName} 구매 완료. 남은 코인: ${_gs.coins}',

@@ -15,21 +15,23 @@ type NormalBattleLeaveRequest struct {
 }
 
 type NormalBattleResponse struct {
-	Battle                 BattleRecord    `json:"battle"`
-	Character              CharacterRecord `json:"character"`
-	CharacterMaxHP         int             `json:"character_max_hp"`
-	Monster                MonsterRecord   `json:"monster"`
-	PlayerDamage           int             `json:"player_damage"`
-	MonsterDamage          int             `json:"monster_damage"`
-	MonsterAttacked        bool            `json:"monster_attacked"`
-	RewardCoin             int             `json:"reward_coin"`
-	RewardExp              int             `json:"reward_exp"`
-	StatExpReward          int             `json:"stat_exp_reward"`
-	RewardItem             any             `json:"reward_item,omitempty"`
-	TicketConsumed         bool            `json:"ticket_consumed,omitempty"`
-	AttackCountBalance     int             `json:"attack_count_balance"`
-	MonsterAttackGaugeM    float64         `json:"monster_attack_gauge_m"`
-	MonsterAttackDistanceM float64         `json:"monster_attack_distance_m"`
+	Battle                    BattleRecord    `json:"battle"`
+	Character                 CharacterRecord `json:"character"`
+	CharacterMaxHP            int             `json:"character_max_hp"`
+	Monster                   MonsterRecord   `json:"monster"`
+	PlayerDamage              int             `json:"player_damage"`
+	MonsterDamage             int             `json:"monster_damage"`
+	MonsterAttacked           bool            `json:"monster_attacked"`
+	RewardCoin                int             `json:"reward_coin"`
+	RewardExp                 int             `json:"reward_exp"`
+	StatExpReward             int             `json:"stat_exp_reward"`
+	RewardItem                any             `json:"reward_item,omitempty"`
+	BossTicketFragmentEarned  int             `json:"boss_ticket_fragment_earned,omitempty"`
+	BossTicketFragmentBalance int             `json:"boss_ticket_fragment_balance,omitempty"`
+	TicketConsumed            bool            `json:"ticket_consumed,omitempty"`
+	AttackCountBalance        int             `json:"attack_count_balance"`
+	MonsterAttackGaugeM       float64         `json:"monster_attack_gauge_m"`
+	MonsterAttackDistanceM    float64         `json:"monster_attack_distance_m"`
 }
 
 type CharacterRecord struct {

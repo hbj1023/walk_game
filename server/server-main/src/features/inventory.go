@@ -20,7 +20,7 @@ const (
 	equipmentSlotBalancesCollection   = "equipment_slot_balances"
 	equipmentRarityBalancesCollection = "equipment_rarity_balances"
 	equipmentSellRefundRate           = 0.50
-	bossEntranceTicketFragmentName    = "보스 입장권 조각"
+	bossEntranceTicketFragmentName    = "찢어진 보스 입장권"
 	bossEntranceTicketFragmentCost    = 10
 )
 

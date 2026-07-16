@@ -91,6 +91,7 @@ class _BattlePageState extends State<BattlePage> with WidgetsBindingObserver {
   int _rewardCoin = 0;
   int _rewardExp = 0;
   int _statExpReward = 0;
+  int _bossTicketFragmentEarned = 0;
   int _attackCountUsed = 0;
   int _totalDamageDealt = 0;
   int _totalDamageTaken = 0;
@@ -276,6 +277,10 @@ class _BattlePageState extends State<BattlePage> with WidgetsBindingObserver {
     _rewardCoin = result.rewardCoin;
     _rewardExp = result.rewardExp;
     _statExpReward = result.statExpReward;
+    _bossTicketFragmentEarned = result.bossTicketFragmentEarned;
+    if (result.bossTicketFragmentEarned > 0) {
+      _gs.setBossTicketFragments(result.bossTicketFragmentBalance);
+    }
     _rewardEquipment = result.rewardEquipment;
     _attackCountUsed = result.battle.attackCountUsed;
     _totalDamageDealt = result.battle.totalDamageDealt;
@@ -748,6 +753,7 @@ class _BattlePageState extends State<BattlePage> with WidgetsBindingObserver {
                   rewardCoin: rewardCoin,
                   rewardExp: rewardExp,
                   statExpReward: statExpReward,
+                  bossTicketFragmentEarned: _bossTicketFragmentEarned,
                   rewardEquipment: _isBossBattle ? _rewardEquipment : null,
                 ),
                 const SizedBox(height: 12),
@@ -793,6 +799,7 @@ class _BattlePageState extends State<BattlePage> with WidgetsBindingObserver {
     required int rewardCoin,
     required int rewardExp,
     required int statExpReward,
+    required int bossTicketFragmentEarned,
     BattleRewardEquipment? rewardEquipment,
   }) {
     final hasEquipment = isWin && rewardEquipment != null;
@@ -825,6 +832,10 @@ class _BattlePageState extends State<BattlePage> with WidgetsBindingObserver {
           if (statExpReward > 0) ...[
             const SizedBox(height: 8),
             _buildStatPointRewardRow(statExpReward),
+          ],
+          if (bossTicketFragmentEarned > 0) ...[
+            const SizedBox(height: 8),
+            _buildTornBossTicketRewardRow(bossTicketFragmentEarned),
           ],
           const SizedBox(height: 6),
           Text(
@@ -1023,6 +1034,32 @@ class _BattlePageState extends State<BattlePage> with WidgetsBindingObserver {
             shadows: [
               Shadow(color: Colors.black, blurRadius: 5, offset: Offset(1, 1)),
             ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildTornBossTicketRewardRow(int amount) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Image.asset(
+          'assets/images/icon/ticket.png',
+          width: 30,
+          height: 30,
+          filterQuality: FilterQuality.none,
+        ),
+        const SizedBox(width: 8),
+        Flexible(
+          child: Text(
+            '찢어진 보스 입장권 +$amount',
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              color: Color(0xFFFFD36A),
+              fontSize: 16,
+              fontWeight: FontWeight.w900,
+            ),
           ),
         ),
       ],

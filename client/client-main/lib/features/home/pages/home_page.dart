@@ -73,7 +73,7 @@ class _HomePageState extends State<HomePage>
             mounted) {
           showGameToast(
             this.context,
-            '보스 입장권 조각 +${result.bossTicketFragmentEarned}개',
+            '찢어진 보스 입장권 +${result.bossTicketFragmentEarned}개',
             type: GameToastType.success,
           );
         }
@@ -437,7 +437,7 @@ class _HomePageState extends State<HomePage>
                     ),
                     _powerSavingStatusRow('공격권', '${_gs.attackCountBalance}회'),
                     _powerSavingStatusRow(
-                      '보스 조각',
+                      '찢어진 입장권',
                       '${_gs.bossTicketFragments}개',
                     ),
                     _powerSavingStatusRow('레벨', 'LV.${_gs.level}'),

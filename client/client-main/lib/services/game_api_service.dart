@@ -12,7 +12,7 @@ import 'equipment_image_resolver.dart';
 import 'game_state.dart';
 
 const kBossEntranceTicketName = '보스 입장권';
-const kBossEntranceTicketFragmentName = '보스 입장권 조각';
+const kBossEntranceTicketFragmentName = '찢어진 보스 입장권';
 const kBossEntranceTicketFragmentCost = 10;
 
 class GameApiException implements Exception {
@@ -1848,7 +1848,7 @@ String _localizeApiMessage(String message) {
     'item template is not consumable' => '사용할 수 없는 아이템입니다.',
     'not enough coin balance' => '코인이 부족합니다.',
     'not enough boss entrance ticket fragments' =>
-      '보스 조각이 부족합니다. 앱을 켜고 걸어 조각을 모아주세요.',
+      '찢어진 보스 입장권이 부족합니다. 앱을 켜고 걷거나 스테이지를 클리어해 모아주세요.',
     'item cannot be used manually' => '전투 입장 흐름에서만 사용할 수 있는 아이템입니다.',
     'item cannot be sold' => '판매할 수 없는 아이템입니다.',
     'stock limit exceeded' => '현재 구매할 수 있는 수량을 초과했습니다.',

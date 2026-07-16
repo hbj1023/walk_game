@@ -320,6 +320,8 @@ func attackNormalBattle(ctx context.Context, token string, userID string, req No
 	status := "in_progress"
 	rewardCoin := 0
 	rewardExp := 0
+	bossTicketFragmentEarned := 0
+	bossTicketFragmentBalance := 0
 	totalDamageTaken := battle.TotalDamageTaken
 
 	if monsterCurrentHP <= 0 {
@@ -407,24 +409,27 @@ func attackNormalBattle(ctx context.Context, token string, userID string, req No
 		if err := syncUserBattleClearMissions(ctx, token, userID, now); err != nil {
 			log.Printf("failed to sync normal stage clear missions: %v", err)
 		}
+		bossTicketFragmentEarned, bossTicketFragmentBalance = grantRandomBossTicketFragment(ctx, token, character.ID, battle.ID)
 	}
 
 	recordNormalBattleLogs(ctx, token, character.ID, battle.ID, status, rewardCoin, rewardExp, statExpReward, attackCountBalance, coinBalance, expBalance, statExpBalance)
 
 	return NormalBattleResponse{
-		Battle:                 updatedBattle,
-		Character:              updatedCharacter,
-		CharacterMaxHP:         characterMaxHP,
-		Monster:                monster,
-		PlayerDamage:           playerDamage,
-		MonsterDamage:          monsterDamage,
-		MonsterAttacked:        monsterAttacked,
-		RewardCoin:             rewardCoin,
-		RewardExp:              rewardExp,
-		StatExpReward:          statExpReward,
-		AttackCountBalance:     attackCountBalance,
-		MonsterAttackGaugeM:    round2(monsterAttackGaugeM),
-		MonsterAttackDistanceM: round2(monsterAttackDistanceM),
+		Battle:                    updatedBattle,
+		Character:                 updatedCharacter,
+		CharacterMaxHP:            characterMaxHP,
+		Monster:                   monster,
+		PlayerDamage:              playerDamage,
+		MonsterDamage:             monsterDamage,
+		MonsterAttacked:           monsterAttacked,
+		RewardCoin:                rewardCoin,
+		RewardExp:                 rewardExp,
+		StatExpReward:             statExpReward,
+		BossTicketFragmentEarned:  bossTicketFragmentEarned,
+		BossTicketFragmentBalance: bossTicketFragmentBalance,
+		AttackCountBalance:        attackCountBalance,
+		MonsterAttackGaugeM:       round2(monsterAttackGaugeM),
+		MonsterAttackDistanceM:    round2(monsterAttackDistanceM),
 	}, nil
 }
 
@@ -515,6 +520,8 @@ func attackBossBattle(ctx context.Context, token string, userID string, req Norm
 	status := "in_progress"
 	rewardCoin := 0
 	rewardExp := 0
+	bossTicketFragmentEarned := 0
+	bossTicketFragmentBalance := 0
 	totalDamageTaken := battle.TotalDamageTaken
 
 	if monsterCurrentHP <= 0 {
@@ -619,26 +626,29 @@ func attackBossBattle(ctx context.Context, token string, userID string, req Norm
 			)
 			rewardItem = nil
 		}
+		bossTicketFragmentEarned, bossTicketFragmentBalance = grantRandomBossTicketFragment(ctx, token, character.ID, battle.ID)
 	}
 
 	recordNormalBattleLogs(ctx, token, character.ID, battle.ID, status, rewardCoin, rewardExp, statExpReward, attackCountBalance, coinBalance, expBalance, statExpBalance)
 
 	return NormalBattleResponse{
-		Battle:                 updatedBattle,
-		Character:              updatedCharacter,
-		CharacterMaxHP:         characterMaxHP,
-		Monster:                monster,
-		PlayerDamage:           playerDamage,
-		MonsterDamage:          monsterDamage,
-		MonsterAttacked:        monsterAttacked,
-		RewardCoin:             rewardCoin,
-		RewardExp:              rewardExp,
-		StatExpReward:          statExpReward,
-		RewardItem:             rewardItem,
-		TicketConsumed:         ticketConsumed,
-		AttackCountBalance:     attackCountBalance,
-		MonsterAttackGaugeM:    round2(monsterAttackGaugeM),
-		MonsterAttackDistanceM: round2(monsterAttackDistanceM),
+		Battle:                    updatedBattle,
+		Character:                 updatedCharacter,
+		CharacterMaxHP:            characterMaxHP,
+		Monster:                   monster,
+		PlayerDamage:              playerDamage,
+		MonsterDamage:             monsterDamage,
+		MonsterAttacked:           monsterAttacked,
+		RewardCoin:                rewardCoin,
+		RewardExp:                 rewardExp,
+		StatExpReward:             statExpReward,
+		RewardItem:                rewardItem,
+		BossTicketFragmentEarned:  bossTicketFragmentEarned,
+		BossTicketFragmentBalance: bossTicketFragmentBalance,
+		TicketConsumed:            ticketConsumed,
+		AttackCountBalance:        attackCountBalance,
+		MonsterAttackGaugeM:       round2(monsterAttackGaugeM),
+		MonsterAttackDistanceM:    round2(monsterAttackDistanceM),
 	}, nil
 }
 
@@ -1024,6 +1034,36 @@ func grantRandomBossEquipmentReward(ctx context.Context, token string, character
 
 func randomBossRewardRarity(rng *rand.Rand) string {
 	return bossRewardRarityForRoll(rng.Intn(100))
+}
+
+func shouldDropBossTicketFragment(roll int) bool {
+	return roll >= 0 && roll < 10
+}
+
+func grantRandomBossTicketFragment(ctx context.Context, token string, characterID string, battleID string) (int, int) {
+	if !shouldDropBossTicketFragment(rand.Intn(100)) {
+		return 0, 0
+	}
+
+	balance, err := addBossEntranceTicketFragments(ctx, token, characterID, 1)
+	if err != nil {
+		log.Printf("failed to grant torn boss ticket: character=%s battle=%s err=%v", characterID, battleID, err)
+		return 0, 0
+	}
+	if err := createBattleResourceTransaction(
+		ctx,
+		token,
+		characterID,
+		battleID,
+		"boss_ticket_fragment",
+		"reward",
+		1,
+		balance,
+		"battle clear 10 percent torn boss ticket drop",
+	); err != nil {
+		log.Printf("failed to log torn boss ticket reward: character=%s battle=%s err=%v", characterID, battleID, err)
+	}
+	return 1, balance
 }
 
 func bossRewardRarityForRoll(roll int) string {
