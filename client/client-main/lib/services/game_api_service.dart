@@ -381,7 +381,8 @@ class ShopItem {
     );
   }
 
-  bool get usesBossTicketFragments => false;
+  bool get usesBossTicketFragments =>
+      itemTemplate.name == kBossEntranceTicketName;
   int get bossTicketFragmentCost =>
       usesBossTicketFragments ? kBossEntranceTicketFragmentCost : 0;
 }

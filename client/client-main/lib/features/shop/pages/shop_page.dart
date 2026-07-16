@@ -701,7 +701,7 @@ class _ShopPageState extends State<ShopPage> {
           Column(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              _buildCoinCard(),
+              _buildCurrencyCard(),
               const SizedBox(height: 6),
               const GameTopActions(),
             ],
@@ -750,7 +750,7 @@ class _ShopPageState extends State<ShopPage> {
     );
   }
 
-  Widget _buildCoinCard() {
+  Widget _buildCurrencyCard() {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
@@ -768,6 +768,24 @@ class _ShopPageState extends State<ShopPage> {
           const SizedBox(width: 6),
           Text(
             '${_gs.coins}',
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 14,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(width: 10),
+          Container(width: 1, height: 20, color: Colors.white24),
+          const SizedBox(width: 10),
+          Image.asset(
+            'assets/images/icon/ticket.png',
+            width: 22,
+            height: 22,
+            filterQuality: FilterQuality.none,
+          ),
+          const SizedBox(width: 6),
+          Text(
+            '${_gs.bossTicketFragments}',
             style: const TextStyle(
               color: Colors.white,
               fontSize: 14,
