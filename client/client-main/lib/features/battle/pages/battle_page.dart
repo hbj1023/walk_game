@@ -140,6 +140,15 @@ class _BattlePageState extends State<BattlePage> with WidgetsBindingObserver {
       ? _kChapter3BattleBg
       : (widget.stageNo >= 6 ? _kChapter2BattleBg : _kChapter1BattleBg);
 
+  String get _stageDisplayLabel {
+    final stageName = widget.stageName.trim();
+    final duplicateSuffix = RegExp(
+      r'\s*-\s*' + RegExp.escape(widget.stageId) + r'\s*$',
+    );
+    final cleanName = stageName.replaceFirst(duplicateSuffix, '').trim();
+    return cleanName.isEmpty ? widget.stageId : '${widget.stageId} $cleanName';
+  }
+
   OwnedInventoryItem? get _selectedConsumable {
     for (final item in _consumables) {
       if (item.itemTemplate.id == _selectedConsumableTemplateId) return item;
@@ -1115,7 +1124,7 @@ class _BattlePageState extends State<BattlePage> with WidgetsBindingObserver {
       ),
       child: Column(
         children: [
-          _buildResultStatRow('스테이지', '${widget.stageId} ${widget.stageName}'),
+          _buildResultStatRow('스테이지', _stageDisplayLabel),
           _buildResultStatRow('공격 횟수', '${_fmt(_attackCountUsed)}회'),
           _buildResultStatRow('입힌 피해', _fmt(_totalDamageDealt)),
           _buildResultStatRow('받은 피해', _fmt(_totalDamageTaken)),
@@ -1244,7 +1253,7 @@ class _BattlePageState extends State<BattlePage> with WidgetsBindingObserver {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     Text(
-                      '${widget.stageId} ${widget.stageName}',
+                      _stageDisplayLabel,
                       textAlign: TextAlign.center,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -1556,7 +1565,7 @@ class _BattlePageState extends State<BattlePage> with WidgetsBindingObserver {
       child: Column(
         children: [
           Text(
-            '${widget.stageId} ${widget.stageName}',
+            _stageDisplayLabel,
             style: const TextStyle(
               color: Colors.white,
               fontSize: 28,

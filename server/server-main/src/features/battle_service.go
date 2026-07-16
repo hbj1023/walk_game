@@ -322,6 +322,7 @@ func attackNormalBattle(ctx context.Context, token string, userID string, req No
 	rewardExp := 0
 	bossTicketFragmentEarned := 0
 	bossTicketFragmentBalance := 0
+	clearedStageNo := 0
 	totalDamageTaken := battle.TotalDamageTaken
 
 	if monsterCurrentHP <= 0 {
@@ -331,6 +332,7 @@ func attackNormalBattle(ctx context.Context, token string, userID string, req No
 		if err != nil {
 			return NormalBattleResponse{}, err
 		}
+		clearedStageNo = stage.StageNo
 		progress, progressFound, err := getStageProgress(ctx, token, character.ID, battle.Stage)
 		if err != nil {
 			return NormalBattleResponse{}, err
@@ -409,7 +411,9 @@ func attackNormalBattle(ctx context.Context, token string, userID string, req No
 		if err := syncUserBattleClearMissions(ctx, token, userID, now); err != nil {
 			log.Printf("failed to sync normal stage clear missions: %v", err)
 		}
-		bossTicketFragmentEarned, bossTicketFragmentBalance = grantRandomBossTicketFragment(ctx, token, character.ID, battle.ID)
+		if isRecommendedCombatPowerRange(clearedStageNo, combatPower(statContext.Stats)) {
+			bossTicketFragmentEarned, bossTicketFragmentBalance = grantRandomBossTicketFragment(ctx, token, character.ID, battle.ID)
+		}
 	}
 
 	recordNormalBattleLogs(ctx, token, character.ID, battle.ID, status, rewardCoin, rewardExp, statExpReward, attackCountBalance, coinBalance, expBalance, statExpBalance)
@@ -522,6 +526,7 @@ func attackBossBattle(ctx context.Context, token string, userID string, req Norm
 	rewardExp := 0
 	bossTicketFragmentEarned := 0
 	bossTicketFragmentBalance := 0
+	clearedStageNo := 0
 	totalDamageTaken := battle.TotalDamageTaken
 
 	if monsterCurrentHP <= 0 {
@@ -531,6 +536,7 @@ func attackBossBattle(ctx context.Context, token string, userID string, req Norm
 		if err != nil {
 			return NormalBattleResponse{}, err
 		}
+		clearedStageNo = stage.StageNo
 		rewardCoin = normalBattleCoinReward(rewardCoin, stage.StageNo, progress, progressFound, combatPower(statContext.Stats))
 		rewardExp = normalBattleExpReward(stage.StageNo, true, progress, progressFound, combatPower(statContext.Stats))
 		if bossClearRequiresTicket(progress, progressFound) {
@@ -626,7 +632,9 @@ func attackBossBattle(ctx context.Context, token string, userID string, req Norm
 			)
 			rewardItem = nil
 		}
-		bossTicketFragmentEarned, bossTicketFragmentBalance = grantRandomBossTicketFragment(ctx, token, character.ID, battle.ID)
+		if isRecommendedCombatPowerRange(clearedStageNo, combatPower(statContext.Stats)) {
+			bossTicketFragmentEarned, bossTicketFragmentBalance = grantRandomBossTicketFragment(ctx, token, character.ID, battle.ID)
+		}
 	}
 
 	recordNormalBattleLogs(ctx, token, character.ID, battle.ID, status, rewardCoin, rewardExp, statExpReward, attackCountBalance, coinBalance, expBalance, statExpBalance)
@@ -1279,6 +1287,14 @@ func recommendedCombatPowerForStage(stageNo int) int {
 		return 150
 	}
 	return power
+}
+
+func isRecommendedCombatPowerRange(stageNo int, characterCombatPower int) bool {
+	recommendedPower := recommendedCombatPowerForStage(stageNo)
+	if recommendedPower <= 0 || characterCombatPower < recommendedPower {
+		return false
+	}
+	return characterCombatPower*100 <= recommendedPower*(100+rewardPowerThresholdPercent)
 }
 
 func combatPower(stats statBlock) int {
