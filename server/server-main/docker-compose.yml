@@ -32,14 +32,12 @@ services:
     restart: unless-stopped
 
   web:
-    image: nginx:1.27-alpine
+    build:
+      context: ../..
+      dockerfile: server/server-main/Dockerfile.web
     container_name: game-web
     ports:
       - "${WEB_PORT:-80}:80"
-    volumes:
-      - ./nginx/game.conf:/etc/nginx/conf.d/default.conf:ro
-      - ./nginx/proxy-common.inc:/etc/nginx/proxy-common.inc:ro
-      - ./web_dist:/usr/share/nginx/html:ro
     depends_on:
       - api
     restart: unless-stopped

@@ -1,0 +1,14 @@
+.git
+.codex
+.agents
+artifacts
+logs
+reports
+tools
+**/.dart_tool
+**/build
+**/.gocache
+**/.gotmp
+**/node_modules
+server/server-main/pb_data
+server/server-main/web_dist
