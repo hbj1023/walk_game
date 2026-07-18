@@ -23,6 +23,7 @@ class _GoldMineEventPageState extends State<GoldMineEventPage> {
   StreamSubscription<Position>? _positionSub;
   StreamSubscription<StepCount>? _stepSub;
   Timer? _timer;
+  Timer? _spriteTimer;
   Position? _lastPosition;
   DateTime? _lastPositionAt;
   int? _startSteps;
@@ -34,6 +35,7 @@ class _GoldMineEventPageState extends State<GoldMineEventPage> {
   bool _starting = false;
   bool _running = false;
   bool _finishing = false;
+  int _runFrame = 0;
   String? _runId;
   String? _error;
 
@@ -46,6 +48,7 @@ class _GoldMineEventPageState extends State<GoldMineEventPage> {
   @override
   void dispose() {
     _timer?.cancel();
+    _spriteTimer?.cancel();
     _positionSub?.cancel();
     _stepSub?.cancel();
     super.dispose();
@@ -102,6 +105,9 @@ class _GoldMineEventPageState extends State<GoldMineEventPage> {
       setState(() {
         _running = true;
         _starting = false;
+      });
+      _spriteTimer = Timer.periodic(const Duration(milliseconds: 90), (_) {
+        if (mounted && _running) setState(() => _runFrame = (_runFrame + 1) % 8);
       });
       _timer = Timer.periodic(const Duration(seconds: 1), (_) {
         if (!mounted || !_running) return;
@@ -165,6 +171,7 @@ class _GoldMineEventPageState extends State<GoldMineEventPage> {
     if (_finishing || !_running || _runId == null) return;
     setState(() => _finishing = true);
     _timer?.cancel();
+    _spriteTimer?.cancel();
     await _positionSub?.cancel();
     await _stepSub?.cancel();
     try {
@@ -213,26 +220,51 @@ class _GoldMineEventPageState extends State<GoldMineEventPage> {
 
   @override
   Widget build(BuildContext context) {
+    final immersive = _running || _finishing || _result != null;
     return PopScope(
       canPop: !_running,
       child: Scaffold(
+        extendBody: true,
         backgroundColor: const Color(0xFF120D07),
-        appBar: AppBar(
-          backgroundColor: const Color(0xFF171007),
-          foregroundColor: Colors.white,
-          title: const Text('황금 광맥 발견'),
-        ),
-        body: SafeArea(
-          child: _loading
-              ? const Center(child: CircularProgressIndicator(color: _gold))
-              : Padding(
-                  padding: const EdgeInsets.all(14),
-                  child: _result != null
-                      ? _buildResult()
-                      : (_running || _finishing
-                            ? _buildRun()
-                            : _buildBriefing()),
+        appBar: immersive
+            ? null
+            : AppBar(
+                backgroundColor: const Color(0xFF171007),
+                foregroundColor: Colors.white,
+                title: const Text('황금 광맥 발견'),
+              ),
+        body: Stack(
+          children: [
+            if (immersive)
+              Positioned.fill(
+                child: Image.asset(
+                  'assets/images/bg/stage3_battle_ancient_quarry_entrance_941x1672.png',
+                  fit: BoxFit.cover,
+                  filterQuality: FilterQuality.none,
                 ),
+              ),
+            if (immersive)
+              Positioned.fill(
+                child: ColoredBox(color: Colors.black.withValues(alpha: 0.12)),
+              ),
+            SafeArea(
+              child: _loading
+                  ? const Center(child: CircularProgressIndicator(color: _gold))
+                  : _result != null
+                  ? Stack(
+                      children: [
+                        Positioned.fill(child: _buildRun(showTracking: false)),
+                        Positioned.fill(child: _buildResult()),
+                      ],
+                    )
+                  : (_running || _finishing
+                        ? _buildRun()
+                        : Padding(
+                            padding: const EdgeInsets.all(14),
+                            child: _buildBriefing(),
+                          )),
+            ),
+          ],
         ),
       ),
     );
@@ -310,100 +342,347 @@ class _GoldMineEventPageState extends State<GoldMineEventPage> {
     );
   }
 
-  Widget _buildRun() {
+  Widget _buildRun({bool showTracking = true}) {
     final minutes = _remainingSeconds ~/ 60;
     final seconds = _remainingSeconds % 60;
+    final rewardRatio = (_distanceM / 600).clamp(0.0, 1.0);
     return Column(
       children: [
-        Text(
-          '$minutes:${seconds.toString().padLeft(2, '0')}',
-          style: const TextStyle(
-            color: _gold,
-            fontSize: 58,
-            fontWeight: FontWeight.w900,
+        Padding(
+          padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+          child: Row(
+            children: [
+              Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  color: const Color(0xFF24160F),
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(color: _gold, width: 2),
+                ),
+                child: const Icon(Icons.person, color: Colors.white),
+              ),
+              const SizedBox(width: 8),
+              const Expanded(
+                child: Text(
+                  '모험가',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w900,
+                    shadows: [Shadow(color: Colors.black, blurRadius: 5)],
+                  ),
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+                decoration: BoxDecoration(
+                  color: Colors.black.withValues(alpha: 0.7),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: const Color(0xFF8D6328), width: 2),
+                ),
+                child: Text(
+                  '$minutes:${seconds.toString().padLeft(2, '0')}',
+                  style: const TextStyle(
+                    color: _gold,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
-        const Text('남은 시간', style: TextStyle(color: Colors.white60)),
-        const Spacer(),
+        const SizedBox(height: 16),
+        const Text(
+          '황금 광맥 발견',
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: 27,
+            fontWeight: FontWeight.w900,
+            shadows: [Shadow(color: Colors.black, blurRadius: 6)],
+          ),
+        ),
+        const SizedBox(height: 4),
         Text(
-          '${_distanceM.floor()}m',
+          showTracking ? '남은 시간 $minutes:${seconds.toString().padLeft(2, '0')} · 진행 중' : '탐사 종료',
           style: const TextStyle(
             color: Colors.white,
-            fontSize: 72,
-            fontWeight: FontWeight.w900,
+            fontSize: 14,
+            fontWeight: FontWeight.w800,
+            shadows: [Shadow(color: Colors.black, blurRadius: 5)],
           ),
         ),
-        const SizedBox(height: 14),
-        LinearProgressIndicator(
-          value: (_distanceM / 600).clamp(0, 1),
-          minHeight: 14,
-          color: _gold,
-          backgroundColor: Colors.white12,
-        ),
-        const SizedBox(height: 14),
-        Text(
-          _distanceM >= 600
-              ? '최고 보상 달성 · 기록 측정 중'
-              : '다음 보상까지 ${math.max(0, _nextMilestone - _distanceM.floor())}m',
-          style: const TextStyle(
-            color: Colors.white,
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
+        const SizedBox(height: 10),
+        _buildDistanceBar(rewardRatio),
+        Expanded(
+          child: Stack(
+            children: [
+              Align(
+                alignment: const Alignment(0, -0.72),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 126,
+                      height: 126,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF30271C).withValues(alpha: 0.94),
+                        shape: BoxShape.circle,
+                        border: Border.all(color: const Color(0xFF655038), width: 7),
+                        boxShadow: const [BoxShadow(color: Colors.black54, blurRadius: 8, offset: Offset(0, 5))],
+                      ),
+                      child: const Icon(Icons.diamond, color: _gold, size: 64),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      _distanceM >= 600
+                          ? '최고 보상 달성'
+                          : '광맥까지 ${math.max(0, 600 - _distanceM.floor())}m',
+                      style: const TextStyle(
+                        color: _gold,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w900,
+                        shadows: [Shadow(color: Colors.black, blurRadius: 5)],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Align(alignment: const Alignment(0, 0.64), child: _buildRunnerSprite()),
+              Positioned(
+                left: 12,
+                bottom: 18,
+                child: _buildTrackingStatus(),
+              ),
+              Positioned(
+                right: 12,
+                bottom: 92,
+                child: _buildMilestoneRail(),
+              ),
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: 16,
+                child: Center(child: _buildDistancePanel()),
+              ),
+              if (_finishing)
+                const Positioned.fill(
+                  child: ColoredBox(
+                    color: Color(0x66000000),
+                    child: Center(child: CircularProgressIndicator(color: _gold)),
+                  ),
+                ),
+            ],
           ),
         ),
-        const SizedBox(height: 8),
-        Text(
-          '걸음 $_steps · 최고 속도 ${_maxSpeedKmh.toStringAsFixed(1)}km/h',
-          style: const TextStyle(color: Colors.white60),
-        ),
-        const Spacer(),
-        if (_finishing) const CircularProgressIndicator(color: _gold),
       ],
     );
   }
 
   Widget _buildResult() {
     final result = _result!;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
+    return ColoredBox(
+      color: Colors.black.withValues(alpha: 0.86),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(18, 54, 18, 18),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const Icon(Icons.diamond, color: _gold, size: 68),
+            const SizedBox(height: 8),
+            Text(
+              result.cleared ? '황금 광맥 탐사 성공' : '탐사 종료',
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: _gold,
+                fontSize: 26,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              '${result.distanceM.floor()}m',
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 52,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+            Text(
+              '보상 인정 거리 ${result.rewardDistanceM}m',
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: Colors.white60),
+            ),
+            const SizedBox(height: 18),
+            _panel(
+              child: Column(
+                children: [
+                  _resultLine('골드', '+${result.rewardCoin}'),
+                  _resultLine('스탯 포인트', '+${result.rewardStatExp}'),
+                  _resultLine('찢어진 입장권', '+${result.rewardTicketFragments}'),
+                ],
+              ),
+            ),
+            const Spacer(),
+            FilledButton(
+              onPressed: () => Navigator.pop(context, true),
+              style: FilledButton.styleFrom(
+                backgroundColor: const Color(0xFF7A1A1A),
+                padding: const EdgeInsets.symmetric(vertical: 16),
+              ),
+              child: const Text(
+                '확인',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDistanceBar(double ratio) => SizedBox(
+    width: 280,
+    height: 40,
+    child: Stack(
+      alignment: Alignment.center,
       children: [
-        const Icon(Icons.emoji_events, color: _gold, size: 72),
+        Positioned.fill(
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              color: Colors.black.withValues(alpha: 0.82),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: const Color(0xFF2A120E), width: 2),
+            ),
+          ),
+        ),
+        Positioned(
+          left: 4,
+          top: 4,
+          bottom: 4,
+          width: 272 * ratio,
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              color: const Color(0xFFB8841F),
+              borderRadius: BorderRadius.circular(5),
+            ),
+          ),
+        ),
         Text(
-          result.cleared ? '광맥 발견 성공' : '도전 종료',
-          textAlign: TextAlign.center,
+          '${_distanceM.floor()} / 600m',
           style: const TextStyle(
             color: Colors.white,
-            fontSize: 26,
+            fontSize: 17,
             fontWeight: FontWeight.w900,
-          ),
-        ),
-        const SizedBox(height: 18),
-        _panel(
-          child: Column(
-            children: [
-              _resultLine('실제 이동 거리', '${result.distanceM.floor()}m'),
-              _resultLine('보상 인정 거리', '${result.rewardDistanceM}m'),
-              _resultLine('골드', '+${result.rewardCoin}'),
-              _resultLine('스탯 포인트', '+${result.rewardStatExp}'),
-              _resultLine('찢어진 입장권', '+${result.rewardTicketFragments}'),
-            ],
-          ),
-        ),
-        const Spacer(),
-        FilledButton(
-          onPressed: () => Navigator.pop(context, true),
-          style: FilledButton.styleFrom(
-            backgroundColor: const Color(0xFFA76A13),
-            padding: const EdgeInsets.symmetric(vertical: 16),
-          ),
-          child: const Text(
-            '확인',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            shadows: [Shadow(color: Colors.black, blurRadius: 4)],
           ),
         ),
       ],
+    ),
+  );
+
+  Widget _buildRunnerSprite() {
+    const frameWidth = 96.0;
+    const frameHeight = 90.0;
+    const scale = 1.55;
+    return SizedBox(
+      width: frameWidth * scale,
+      height: frameHeight * scale,
+      child: ClipRect(
+        child: OverflowBox(
+          maxWidth: double.infinity,
+          alignment: Alignment.topLeft,
+          child: Transform.translate(
+            offset: Offset(-_runFrame * frameWidth * scale, 0),
+            child: Image.asset(
+              'assets/images/character/run_up.png',
+              width: frameWidth * 8 * scale,
+              height: frameHeight * scale,
+              fit: BoxFit.fill,
+              filterQuality: FilterQuality.none,
+              alignment: Alignment.topLeft,
+            ),
+          ),
+        ),
+      ),
     );
   }
+
+  Widget _buildTrackingStatus() => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 7),
+    decoration: BoxDecoration(
+      color: Colors.black.withValues(alpha: 0.72),
+      borderRadius: BorderRadius.circular(7),
+      border: Border.all(color: const Color(0xFF8D6328), width: 2),
+    ),
+    child: Text(
+      '걸음 $_steps\n${_maxSpeedKmh.toStringAsFixed(1)}km/h',
+      textAlign: TextAlign.center,
+      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800),
+    ),
+  );
+
+  Widget _buildMilestoneRail() => Column(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      _milestoneBadge(600, '최고'),
+      const SizedBox(height: 5),
+      _milestoneBadge(500, '스탯'),
+      const SizedBox(height: 5),
+      _milestoneBadge(400, '입장권'),
+    ],
+  );
+
+  Widget _milestoneBadge(int distance, String label) {
+    final reached = _distanceM >= distance;
+    return Container(
+      width: 58,
+      padding: const EdgeInsets.symmetric(vertical: 5),
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.75),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(
+          color: reached ? _gold : const Color(0xFF6E5530),
+          width: 2,
+        ),
+      ),
+      child: Text(
+        reached ? '$distance ✓\n$label' : '$distance\n$label',
+        textAlign: TextAlign.center,
+        style: TextStyle(
+          color: reached ? _gold : Colors.white70,
+          fontSize: 10,
+          fontWeight: FontWeight.w900,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDistancePanel() => Container(
+    width: 220,
+    padding: const EdgeInsets.symmetric(vertical: 9),
+    decoration: BoxDecoration(
+      color: const Color(0xFF7A1A1A),
+      borderRadius: BorderRadius.circular(8),
+      border: Border.all(color: const Color(0xFFB84535), width: 2),
+    ),
+    child: Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const Text('실시간 탐사 거리', style: TextStyle(color: Colors.white70, fontSize: 11)),
+        Text(
+          '${_distanceM.floor()}m',
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 24,
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+      ],
+    ),
+  );
 
   Widget _panel({required Widget child}) => Container(
     width: double.infinity,
