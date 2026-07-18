@@ -5,6 +5,10 @@ class ApiConfig {
   );
 
   static Uri uri(String path) {
+    if (baseUrl.trim().isEmpty) {
+      final normalizedPath = path.startsWith('/') ? path : '/$path';
+      return Uri.base.resolve(normalizedPath);
+    }
     final normalizedBaseUrl = baseUrl.endsWith('/')
         ? baseUrl.substring(0, baseUrl.length - 1)
         : baseUrl;
