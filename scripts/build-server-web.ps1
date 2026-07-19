@@ -27,6 +27,11 @@ try {
   $Bootstrap = Join-Path $ClientDir "build\web\flutter_bootstrap.js"
   $BootstrapText = Get-Content -Raw -LiteralPath $Bootstrap
   $BootstrapText = $BootstrapText.Replace('"mainJsPath":"main.dart.js"', '"mainJsPath":"' + $VersionedMainJsName + '"')
+  $BootstrapText = [regex]::Replace(
+    $BootstrapText,
+    '_flutter\.loader\.load\(\{\s*serviceWorkerSettings:\s*\{[\s\S]*?\}\s*\}\);',
+    '_flutter.loader.load({});'
+  )
   Set-Content -LiteralPath $Bootstrap -Value $BootstrapText -NoNewline
 
   $VersionedBootstrapName = "flutter_bootstrap.$BuildId.js"
