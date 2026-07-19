@@ -26,7 +26,8 @@ class PixelBottomNav extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final compact = MediaQuery.of(context).size.height < 820;
+    final screenSize = MediaQuery.of(context).size;
+    final compact = screenSize.height < 900 || screenSize.width < 430;
     final selectedHeight = compact ? 72.0 : 90.0;
     final itemHeight = compact ? 62.0 : 78.0;
     final topPadding = compact ? 12.0 : 22.0;

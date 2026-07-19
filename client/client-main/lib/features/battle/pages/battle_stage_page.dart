@@ -620,11 +620,11 @@ class _BattleStagePageState extends State<BattleStagePage> {
   Widget build(BuildContext context) {
     final screenSize = MediaQuery.of(context).size;
     final isShortWide = screenSize.height < 760 && screenSize.width > 700;
-    final isCompactHeight = screenSize.height < 820;
+    final isCompactLayout = screenSize.height < 900 || screenSize.width < 430;
     final mapHeight = isShortWide
         ? math.min(86.0, math.max(76.0, screenSize.height * 0.12))
-        : (isCompactHeight
-              ? math.min(170.0, math.max(145.0, screenSize.height * 0.21))
+        : (isCompactLayout
+              ? math.min(160.0, math.max(128.0, screenSize.height * 0.18))
               : math.min(300.0, math.max(205.0, screenSize.height * 0.31)));
 
     return PopScope(
@@ -640,10 +640,10 @@ class _BattleStagePageState extends State<BattleStagePage> {
                 mainAxisSize: MainAxisSize.max,
                 children: [
                   _buildTopHud(),
-                  _buildTitle(compact: isCompactHeight),
-                  _buildStagePanel(mapHeight, compact: isCompactHeight),
-                  _buildMonsterPanel(compact: isCompactHeight),
-                  _buildStartButton(compact: isCompactHeight),
+                  _buildTitle(compact: isCompactLayout),
+                  _buildStagePanel(mapHeight, compact: isCompactLayout),
+                  _buildMonsterPanel(compact: isCompactLayout),
+                  _buildStartButton(compact: isCompactLayout),
                 ],
               ),
             ),
