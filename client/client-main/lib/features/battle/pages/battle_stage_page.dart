@@ -620,23 +620,25 @@ class _BattleStagePageState extends State<BattleStagePage> {
   Widget build(BuildContext context) {
     final screenSize = MediaQuery.of(context).size;
     final isShortWide = screenSize.height < 760 && screenSize.width > 700;
+    final isCompactHeight = screenSize.height < 820;
     final mapHeight = isShortWide
         ? math.min(86.0, math.max(76.0, screenSize.height * 0.12))
-        : math.min(300.0, math.max(205.0, screenSize.height * 0.31));
-    final startButtonBottom = isShortWide ? 0.0 : 8.0;
-    final contentBottomGap = isShortWide ? 154.0 : 166.0;
+        : (isCompactHeight
+              ? math.min(230.0, math.max(180.0, screenSize.height * 0.25))
+              : math.min(300.0, math.max(205.0, screenSize.height * 0.31)));
+    final contentBottomGap = isShortWide ? 8.0 : 10.0;
 
     return PopScope(
       canPop: !_isStarting,
       child: Scaffold(
-        extendBody: true,
+        extendBody: false,
         bottomNavigationBar: _buildBottomNav(),
         body: Stack(
           children: [
             Positioned.fill(child: _buildStagePageBackground()),
             SafeArea(
               child: SingleChildScrollView(
-                physics: const NeverScrollableScrollPhysics(),
+                physics: const ClampingScrollPhysics(),
                 padding: EdgeInsets.only(bottom: contentBottomGap),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
@@ -645,15 +647,10 @@ class _BattleStagePageState extends State<BattleStagePage> {
                     _buildTitle(),
                     _buildStagePanel(mapHeight),
                     _buildMonsterPanel(),
+                    _buildStartButton(),
                   ],
                 ),
               ),
-            ),
-            Positioned(
-              left: 0,
-              right: 0,
-              bottom: startButtonBottom,
-              child: SafeArea(top: false, child: _buildStartButton()),
             ),
             if (_isStarting) Positioned.fill(child: _buildLoadingOverlay()),
           ],
