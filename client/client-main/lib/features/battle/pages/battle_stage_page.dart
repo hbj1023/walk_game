@@ -624,9 +624,8 @@ class _BattleStagePageState extends State<BattleStagePage> {
     final mapHeight = isShortWide
         ? math.min(86.0, math.max(76.0, screenSize.height * 0.12))
         : (isCompactHeight
-              ? math.min(230.0, math.max(180.0, screenSize.height * 0.25))
+              ? math.min(170.0, math.max(145.0, screenSize.height * 0.21))
               : math.min(300.0, math.max(205.0, screenSize.height * 0.31)));
-    final contentBottomGap = isShortWide ? 8.0 : 10.0;
 
     return PopScope(
       canPop: !_isStarting,
@@ -637,19 +636,15 @@ class _BattleStagePageState extends State<BattleStagePage> {
           children: [
             Positioned.fill(child: _buildStagePageBackground()),
             SafeArea(
-              child: SingleChildScrollView(
-                physics: const ClampingScrollPhysics(),
-                padding: EdgeInsets.only(bottom: contentBottomGap),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    _buildTopHud(),
-                    _buildTitle(),
-                    _buildStagePanel(mapHeight),
-                    _buildMonsterPanel(),
-                    _buildStartButton(),
-                  ],
-                ),
+              child: Column(
+                mainAxisSize: MainAxisSize.max,
+                children: [
+                  _buildTopHud(),
+                  _buildTitle(compact: isCompactHeight),
+                  _buildStagePanel(mapHeight, compact: isCompactHeight),
+                  _buildMonsterPanel(compact: isCompactHeight),
+                  _buildStartButton(compact: isCompactHeight),
+                ],
               ),
             ),
             if (_isStarting) Positioned.fill(child: _buildLoadingOverlay()),
@@ -843,16 +838,16 @@ class _BattleStagePageState extends State<BattleStagePage> {
     );
   }
 
-  Widget _buildTitle() {
+  Widget _buildTitle({bool compact = false}) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(8, 4, 8, 5),
+      padding: EdgeInsets.fromLTRB(8, compact ? 0 : 4, 8, compact ? 2 : 5),
       child: Column(
         children: [
-          const Text(
+          Text(
             '✦ 전투 ✦',
             style: TextStyle(
               color: Colors.white,
-              fontSize: 25,
+              fontSize: compact ? 20 : 25,
               fontWeight: FontWeight.bold,
               shadows: [
                 Shadow(
@@ -868,7 +863,7 @@ class _BattleStagePageState extends State<BattleStagePage> {
             '모험을 떠나 몬스터를 물리치고 보상을 획득하세요!',
             style: TextStyle(
               color: Colors.white.withValues(alpha: 0.88),
-              fontSize: 10,
+              fontSize: compact ? 8 : 10,
               shadows: const [
                 Shadow(
                   color: Colors.black,
@@ -883,7 +878,7 @@ class _BattleStagePageState extends State<BattleStagePage> {
     );
   }
 
-  Widget _buildStagePanel(double mapHeight) {
+  Widget _buildStagePanel(double mapHeight, {bool compact = false}) {
     final stages = _visibleStages;
     final canGoPrevious = _currentChapter > 1;
     final canGoNext = _currentChapter < _maxChapter;
@@ -891,9 +886,14 @@ class _BattleStagePageState extends State<BattleStagePage> {
         _kChapterTitles[_currentChapter] ?? '$_currentChapter장 모험 지역';
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(6, 0, 6, 6),
+      padding: EdgeInsets.fromLTRB(6, 0, 6, compact ? 3 : 6),
       child: Container(
-        padding: const EdgeInsets.fromLTRB(10, 8, 10, 7),
+        padding: EdgeInsets.fromLTRB(
+          compact ? 8 : 10,
+          compact ? 6 : 8,
+          compact ? 8 : 10,
+          compact ? 5 : 7,
+        ),
         decoration: BoxDecoration(
           color: _kPanelBg,
           borderRadius: BorderRadius.circular(12),
@@ -1046,7 +1046,11 @@ class _BattleStagePageState extends State<BattleStagePage> {
                           if (_currentChapter == 3)
                             _buildGoldMineEventNode(constraints),
                           for (int i = 0; i < stages.length; i++)
-                            _buildStageNode(i, constraints),
+                            _buildStageNode(
+                              i,
+                              constraints,
+                              compact: compact,
+                            ),
                         ],
                       ],
                     );
@@ -1087,8 +1091,14 @@ class _BattleStagePageState extends State<BattleStagePage> {
     );
   }
 
-  Widget _buildStageNode(int index, BoxConstraints constraints) {
-    const iconSize = 78.0;
+  Widget _buildStageNode(
+    int index,
+    BoxConstraints constraints, {
+    bool compact = false,
+  }) {
+    final iconSize = compact ? 68.0 : 78.0;
+    final glowSizeLarge = compact ? 96.0 : 112.0;
+    final glowSizeSmall = compact ? 92.0 : 108.0;
     final stages = _visibleStages;
     final stage = stages[index];
     final isSelected = _safeSelectedIndex == index;
@@ -1109,15 +1119,15 @@ class _BattleStagePageState extends State<BattleStagePage> {
           mainAxisSize: MainAxisSize.min,
           children: [
             SizedBox(
-              height: 13,
+              height: compact ? 11 : 13,
               child: stage.cleared
-                  ? const Padding(
-                      padding: EdgeInsets.only(bottom: 2),
+                  ? Padding(
+                      padding: EdgeInsets.only(bottom: compact ? 1 : 2),
                       child: Text(
                         'CLEAR',
                         style: TextStyle(
                           color: _kGold,
-                          fontSize: 9,
+                          fontSize: compact ? 8 : 9,
                           fontWeight: FontWeight.w900,
                           shadows: [
                             Shadow(
@@ -1153,8 +1163,8 @@ class _BattleStagePageState extends State<BattleStagePage> {
                             ),
                             child: Image.asset(
                               'assets/images/battle/unlocked_battle.png',
-                              width: 112,
-                              height: 112,
+                              width: glowSizeLarge,
+                              height: glowSizeLarge,
                               fit: BoxFit.contain,
                             ),
                           ),
@@ -1179,8 +1189,8 @@ class _BattleStagePageState extends State<BattleStagePage> {
                             ),
                             child: Image.asset(
                               'assets/images/battle/unlocked_battle.png',
-                              width: 108,
-                              height: 108,
+                              width: glowSizeSmall,
+                              height: glowSizeSmall,
                               fit: BoxFit.contain,
                             ),
                           ),
@@ -1212,9 +1222,12 @@ class _BattleStagePageState extends State<BattleStagePage> {
                 ],
               ),
             ),
-            const SizedBox(height: 2),
+            SizedBox(height: compact ? 1 : 2),
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              padding: EdgeInsets.symmetric(
+                horizontal: compact ? 8 : 10,
+                vertical: compact ? 3 : 4,
+              ),
               decoration: BoxDecoration(
                 color: _kLabelBg,
                 borderRadius: BorderRadius.circular(6),
@@ -1228,7 +1241,7 @@ class _BattleStagePageState extends State<BattleStagePage> {
                 style: TextStyle(
                   color: stage.unlocked ? Colors.white : Colors.white60,
                   fontWeight: FontWeight.bold,
-                  fontSize: 13,
+                  fontSize: compact ? 12 : 13,
                 ),
               ),
             ),
@@ -1355,15 +1368,15 @@ class _BattleStagePageState extends State<BattleStagePage> {
     );
   }
 
-  Widget _buildMonsterPanel() {
+  Widget _buildMonsterPanel({bool compact = false}) {
     if (_goldMineEventSelected) {
       return _buildGoldMineEventPanel();
     }
     final selectedStage = _selectedStage;
     return Padding(
-      padding: const EdgeInsets.fromLTRB(6, 0, 6, 6),
+      padding: EdgeInsets.fromLTRB(6, 0, 6, compact ? 3 : 6),
       child: Container(
-        padding: const EdgeInsets.all(8),
+        padding: EdgeInsets.all(compact ? 6 : 8),
         decoration: BoxDecoration(
           color: _kPanelBg,
           borderRadius: BorderRadius.circular(12),
@@ -1384,9 +1397,9 @@ class _BattleStagePageState extends State<BattleStagePage> {
               Row(
                 children: [
                   Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 7,
+                    padding: EdgeInsets.symmetric(
+                      horizontal: compact ? 10 : 12,
+                      vertical: compact ? 5 : 7,
                     ),
                     decoration: BoxDecoration(
                       color: const Color(0xFF7A2A1D),
@@ -1398,14 +1411,14 @@ class _BattleStagePageState extends State<BattleStagePage> {
                     ),
                     child: Text(
                       selectedStage.id,
-                      style: const TextStyle(
+                      style: TextStyle(
                         color: _kGold,
-                        fontSize: 22,
+                        fontSize: compact ? 18 : 22,
                         fontWeight: FontWeight.w900,
                       ),
                     ),
                   ),
-                  const SizedBox(width: 10),
+                  SizedBox(width: compact ? 8 : 10),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1418,9 +1431,9 @@ class _BattleStagePageState extends State<BattleStagePage> {
                             child: Text(
                               selectedStage.title,
                               maxLines: 1,
-                              style: const TextStyle(
+                              style: TextStyle(
                                 color: Colors.white,
-                                fontSize: 17,
+                                fontSize: compact ? 14 : 17,
                                 fontWeight: FontWeight.w900,
                               ),
                             ),
@@ -1432,18 +1445,21 @@ class _BattleStagePageState extends State<BattleStagePage> {
                             color: selectedStage.unlocked
                                 ? const Color(0xFF64E66D)
                                 : Colors.white60,
-                            fontSize: 12,
+                            fontSize: compact ? 10 : 12,
                             fontWeight: FontWeight.bold,
                           ),
                         ),
                       ],
                     ),
                   ),
-                  const SizedBox(width: 8),
-                  _buildRecommendedPowerBadge(selectedStage),
+                  SizedBox(width: compact ? 6 : 8),
+                  _buildRecommendedPowerBadge(
+                    selectedStage,
+                    compact: compact,
+                  ),
                 ],
               ),
-            const SizedBox(height: 7),
+            SizedBox(height: compact ? 4 : 7),
             if (selectedStage == null)
               Padding(
                 padding: const EdgeInsets.symmetric(vertical: 16),
@@ -1460,28 +1476,28 @@ class _BattleStagePageState extends State<BattleStagePage> {
               Row(
                 children: [
                   Container(
-                    width: 64,
-                    height: 64,
+                    width: compact ? 46 : 64,
+                    height: compact ? 46 : 64,
                     decoration: BoxDecoration(
                       color: Colors.black.withValues(alpha: 0.45),
                       borderRadius: BorderRadius.circular(8),
                       border: Border.all(color: _kPanelBorder, width: 1.5),
                     ),
-                    padding: const EdgeInsets.all(8),
+                    padding: EdgeInsets.all(compact ? 5 : 8),
                     child: Image.asset(
                       MonsterAssetService.imageForMonster(
                         name: selectedStage.monsterName,
                         stageNo: selectedStage.stageNo,
                       ),
                       fit: BoxFit.contain,
-                      errorBuilder: (_, _, _) => const Icon(
+                      errorBuilder: (_, _, _) => Icon(
                         Icons.pets,
                         color: Colors.white54,
-                        size: 44,
+                        size: compact ? 32 : 44,
                       ),
                     ),
                   ),
-                  const SizedBox(width: 10),
+                  SizedBox(width: compact ? 8 : 10),
                   Expanded(
                     child: Column(
                       children: [
@@ -1489,19 +1505,22 @@ class _BattleStagePageState extends State<BattleStagePage> {
                           label: '몬스터 이름',
                           value: selectedStage.monsterName,
                           unlocked: selectedStage.unlocked,
+                          compact: compact,
                         ),
-                        const SizedBox(height: 5),
+                        SizedBox(height: compact ? 3 : 5),
                         _buildMonsterInfoRow(
                           label: '체력',
                           value: _formatNumber(selectedStage.monsterHp),
                           iconPath: 'assets/images/icon/hp.png',
                           unlocked: selectedStage.unlocked,
+                          compact: compact,
                         ),
-                        const SizedBox(height: 5),
+                        SizedBox(height: compact ? 3 : 5),
                         _buildMonsterInfoRow(
                           label: '상태',
                           value: _stageStatusLabel(selectedStage),
                           unlocked: selectedStage.unlocked,
+                          compact: compact,
                         ),
                       ],
                     ),
@@ -1633,9 +1652,13 @@ class _BattleStagePageState extends State<BattleStagePage> {
     required String value,
     required bool unlocked,
     String? iconPath,
+    bool compact = false,
   }) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
+      padding: EdgeInsets.symmetric(
+        horizontal: compact ? 7 : 9,
+        vertical: compact ? 4 : 6,
+      ),
       decoration: BoxDecoration(
         color: Colors.black.withValues(alpha: 0.42),
         borderRadius: BorderRadius.circular(8),
@@ -1644,14 +1667,18 @@ class _BattleStagePageState extends State<BattleStagePage> {
       child: Row(
         children: [
           if (iconPath != null) ...[
-            Image.asset(iconPath, width: 16, height: 16),
-            const SizedBox(width: 6),
+            Image.asset(
+              iconPath,
+              width: compact ? 13 : 16,
+              height: compact ? 13 : 16,
+            ),
+            SizedBox(width: compact ? 4 : 6),
           ],
           Text(
             label,
-            style: const TextStyle(
+            style: TextStyle(
               color: Colors.white,
-              fontSize: 13,
+              fontSize: compact ? 11 : 13,
               fontWeight: FontWeight.bold,
             ),
           ),
@@ -1660,7 +1687,7 @@ class _BattleStagePageState extends State<BattleStagePage> {
             value,
             style: TextStyle(
               color: unlocked ? Colors.white : Colors.white60,
-              fontSize: 13,
+              fontSize: compact ? 11 : 13,
               fontWeight: FontWeight.bold,
             ),
           ),
@@ -1687,7 +1714,7 @@ class _BattleStagePageState extends State<BattleStagePage> {
     return '잠김';
   }
 
-  Widget _buildRecommendedPowerBadge(_StageData stage) {
+  Widget _buildRecommendedPowerBadge(_StageData stage, {bool compact = false}) {
     final recommendedPower = _recommendedCombatPowerForStage(stage.stageNo);
     final value = _formatNumber(recommendedPower);
     final valueColor = _recommendedPowerColor(stage, recommendedPower);
@@ -1696,7 +1723,10 @@ class _BattleStagePageState extends State<BattleStagePage> {
         : Colors.white.withValues(alpha: 0.16);
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+      padding: EdgeInsets.symmetric(
+        horizontal: compact ? 6 : 8,
+        vertical: compact ? 4 : 5,
+      ),
       decoration: BoxDecoration(
         color: Colors.black.withValues(alpha: 0.26),
         borderRadius: BorderRadius.circular(8),
@@ -1705,22 +1735,26 @@ class _BattleStagePageState extends State<BattleStagePage> {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Image.asset('assets/images/icon/atk.png', width: 14, height: 14),
-          const SizedBox(width: 5),
-          const Text(
+          Image.asset(
+            'assets/images/icon/atk.png',
+            width: compact ? 12 : 14,
+            height: compact ? 12 : 14,
+          ),
+          SizedBox(width: compact ? 3 : 5),
+          Text(
             '전투력',
             style: TextStyle(
               color: Colors.white,
-              fontSize: 12,
+              fontSize: compact ? 10 : 12,
               fontWeight: FontWeight.bold,
             ),
           ),
-          const SizedBox(width: 4),
+          SizedBox(width: compact ? 3 : 4),
           Text(
             value,
             style: TextStyle(
               color: valueColor,
-              fontSize: 13,
+              fontSize: compact ? 11 : 13,
               fontWeight: FontWeight.w900,
             ),
           ),
@@ -1759,14 +1793,14 @@ class _BattleStagePageState extends State<BattleStagePage> {
     );
   }
 
-  Widget _buildStartButton() {
+  Widget _buildStartButton({bool compact = false}) {
     final selectedStage = _selectedStage;
     final isEvent = _goldMineEventSelected;
     final locked = isEvent
         ? !_goldMineEventUnlocked
         : _isStageLoading || selectedStage == null || !selectedStage.unlocked;
     return Padding(
-      padding: const EdgeInsets.fromLTRB(6, 0, 6, 10),
+      padding: EdgeInsets.fromLTRB(6, 0, 6, compact ? 3 : 10),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -1806,7 +1840,12 @@ class _BattleStagePageState extends State<BattleStagePage> {
                 : (isEvent ? _openGoldMineEvent : _startBattle),
             child: Container(
               width: double.infinity,
-              padding: const EdgeInsets.fromLTRB(8, 8, 8, 9),
+              padding: EdgeInsets.fromLTRB(
+                8,
+                compact ? 6 : 8,
+                8,
+                compact ? 7 : 9,
+              ),
               decoration: BoxDecoration(
                 color: (locked || _isStarting)
                     ? const Color(0xFF555555)
@@ -1824,8 +1863,8 @@ class _BattleStagePageState extends State<BattleStagePage> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Container(
-                    width: 30,
-                    height: 30,
+                    width: compact ? 26 : 30,
+                    height: compact ? 26 : 30,
                     decoration: BoxDecoration(
                       color: Colors.black.withValues(alpha: 0.22),
                       borderRadius: BorderRadius.circular(8),
@@ -1837,11 +1876,11 @@ class _BattleStagePageState extends State<BattleStagePage> {
                     alignment: Alignment.center,
                     child: Image.asset(
                       'assets/images/icon/battle.png',
-                      width: 20,
-                      height: 20,
+                      width: compact ? 17 : 20,
+                      height: compact ? 17 : 20,
                     ),
                   ),
-                  const SizedBox(width: 10),
+                  SizedBox(width: compact ? 8 : 10),
                   Flexible(
                     child: FittedBox(
                       fit: BoxFit.scaleDown,
@@ -1858,9 +1897,9 @@ class _BattleStagePageState extends State<BattleStagePage> {
                                               ? '전투 준비 중...'
                                               : '전투 시작'))),
                         maxLines: 1,
-                        style: const TextStyle(
+                        style: TextStyle(
                           color: Colors.white,
-                          fontSize: 24,
+                          fontSize: compact ? 20 : 24,
                           fontWeight: FontWeight.bold,
                         ),
                       ),

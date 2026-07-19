@@ -26,6 +26,12 @@ class PixelBottomNav extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final compact = MediaQuery.of(context).size.height < 820;
+    final selectedHeight = compact ? 72.0 : 90.0;
+    final itemHeight = compact ? 62.0 : 78.0;
+    final topPadding = compact ? 12.0 : 22.0;
+    final bottomPadding = compact ? 6.0 : 8.0;
+
     return DecoratedBox(
       decoration: BoxDecoration(
         gradient: LinearGradient(
@@ -40,7 +46,7 @@ class PixelBottomNav extends StatelessWidget {
         ),
       ),
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(7, 22, 7, 8),
+        padding: EdgeInsets.fromLTRB(7, topPadding, 7, bottomPadding),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.end,
           children: items.map((item) {
@@ -56,8 +62,8 @@ class PixelBottomNav extends StatelessWidget {
                   onTap: () => onTap(item),
                   child: AnimatedContainer(
                     duration: const Duration(milliseconds: 120),
-                    height: isSelected ? 90 : 78,
-                    padding: const EdgeInsets.fromLTRB(3, 7, 3, 6),
+                    height: isSelected ? selectedHeight : itemHeight,
+                    padding: EdgeInsets.fromLTRB(3, compact ? 5 : 7, 3, 6),
                     decoration: BoxDecoration(
                       color: isSelected
                           ? const Color(0xFF24130A)
@@ -105,7 +111,7 @@ class PixelBottomNav extends StatelessWidget {
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               _PixelNavIcon(item: item, isSelected: isSelected),
-                              const SizedBox(height: 5),
+                              SizedBox(height: compact ? 3 : 5),
                               Text(
                                 item.label,
                                 maxLines: 1,
@@ -114,7 +120,9 @@ class PixelBottomNav extends StatelessWidget {
                                   color: isSelected
                                       ? const Color(0xFFFFDD73)
                                       : const Color(0xFF6F665F),
-                                  fontSize: isSelected ? 13 : 12,
+                                  fontSize: compact
+                                      ? (isSelected ? 12 : 11)
+                                      : (isSelected ? 13 : 12),
                                   fontWeight: isSelected
                                       ? FontWeight.w900
                                       : FontWeight.w800,
@@ -150,8 +158,13 @@ class _PixelNavIcon extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final compact = MediaQuery.of(context).size.height < 820;
     if (isSelected) {
-      return Image.asset(item.icon, width: 36, height: 36);
+      return Image.asset(
+        item.icon,
+        width: compact ? 30 : 36,
+        height: compact ? 30 : 36,
+      );
     }
 
     return ColorFiltered(
@@ -177,7 +190,11 @@ class _PixelNavIcon extends StatelessWidget {
         0.95,
         0,
       ]),
-      child: Image.asset(item.icon, width: 31, height: 31),
+      child: Image.asset(
+        item.icon,
+        width: compact ? 26 : 31,
+        height: compact ? 26 : 31,
+      ),
     );
   }
 }
