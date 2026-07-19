@@ -18,6 +18,24 @@ try {
   if ($LASTEXITCODE -ne 0) {
     throw "Flutter web build failed."
   }
+
+  $BuildId = Get-Date -Format "yyyyMMddHHmmss"
+  $MainJs = Join-Path $ClientDir "build\web\main.dart.js"
+  $VersionedMainJsName = "main.$BuildId.dart.js"
+  $VersionedMainJs = Join-Path $ClientDir "build\web\$VersionedMainJsName"
+  Copy-Item -LiteralPath $MainJs -Destination $VersionedMainJs -Force
+  $Bootstrap = Join-Path $ClientDir "build\web\flutter_bootstrap.js"
+  $BootstrapText = Get-Content -Raw -LiteralPath $Bootstrap
+  $BootstrapText = $BootstrapText.Replace('"mainJsPath":"main.dart.js"', '"mainJsPath":"' + $VersionedMainJsName + '"')
+  Set-Content -LiteralPath $Bootstrap -Value $BootstrapText -NoNewline
+
+  $VersionedBootstrapName = "flutter_bootstrap.$BuildId.js"
+  $VersionedBootstrap = Join-Path $ClientDir "build\web\$VersionedBootstrapName"
+  Copy-Item -LiteralPath $Bootstrap -Destination $VersionedBootstrap -Force
+  $IndexHtml = Join-Path $ClientDir "build\web\index.html"
+  $IndexHtmlText = Get-Content -Raw -LiteralPath $IndexHtml
+  $IndexHtmlText = $IndexHtmlText.Replace('src="flutter_bootstrap.js"', 'src="' + $VersionedBootstrapName + '"')
+  Set-Content -LiteralPath $IndexHtml -Value $IndexHtmlText -NoNewline
 } finally {
   Pop-Location
 }

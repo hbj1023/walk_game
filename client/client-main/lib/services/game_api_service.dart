@@ -317,10 +317,16 @@ List<String> equipmentSetEffectLinesForKey(String setKey) {
       '4세트: 받는 피해 -8% / 보스 피해 +8%',
     ],
     'crusher' => const ['3세트: 공격력 +8%', '4세트: 적 방어력 30% 무시'],
-    'riftbreaker' => const ['3세트: 방어력 +12%, 민첩 -10%', '4세트: 타격마다 적 방어력 3 감소 (최소 0)'],
+    'riftbreaker' => const [
+      '3세트: 방어력 +12%, 민첩 -10%',
+      '4세트: 타격마다 적 방어력 3 감소 (최소 0)',
+    ],
     'quarry_swordsman' => const ['3세트: 공격력 +8%', '4세트: 적 방어력 15% 무시'],
     'quarry_berserker' => const ['3세트: 공격력 +12%', '4세트: 보스 피해 +15%'],
-    'quarry_spearmaster' => const ['3세트: 방어력 +12%', '4세트: 몬스터 공격 게이지 -10%'],
+    'quarry_spearmaster' => const [
+      '3세트: 방어력 +12%',
+      '4세트: 파티 공격 게이지 필요 거리 -10%',
+    ],
     'quarry_rogue' => const ['3세트: 민첩 +12%', '4세트: 공격 필요 거리 -10%'],
     'quarry_knight' => const ['3세트: 방어력 +15%', '4세트: 최대 HP +10%'],
     _ => const [],
@@ -1033,6 +1039,7 @@ class RaidProgressSummary {
   final int teamAgility;
   final double attackDistanceM;
   final double monsterAttackDistanceM;
+  final int monsterAttackIntervalS;
   final String lobbyPath;
 
   const RaidProgressSummary({
@@ -1047,6 +1054,7 @@ class RaidProgressSummary {
     required this.teamAgility,
     required this.attackDistanceM,
     required this.monsterAttackDistanceM,
+    required this.monsterAttackIntervalS,
     required this.lobbyPath,
   });
 
@@ -1083,6 +1091,7 @@ class RaidProgressSummary {
       teamAgility: _asInt(json['team_agility']),
       attackDistanceM: _asDouble(json['attack_distance_m']),
       monsterAttackDistanceM: _asDouble(json['monster_attack_distance_m']),
+      monsterAttackIntervalS: _asInt(json['monster_attack_interval_s']),
       lobbyPath: _asString(json['lobby_path']),
     );
   }
@@ -1102,6 +1111,7 @@ class RaidDistanceResult {
   final int teamAgility;
   final double attackDistanceM;
   final double monsterAttackDistanceM;
+  final int monsterAttackIntervalS;
 
   const RaidDistanceResult({
     required this.raid,
@@ -1117,6 +1127,7 @@ class RaidDistanceResult {
     required this.teamAgility,
     required this.attackDistanceM,
     required this.monsterAttackDistanceM,
+    required this.monsterAttackIntervalS,
   });
 
   factory RaidDistanceResult.fromJson(Map<String, dynamic> json) {
@@ -1140,6 +1151,7 @@ class RaidDistanceResult {
       teamAgility: _asInt(json['team_agility']),
       attackDistanceM: _asDouble(json['attack_distance_m']),
       monsterAttackDistanceM: _asDouble(json['monster_attack_distance_m']),
+      monsterAttackIntervalS: _asInt(json['monster_attack_interval_s']),
     );
   }
 }
@@ -1244,18 +1256,6 @@ class RaidInvitationInfo {
   }
 }
 
-class GameApiService {
-  static const _requestTimeout = Duration(seconds: 12);
-
-  static Future<String> requireCharacterId() async {
-    var characterId = (await AuthService.getSavedCharacterId())?.trim();
-    if (characterId != null && characterId.isNotEmpty) return characterId;
-
-    await AuthService.fetchMainMessage();
-    characterId = (await AuthService.getSavedCharacterId())?.trim();
-    if (characterId == null || characterId.isEmpty) {
-      throw const GameApiException('캐릭터 정보를 불러오지 못했습니다.');
-    }
 class GoldMineEventStatus {
   final bool unlocked;
   final bool attemptedToday;
@@ -1326,6 +1326,18 @@ class GoldMineEventResult {
       );
 }
 
+class GameApiService {
+  static const _requestTimeout = Duration(seconds: 12);
+
+  static Future<String> requireCharacterId() async {
+    var characterId = (await AuthService.getSavedCharacterId())?.trim();
+    if (characterId != null && characterId.isNotEmpty) return characterId;
+
+    await AuthService.fetchMainMessage();
+    characterId = (await AuthService.getSavedCharacterId())?.trim();
+    if (characterId == null || characterId.isEmpty) {
+      throw const GameApiException('캐릭터 정보를 불러오지 못했습니다.');
+    }
     return characterId;
   }
 
@@ -1341,18 +1353,6 @@ class GoldMineEventResult {
     return userId;
   }
 
-  static Future<List<Shop>> fetchShops() async {
-    final response = await _get('/api/shops');
-    return _dataItems(
-      response,
-    ).map(Shop.fromJson).where((s) => s.id.isNotEmpty).toList();
-  }
-
-  static Future<List<ShopItem>> fetchShopItems(String shopId) async {
-    final response = await _get('/api/shops/$shopId/items');
-    return _dataItems(response)
-        .map(ShopItem.fromJson)
-        .where((item) => item.id.isNotEmpty && item.itemTemplate.id.isNotEmpty)
   static Future<GoldMineEventStatus> fetchGoldMineEventStatus() async {
     final response = await _get('/api/events/gold-mine/status');
     return GoldMineEventStatus.fromJson(_asMap(response['data']));
@@ -1391,6 +1391,18 @@ class GoldMineEventResult {
     return GoldMineEventResult.fromJson(data);
   }
 
+  static Future<List<Shop>> fetchShops() async {
+    final response = await _get('/api/shops');
+    return _dataItems(
+      response,
+    ).map(Shop.fromJson).where((s) => s.id.isNotEmpty).toList();
+  }
+
+  static Future<List<ShopItem>> fetchShopItems(String shopId) async {
+    final response = await _get('/api/shops/$shopId/items');
+    return _dataItems(response)
+        .map(ShopItem.fromJson)
+        .where((item) => item.id.isNotEmpty && item.itemTemplate.id.isNotEmpty)
         .toList();
   }
 

@@ -69,6 +69,7 @@ class _RaidBattlePageState extends State<RaidBattlePage>
   double _pendingDistanceM = 0;
   double _attackDistanceM = _defaultGaugeDistanceM;
   double _monsterAttackDistanceM = _defaultGaugeDistanceM;
+  int _monsterAttackIntervalS = 180;
   int _activeParticipantCount = 0;
   int _teamAgility = 0;
   int _lastAttackCycles = 0;
@@ -125,13 +126,24 @@ class _RaidBattlePageState extends State<RaidBattlePage>
   }
 
   double get _counterGaugeDistanceM {
-    return (_progress?.distanceSinceLastMonsterAttackM ?? 0) +
-        _pendingDistanceM;
+    final progress = _progress;
+    if (progress == null || progress.startedAt.isEmpty) return 0;
+    final startedAt = DateTime.tryParse(progress.startedAt)?.toUtc();
+    if (startedAt == null) return 0;
+    final elapsedSeconds = DateTime.now()
+        .toUtc()
+        .difference(startedAt)
+        .inSeconds;
+    final settledSeconds =
+        progress.totalMonsterAttackCycles * _monsterAttackIntervalS;
+    final cycleSeconds = elapsedSeconds - settledSeconds;
+    if (cycleSeconds <= 0) return 0;
+    return cycleSeconds.toDouble();
   }
 
   bool get _hasFullRaidGauge {
     return _attackGaugeDistanceM >= _attackDistanceM ||
-        _counterGaugeDistanceM >= _monsterAttackDistanceM;
+        _counterGaugeDistanceM >= _monsterAttackIntervalS;
   }
 
   double get _attackGaugeRatio {
@@ -141,7 +153,7 @@ class _RaidBattlePageState extends State<RaidBattlePage>
   }
 
   double get _counterGaugeRatio {
-    return (_counterGaugeDistanceM / _monsterAttackDistanceM)
+    return (_counterGaugeDistanceM / _monsterAttackIntervalS)
         .clamp(0.0, 1.0)
         .toDouble();
   }
@@ -246,6 +258,9 @@ class _RaidBattlePageState extends State<RaidBattlePage>
     if (summary.monsterAttackDistanceM > 0) {
       _monsterAttackDistanceM = summary.monsterAttackDistanceM;
     }
+    if (summary.monsterAttackIntervalS > 0) {
+      _monsterAttackIntervalS = summary.monsterAttackIntervalS;
+    }
   }
 
   bool _isStaleProgress(RaidProgressInfo incoming) {
@@ -344,7 +359,7 @@ class _RaidBattlePageState extends State<RaidBattlePage>
       _syncTimer?.cancel();
       _syncTimer = Timer.periodic(
         const Duration(seconds: 3),
-        (_) => unawaited(_syncPendingDistance()),
+        (_) => unawaited(_syncPendingDistance(force: true)),
       );
       _refreshTimer?.cancel();
       _refreshTimer = Timer.periodic(
@@ -423,7 +438,7 @@ class _RaidBattlePageState extends State<RaidBattlePage>
   }) async {
     if (_isDistanceSyncing || _raidFinished) return;
     final distance = _pendingDistanceM;
-    if (distance <= 0 || (!force && distance < _minAutoSyncDistanceM)) return;
+    if (distance < 0 || (!force && distance < _minAutoSyncDistanceM)) return;
 
     if (mounted && updateUi) {
       setState(() {
@@ -448,6 +463,9 @@ class _RaidBattlePageState extends State<RaidBattlePage>
         _monsterAttackDistanceM = result.monsterAttackDistanceM > 0
             ? result.monsterAttackDistanceM
             : _monsterAttackDistanceM;
+        if (result.monsterAttackIntervalS > 0) {
+          _monsterAttackIntervalS = result.monsterAttackIntervalS;
+        }
         _activeParticipantCount = result.activeParticipants;
         _teamAgility = result.teamAgility;
         _lastAttackCycles = result.attackCycles;
@@ -835,7 +853,7 @@ class _RaidBattlePageState extends State<RaidBattlePage>
           _buildRaidStats(),
           const SizedBox(height: 10),
           _buildGauge(
-            label: '반격 게이지',
+            label: '반격 타이머',
             ratio: _counterGaugeRatio,
             color: Colors.red[700]!,
             icon: Icons.warning_amber,
@@ -901,8 +919,8 @@ class _RaidBattlePageState extends State<RaidBattlePage>
             const SizedBox(width: 6),
             Expanded(
               child: _buildStatChip(
-                '반격 거리',
-                '${_fmtDouble(_monsterAttackDistanceM)}m',
+                '반격 주기',
+                '${_monsterAttackIntervalS ~/ 60}분',
                 Colors.redAccent,
               ),
             ),

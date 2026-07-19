@@ -7,11 +7,12 @@ import 'package:capstone_app/services/app_settings_service.dart';
 import 'package:capstone_app/services/auth_service.dart';
 import 'package:capstone_app/services/battle_api_service.dart';
 import 'package:capstone_app/services/game_api_service.dart';
+import 'package:capstone_app/services/game_audio_service.dart';
 import 'package:capstone_app/services/game_state.dart';
 import 'package:capstone_app/services/monster_asset_service.dart';
 import 'package:capstone_app/features/battle/pages/battle_page.dart';
-import 'package:capstone_app/features/home/pages/home_page.dart';
 import 'package:capstone_app/features/battle/pages/gold_mine_event_page.dart';
+import 'package:capstone_app/features/home/pages/home_page.dart';
 import 'package:capstone_app/features/inventory/pages/inventory_page.dart';
 import 'package:capstone_app/features/raid/pages/raid_list_page.dart';
 import 'package:capstone_app/features/shop/pages/shop_page.dart';
@@ -33,6 +34,8 @@ const _kPowerEasy = Color(0xFF5AB7FF);
 const _kRewardReductionPowerPercent = 140;
 const _kChapter1HomeBg = 'assets/images/bg/home_bg.png';
 const _kChapter2HomeBg = 'assets/images/bg/home_bg_chapter2_shadow_forest.png';
+const _kChapter3StageWaitBg =
+    'assets/images/bg/stage_wait_chapter3_ancient_quarry.png';
 
 class _StageData {
   final int stageNo;
@@ -80,11 +83,11 @@ const _kChapterStagePoints = <int, List<Offset>>{
     Offset(0.841, 0.46),
   ],
   3: [
-    Offset(0.12, 0.68),
-    Offset(0.31, 0.58),
-    Offset(0.5, 0.66),
-    Offset(0.69, 0.48),
-    Offset(0.87, 0.38),
+    Offset(0.19, 0.7),
+    Offset(0.34, 0.73),
+    Offset(0.51, 0.52),
+    Offset(0.72, 0.45),
+    Offset(0.875, 0.33),
   ],
 };
 
@@ -153,6 +156,7 @@ const _kBattlePreloadAssets = <String>[
   'assets/images/bg/stage2_battle_shadow_mushroom_forest.png',
   'assets/images/bg/stage3_battle_ancient_quarry_entrance_941x1672.png',
   'assets/images/bg/stage3_ancient_quarry_entrance_map_1672x941.png',
+  _kChapter3StageWaitBg,
   'assets/images/profile_frame.png',
   'assets/images/icon/coin_icon.png',
   'assets/images/icon/friend_icon.png',
@@ -195,6 +199,7 @@ class _BattleStagePageState extends State<BattleStagePage> {
   final _gs = GameState.instance;
   int _selectedIndex = 0;
   int _currentChapter = 1;
+  bool _goldMineEventSelected = false;
   String _userName = '...';
   bool _isStarting = false;
   bool _isStageLoading = true;
@@ -235,14 +240,24 @@ class _BattleStagePageState extends State<BattleStagePage> {
       _allStages.any((stage) => stage.stageNo >= 6 && stage.unlocked) ||
       _allStages.any((stage) => stage.stageNo == 5 && stage.cleared);
 
+  bool get _chapter3HomeBgUnlocked =>
+      _allStages.any((stage) => stage.stageNo >= 11 && stage.unlocked) ||
+      _allStages.any((stage) => stage.stageNo == 10 && stage.cleared);
+
   String get _stagePageBackgroundAsset {
     final selected = _appSettings.homeBackgroundChapter;
     final effectiveChapter = selected == AppSettingsData.homeBackgroundAuto
-        ? (_chapter2HomeBgUnlocked
-              ? AppSettingsData.homeBackgroundChapter2
-              : AppSettingsData.homeBackgroundChapter1)
+        ? (_chapter3HomeBgUnlocked
+              ? AppSettingsData.homeBackgroundChapter3
+              : (_chapter2HomeBgUnlocked
+                    ? AppSettingsData.homeBackgroundChapter2
+                    : AppSettingsData.homeBackgroundChapter1))
         : selected;
 
+    if (effectiveChapter == AppSettingsData.homeBackgroundChapter3 &&
+        _chapter3HomeBgUnlocked) {
+      return _kChapter3StageWaitBg;
+    }
     if (effectiveChapter == AppSettingsData.homeBackgroundChapter2 &&
         _chapter2HomeBgUnlocked) {
       return _kChapter2HomeBg;
@@ -485,7 +500,9 @@ class _BattleStagePageState extends State<BattleStagePage> {
     setState(() {
       _currentChapter = nextChapter;
       _selectedIndex = _initialSelectedIndex(_visibleStages);
+      _goldMineEventSelected = false;
     });
+    GameAudioService.playChapterTurn();
   }
 
   void _selectStage(int index) {
@@ -500,7 +517,10 @@ class _BattleStagePageState extends State<BattleStagePage> {
       );
       return;
     }
-    setState(() => _selectedIndex = index);
+    setState(() {
+      _selectedIndex = index;
+      _goldMineEventSelected = false;
+    });
   }
 
   Future<void> _startBattle() async {
@@ -538,6 +558,7 @@ class _BattleStagePageState extends State<BattleStagePage> {
       _gs.setStatExp(result.character.statExp);
 
       if (!mounted) return;
+      GameAudioService.playStageEnter();
       Navigator.push(
         context,
         PageRouteBuilder(
@@ -1025,6 +1046,8 @@ class _BattleStagePageState extends State<BattleStagePage> {
                               ),
                             ),
                           ),
+                          if (_currentChapter == 3)
+                            _buildGoldMineEventNode(constraints),
                           for (int i = 0; i < stages.length; i++)
                             _buildStageNode(i, constraints),
                         ],
@@ -1218,6 +1241,61 @@ class _BattleStagePageState extends State<BattleStagePage> {
     );
   }
 
+  Widget _buildGoldMineEventNode(BoxConstraints constraints) {
+    const markerSize = 54.0;
+    const point = Offset(0.31, 0.31);
+    final left = (point.dx * constraints.maxWidth) - (markerSize / 2);
+    final top = (point.dy * constraints.maxHeight) - (markerSize / 2);
+
+    return Positioned(
+      left: left,
+      top: top,
+      child: GestureDetector(
+        onTap: () {
+          if (!_goldMineEventUnlocked) {
+            showGameToast(
+              context,
+              '3-3 스테이지를 먼저 클리어하세요.',
+              type: GameToastType.warning,
+            );
+            return;
+          }
+          setState(() => _goldMineEventSelected = true);
+        },
+        child: SizedBox(
+          width: markerSize,
+          height: markerSize,
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              if (_goldMineEventSelected)
+                Icon(
+                  Icons.star_rounded,
+                  color: _kGold.withValues(alpha: 0.36),
+                  size: 52,
+                  shadows: const [
+                    Shadow(color: _kGold, blurRadius: 16),
+                    Shadow(color: Colors.black, blurRadius: 5),
+                  ],
+                ),
+              Icon(
+                Icons.star_rounded,
+                color: _goldMineEventUnlocked
+                    ? _kGold
+                    : _kGold.withValues(alpha: 0.48),
+                size: 31,
+                shadows: const [
+                  Shadow(color: Colors.black, blurRadius: 5),
+                  Shadow(color: Colors.black, offset: Offset(1, 1)),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildStageError() {
     return _buildStageEmpty(
       _stageError ?? '스테이지 정보를 불러오지 못했습니다.',
@@ -1281,6 +1359,9 @@ class _BattleStagePageState extends State<BattleStagePage> {
   }
 
   Widget _buildMonsterPanel() {
+    if (_goldMineEventSelected) {
+      return _buildGoldMineEventPanel();
+    }
     final selectedStage = _selectedStage;
     return Padding(
       padding: const EdgeInsets.fromLTRB(6, 0, 6, 6),
@@ -1436,6 +1517,120 @@ class _BattleStagePageState extends State<BattleStagePage> {
     );
   }
 
+  Widget _buildGoldMineEventPanel() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(6, 0, 6, 6),
+      child: Container(
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: _kPanelBg,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: _kPanelBorder, width: 2),
+        ),
+        child: Column(
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 7,
+                  ),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF7A2A1D),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: const Color(0xFF51160F),
+                      width: 1.5,
+                    ),
+                  ),
+                  child: const Text(
+                    '3-6',
+                    style: TextStyle(
+                      color: _kGold,
+                      fontSize: 22,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                const Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '황금 광맥 발견',
+                        maxLines: 1,
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 17,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                      Text(
+                        '3-3 클리어로 열린 이벤트 스테이지',
+                        style: TextStyle(
+                          color: Color(0xFF64E66D),
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 7),
+            Row(
+              children: [
+                Container(
+                  width: 64,
+                  height: 64,
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.45),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: _kPanelBorder, width: 1.5),
+                  ),
+                  padding: const EdgeInsets.all(8),
+                  child: Image.asset(
+                    'assets/images/monsters/monster_1-1_basic_goblin.png',
+                    fit: BoxFit.contain,
+                    errorBuilder: (_, _, _) =>
+                        const Icon(Icons.pets, color: Colors.white54, size: 44),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    children: [
+                      _buildMonsterInfoRow(
+                        label: '몬스터',
+                        value: '황금 광맥 도둑 고블린',
+                        unlocked: true,
+                      ),
+                      const SizedBox(height: 5),
+                      _buildMonsterInfoRow(
+                        label: '제한 시간',
+                        value: '3분',
+                        unlocked: true,
+                      ),
+                      const SizedBox(height: 5),
+                      _buildMonsterInfoRow(
+                        label: '최고 보상',
+                        value: '600m',
+                        unlocked: true,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildMonsterInfoRow({
     required String label,
     required String value,
@@ -1557,22 +1752,6 @@ class _BattleStagePageState extends State<BattleStagePage> {
     return (hp / 3 + attack * 8 + defense * 5 + agility * 4).round();
   }
 
-  Widget _buildStartButton() {
-    final selectedStage = _selectedStage;
-    final locked =
-        _isStageLoading || selectedStage == null || !selectedStage.unlocked;
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(6, 0, 6, 10),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          GestureDetector(
-            onTap: (locked || _isStarting) ? null : _startBattle,
-            child: Container(
-              width: double.infinity,
-              padding: const EdgeInsets.fromLTRB(8, 8, 8, 9),
-              decoration: BoxDecoration(
-                color: (locked || _isStarting)
   bool get _goldMineEventUnlocked =>
       _allStages.any((stage) => stage.stageNo == 13 && stage.cleared);
 
@@ -1583,16 +1762,18 @@ class _BattleStagePageState extends State<BattleStagePage> {
     );
   }
 
-                    ? const Color(0xFF555555)
-                    : _kStartBtn,
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(
-                  color: (locked || _isStarting)
-                      ? const Color(0xFF6D6D6D)
-                      : _kStartBtnBorder,
-                  width: 2,
-                ),
-          if (_currentChapter == 3 && _goldMineEventUnlocked) ...[
+  Widget _buildStartButton() {
+    final selectedStage = _selectedStage;
+    final isEvent = _goldMineEventSelected;
+    final locked = isEvent
+        ? !_goldMineEventUnlocked
+        : _isStageLoading || selectedStage == null || !selectedStage.unlocked;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(6, 0, 6, 10),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (false && _currentChapter == 3 && _goldMineEventUnlocked) ...[
             GestureDetector(
               onTap: _isStarting ? null : _openGoldMineEvent,
               child: Container(
@@ -1622,6 +1803,24 @@ class _BattleStagePageState extends State<BattleStagePage> {
               ),
             ),
           ],
+          GestureDetector(
+            onTap: (locked || _isStarting)
+                ? null
+                : (isEvent ? _openGoldMineEvent : _startBattle),
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.fromLTRB(8, 8, 8, 9),
+              decoration: BoxDecoration(
+                color: (locked || _isStarting)
+                    ? const Color(0xFF555555)
+                    : _kStartBtn,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(
+                  color: (locked || _isStarting)
+                      ? const Color(0xFF6D6D6D)
+                      : _kStartBtnBorder,
+                  width: 2,
+                ),
               ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -1650,7 +1849,9 @@ class _BattleStagePageState extends State<BattleStagePage> {
                     child: FittedBox(
                       fit: BoxFit.scaleDown,
                       child: Text(
-                        _isStageLoading
+                        isEvent
+                            ? '이벤트 시작'
+                            : _isStageLoading
                             ? '스테이지 불러오는 중...'
                             : (_stageError != null
                                   ? '스테이지 불러오기 실패'

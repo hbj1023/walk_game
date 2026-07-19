@@ -26,19 +26,13 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage>
     with SingleTickerProviderStateMixin {
-  static const _supportedWeaponTypes = <String>{
-    'sword',
-    'dagger',
-    'axe',
-    'spear',
-    'greatsword',
-  };
   static const _chapter1HomeBg = 'assets/images/bg/home_bg.png';
   static const _chapter2HomeBg =
       'assets/images/bg/home_bg_chapter2_shadow_forest.png';
+  static const _chapter3HomeBg =
+      'assets/images/bg/home_bg_chapter3_ancient_quarry.png';
 
   String _userName = '...';
-  String _equippedWeaponType = '';
   int _currentNavIndex = 2;
   final _gs = GameState.instance;
   late final StepTrackingController _stepTracker;
@@ -47,6 +41,7 @@ class _HomePageState extends State<HomePage>
   double _bgAspectRatio = 2.0; // 이미지 로드 전 기본값
 
   bool _chapter2HomeBgUnlocked = false;
+  bool _chapter3HomeBgUnlocked = false;
   AppSettingsData _appSettings = const AppSettingsData.defaults();
   bool _profileLoading = true;
   String? _profileError;
@@ -83,7 +78,6 @@ class _HomePageState extends State<HomePage>
       onSyncError: (error) => _showSnackBar(error.toString()),
     )..addListener(_onStepTrackerChanged);
     _loadUserName();
-    _loadEquippedWeapon();
     _loadMissions();
     _loadAppSettings();
     _bgController = AnimationController(
@@ -97,11 +91,17 @@ class _HomePageState extends State<HomePage>
   String get _homeBgAsset {
     final selected = _appSettings.homeBackgroundChapter;
     final effectiveChapter = selected == AppSettingsData.homeBackgroundAuto
-        ? (_chapter2HomeBgUnlocked
-              ? AppSettingsData.homeBackgroundChapter2
-              : AppSettingsData.homeBackgroundChapter1)
+        ? (_chapter3HomeBgUnlocked
+              ? AppSettingsData.homeBackgroundChapter3
+              : (_chapter2HomeBgUnlocked
+                    ? AppSettingsData.homeBackgroundChapter2
+                    : AppSettingsData.homeBackgroundChapter1))
         : selected;
 
+    if (effectiveChapter == AppSettingsData.homeBackgroundChapter3 &&
+        _chapter3HomeBgUnlocked) {
+      return _chapter3HomeBg;
+    }
     if (effectiveChapter == AppSettingsData.homeBackgroundChapter2 &&
         _chapter2HomeBgUnlocked) {
       return _chapter2HomeBg;
@@ -109,27 +109,7 @@ class _HomePageState extends State<HomePage>
     return _chapter1HomeBg;
   }
 
-  String get _homeRunSprite =>
-      _supportedWeaponTypes.contains(_equippedWeaponType)
-      ? 'assets/images/character/weapon_attacks/run_right_$_equippedWeaponType.png'
-      : 'assets/images/character/run_right.png';
-
-  Future<void> _loadEquippedWeapon() async {
-    try {
-      final items = await GameApiService.fetchInventoryItems();
-      final equippedWeapons = items.where(
-        (item) => item.isEquipped && item.itemTemplate.isWeapon,
-      );
-      if (!mounted) return;
-      setState(() {
-        _equippedWeaponType = equippedWeapons.isEmpty
-            ? ''
-            : equippedWeapons.first.itemTemplate.weaponType;
-      });
-    } catch (_) {
-      // Keep the default character sprite if equipment cannot be loaded.
-    }
-  }
+  String get _homeRunSprite => 'assets/images/character/run_right.png';
 
   Future<void> _loadAppSettings() async {
     final settings = await AppSettingsService.load();
@@ -179,10 +159,18 @@ class _HomePageState extends State<HomePage>
       final chapter2Unlocked =
           stages.any((stage) => stage.stageNo >= 6 && stage.isUnlocked) ||
           stages.any((stage) => stage.stageNo == 5 && stage.isCleared);
-      if (!mounted || chapter2Unlocked == _chapter2HomeBgUnlocked) return;
+      final chapter3Unlocked =
+          stages.any((stage) => stage.stageNo >= 11 && stage.isUnlocked) ||
+          stages.any((stage) => stage.stageNo == 10 && stage.isCleared);
+      if (!mounted ||
+          (chapter2Unlocked == _chapter2HomeBgUnlocked &&
+              chapter3Unlocked == _chapter3HomeBgUnlocked)) {
+        return;
+      }
       final previousAsset = _homeBgAsset;
       setState(() {
         _chapter2HomeBgUnlocked = chapter2Unlocked;
+        _chapter3HomeBgUnlocked = chapter3Unlocked;
       });
       final nextAsset = _homeBgAsset;
       if (nextAsset != previousAsset) {
@@ -197,7 +185,6 @@ class _HomePageState extends State<HomePage>
     if (!mounted) return;
     setState(() => _currentNavIndex = 2);
     _loadHomeBackgroundState();
-    _loadEquippedWeapon();
   }
 
   @override

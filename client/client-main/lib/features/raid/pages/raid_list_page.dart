@@ -32,6 +32,7 @@ const _kRedStar = Color(0xFFE03030);
 const _kRaidMinimumLevel = 5;
 const _kChapter1HomeBg = 'assets/images/bg/home_bg.png';
 const _kChapter2HomeBg = 'assets/images/bg/home_bg_chapter2_shadow_forest.png';
+const _kChapter3HomeBg = 'assets/images/bg/home_bg_chapter3_ancient_quarry.png';
 
 String _formatRaidNumber(int value) {
   final text = value.toString();
@@ -69,6 +70,7 @@ class _RaidListPageState extends State<RaidListPage> {
   Timer? _invitationRefreshTimer;
   AppSettingsData _appSettings = const AppSettingsData.defaults();
   bool _chapter2HomeBgUnlocked = false;
+  bool _chapter3HomeBgUnlocked = false;
 
   RaidBoss? get _selectedBoss {
     if (_bosses.isEmpty) return null;
@@ -79,11 +81,17 @@ class _RaidListPageState extends State<RaidListPage> {
   String get _raidPageBackgroundAsset {
     final selected = _appSettings.homeBackgroundChapter;
     final effectiveChapter = selected == AppSettingsData.homeBackgroundAuto
-        ? (_chapter2HomeBgUnlocked
-              ? AppSettingsData.homeBackgroundChapter2
-              : AppSettingsData.homeBackgroundChapter1)
+        ? (_chapter3HomeBgUnlocked
+              ? AppSettingsData.homeBackgroundChapter3
+              : (_chapter2HomeBgUnlocked
+                    ? AppSettingsData.homeBackgroundChapter2
+                    : AppSettingsData.homeBackgroundChapter1))
         : selected;
 
+    if (effectiveChapter == AppSettingsData.homeBackgroundChapter3 &&
+        _chapter3HomeBgUnlocked) {
+      return _kChapter3HomeBg;
+    }
     if (effectiveChapter == AppSettingsData.homeBackgroundChapter2 &&
         _chapter2HomeBgUnlocked) {
       return _kChapter2HomeBg;
@@ -132,8 +140,14 @@ class _RaidListPageState extends State<RaidListPage> {
       final chapter2Unlocked =
           stages.any((stage) => stage.stageNo >= 6 && stage.isUnlocked) ||
           stages.any((stage) => stage.stageNo == 5 && stage.isCleared);
+      final chapter3Unlocked =
+          stages.any((stage) => stage.stageNo >= 11 && stage.isUnlocked) ||
+          stages.any((stage) => stage.stageNo == 10 && stage.isCleared);
       if (mounted) {
-        setState(() => _chapter2HomeBgUnlocked = chapter2Unlocked);
+        setState(() {
+          _chapter2HomeBgUnlocked = chapter2Unlocked;
+          _chapter3HomeBgUnlocked = chapter3Unlocked;
+        });
       }
     } catch (_) {
       // Keep the chapter 1 background if stage state cannot be refreshed.

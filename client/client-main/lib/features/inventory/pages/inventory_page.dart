@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import 'package:capstone_app/services/auth_service.dart';
 import 'package:capstone_app/services/game_api_service.dart';
+import 'package:capstone_app/services/game_audio_service.dart';
 import 'package:capstone_app/services/game_state.dart';
 import 'package:capstone_app/features/battle/pages/battle_stage_page.dart';
 import 'package:capstone_app/features/home/pages/home_page.dart';
@@ -501,6 +502,7 @@ class _InventoryPageState extends State<InventoryPage> {
       final earned = await GameApiService.sellItem(item: item);
       if (mounted) {
         setState(() => _removeSoldItemLocally(item, quantity: 1));
+        GameAudioService.playItemSell();
         _showMessage(
           earned > 0
               ? '${item.itemTemplate.displayName} 판매 완료! +$earned 코인'

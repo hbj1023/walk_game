@@ -6,7 +6,10 @@ import 'package:geolocator/geolocator.dart';
 import 'package:pedometer/pedometer.dart';
 
 import 'package:capstone_app/services/game_api_service.dart';
+import 'package:capstone_app/services/game_state.dart';
 import 'package:capstone_app/widgets/game_feedback.dart';
+import 'package:capstone_app/widgets/game_top_actions.dart';
+import 'package:capstone_app/widgets/player_level_badge.dart';
 
 class GoldMineEventPage extends StatefulWidget {
   const GoldMineEventPage({super.key});
@@ -38,6 +41,7 @@ class _GoldMineEventPageState extends State<GoldMineEventPage> {
   int _runFrame = 0;
   String? _runId;
   String? _error;
+  final GameState _gs = GameState.instance;
 
   @override
   void initState() {
@@ -107,7 +111,8 @@ class _GoldMineEventPageState extends State<GoldMineEventPage> {
         _starting = false;
       });
       _spriteTimer = Timer.periodic(const Duration(milliseconds: 90), (_) {
-        if (mounted && _running) setState(() => _runFrame = (_runFrame + 1) % 8);
+        if (mounted && _running)
+          setState(() => _runFrame = (_runFrame + 1) % 8);
       });
       _timer = Timer.periodic(const Duration(seconds: 1), (_) {
         if (!mounted || !_running) return;
@@ -220,33 +225,23 @@ class _GoldMineEventPageState extends State<GoldMineEventPage> {
 
   @override
   Widget build(BuildContext context) {
-    final immersive = _running || _finishing || _result != null;
     return PopScope(
       canPop: !_running,
       child: Scaffold(
         extendBody: true,
         backgroundColor: const Color(0xFF120D07),
-        appBar: immersive
-            ? null
-            : AppBar(
-                backgroundColor: const Color(0xFF171007),
-                foregroundColor: Colors.white,
-                title: const Text('황금 광맥 발견'),
-              ),
         body: Stack(
           children: [
-            if (immersive)
-              Positioned.fill(
-                child: Image.asset(
-                  'assets/images/bg/stage3_battle_ancient_quarry_entrance_941x1672.png',
-                  fit: BoxFit.cover,
-                  filterQuality: FilterQuality.none,
-                ),
+            Positioned.fill(
+              child: Image.asset(
+                'assets/images/bg/stage3_battle_ancient_quarry_entrance_941x1672.png',
+                fit: BoxFit.cover,
+                filterQuality: FilterQuality.none,
               ),
-            if (immersive)
-              Positioned.fill(
-                child: ColoredBox(color: Colors.black.withValues(alpha: 0.12)),
-              ),
+            ),
+            Positioned.fill(
+              child: ColoredBox(color: Colors.black.withValues(alpha: 0.12)),
+            ),
             SafeArea(
               child: _loading
                   ? const Center(child: CircularProgressIndicator(color: _gold))
@@ -257,12 +252,7 @@ class _GoldMineEventPageState extends State<GoldMineEventPage> {
                         Positioned.fill(child: _buildResult()),
                       ],
                     )
-                  : (_running || _finishing
-                        ? _buildRun()
-                        : Padding(
-                            padding: const EdgeInsets.all(14),
-                            child: _buildBriefing(),
-                          )),
+                  : _buildRun(showTracking: _running || _finishing),
             ),
           ],
         ),
@@ -352,15 +342,10 @@ class _GoldMineEventPageState extends State<GoldMineEventPage> {
           padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
           child: Row(
             children: [
-              Container(
-                width: 48,
-                height: 48,
-                decoration: BoxDecoration(
-                  color: const Color(0xFF24160F),
-                  borderRadius: BorderRadius.circular(6),
-                  border: Border.all(color: _gold, width: 2),
-                ),
-                child: const Icon(Icons.person, color: Colors.white),
+              PlayerProfileWithLevel(
+                level: _gs.level,
+                exp: _gs.exp,
+                expToNext: _gs.expToNextLevel,
               ),
               const SizedBox(width: 8),
               const Expanded(
@@ -374,28 +359,77 @@ class _GoldMineEventPageState extends State<GoldMineEventPage> {
                   ),
                 ),
               ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-                decoration: BoxDecoration(
-                  color: Colors.black.withValues(alpha: 0.7),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: const Color(0xFF8D6328), width: 2),
-                ),
-                child: Text(
-                  '$minutes:${seconds.toString().padLeft(2, '0')}',
-                  style: const TextStyle(
-                    color: _gold,
-                    fontSize: 18,
-                    fontWeight: FontWeight.w900,
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 9,
+                      vertical: 5,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withValues(alpha: 0.68),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: const Color(0xFF8D6328),
+                        width: 2,
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Image.asset(
+                          'assets/images/icon/coin_icon.png',
+                          width: 20,
+                          height: 20,
+                        ),
+                        const SizedBox(width: 5),
+                        Text(
+                          '${_gs.coins}',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
+                  const SizedBox(height: 5),
+                  GestureDetector(
+                    onTap: _running ? null : () => Navigator.pop(context),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 9,
+                        vertical: 5,
+                      ),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF7A1A1A).withValues(alpha: 0.78),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: const Color(0xFFB84535),
+                          width: 2,
+                        ),
+                      ),
+                      child: const Text(
+                        '이벤트 나가기',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 5),
+                  const GameTopActions(),
+                ],
               ),
             ],
           ),
         ),
         const SizedBox(height: 16),
         const Text(
-          '황금 광맥 발견',
+          '3-6 황금 광맥',
           style: TextStyle(
             color: Colors.white,
             fontSize: 27,
@@ -405,7 +439,9 @@ class _GoldMineEventPageState extends State<GoldMineEventPage> {
         ),
         const SizedBox(height: 4),
         Text(
-          showTracking ? '남은 시간 $minutes:${seconds.toString().padLeft(2, '0')} · 진행 중' : '탐사 종료',
+          showTracking
+              ? '남은 시간 $minutes:${seconds.toString().padLeft(2, '0')} · 진행 중'
+              : '탐사 종료',
           style: const TextStyle(
             color: Colors.white,
             fontSize: 14,
@@ -423,54 +459,64 @@ class _GoldMineEventPageState extends State<GoldMineEventPage> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Container(
-                      width: 126,
-                      height: 126,
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF30271C).withValues(alpha: 0.94),
-                        shape: BoxShape.circle,
-                        border: Border.all(color: const Color(0xFF655038), width: 7),
-                        boxShadow: const [BoxShadow(color: Colors.black54, blurRadius: 8, offset: Offset(0, 5))],
-                      ),
-                      child: const Icon(Icons.diamond, color: _gold, size: 64),
+                    Image.asset(
+                      'assets/images/monsters/monster_1-1_basic_goblin.png',
+                      width: 138,
+                      height: 138,
+                      fit: BoxFit.contain,
+                      filterQuality: FilterQuality.none,
                     ),
                     const SizedBox(height: 6),
                     Text(
-                      _distanceM >= 600
-                          ? '최고 보상 달성'
-                          : '광맥까지 ${math.max(0, 600 - _distanceM.floor())}m',
+                      '황금 광맥 도둑 고블린',
                       style: const TextStyle(
-                        color: _gold,
-                        fontSize: 16,
+                        color: Colors.white,
+                        fontSize: 18,
                         fontWeight: FontWeight.w900,
                         shadows: [Shadow(color: Colors.black, blurRadius: 5)],
+                      ),
+                    ),
+                    Text(
+                      _distanceM >= 600
+                          ? '추적 성공'
+                          : '추격 거리 ${math.max(0, 600 - _distanceM.floor())}m',
+                      style: const TextStyle(
+                        color: _gold,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w900,
+                        shadows: [Shadow(color: Colors.black, blurRadius: 4)],
                       ),
                     ),
                   ],
                 ),
               ),
-              Align(alignment: const Alignment(0, 0.64), child: _buildRunnerSprite()),
+              Align(
+                alignment: const Alignment(0, 0.64),
+                child: _buildRunnerSprite(),
+              ),
               Positioned(
                 left: 12,
                 bottom: 18,
-                child: _buildTrackingStatus(),
+                child: _buildEventRewardPreview(),
               ),
-              Positioned(
-                right: 12,
-                bottom: 92,
-                child: _buildMilestoneRail(),
-              ),
+              Positioned(right: 12, bottom: 92, child: _buildMilestoneRail()),
               Positioned(
                 left: 0,
                 right: 0,
                 bottom: 16,
-                child: Center(child: _buildDistancePanel()),
+                child: Center(
+                  child: _running || _finishing
+                      ? _buildDistancePanel()
+                      : _buildEventStartButton(),
+                ),
               ),
               if (_finishing)
                 const Positioned.fill(
                   child: ColoredBox(
                     color: Color(0x66000000),
-                    child: Center(child: CircularProgressIndicator(color: _gold)),
+                    child: Center(
+                      child: CircularProgressIndicator(color: _gold),
+                    ),
                   ),
                 ),
             ],
@@ -624,6 +670,82 @@ class _GoldMineEventPageState extends State<GoldMineEventPage> {
     ),
   );
 
+  Widget _buildEventRewardPreview() {
+    final earnedCoin = _distanceM >= 600
+        ? 900
+        : _distanceM >= 500
+        ? 700
+        : _distanceM >= 400
+        ? 520
+        : 0;
+    final earnedTickets = _distanceM >= 600
+        ? 4
+        : _distanceM >= 400
+        ? 1
+        : 0;
+    final earnedStat = _distanceM >= 500 ? 1 : 0;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.72),
+        borderRadius: BorderRadius.circular(7),
+        border: Border.all(color: const Color(0xFF8D6328), width: 2),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _eventRewardIcon(
+            image: 'assets/images/icon/coin_icon.png',
+            value: '$earnedCoin',
+          ),
+          const SizedBox(height: 4),
+          _eventRewardIcon(
+            image: 'assets/images/icon/ticket.png',
+            value: '$earnedTickets',
+          ),
+          const SizedBox(height: 4),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(
+                Icons.auto_awesome,
+                color: Color(0xFF9EE7FF),
+                size: 18,
+              ),
+              const SizedBox(width: 4),
+              Text(
+                '$earnedStat',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _eventRewardIcon({required String image, required String value}) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Image.asset(image, width: 18, height: 18, fit: BoxFit.contain),
+        const SizedBox(width: 4),
+        Text(
+          value,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 11,
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+      ],
+    );
+  }
+
   Widget _buildMilestoneRail() => Column(
     mainAxisSize: MainAxisSize.min,
     children: [
@@ -671,7 +793,10 @@ class _GoldMineEventPageState extends State<GoldMineEventPage> {
     child: Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        const Text('실시간 탐사 거리', style: TextStyle(color: Colors.white70, fontSize: 11)),
+        const Text(
+          '실시간 탐사 거리',
+          style: TextStyle(color: Colors.white70, fontSize: 11),
+        ),
         Text(
           '${_distanceM.floor()}m',
           style: const TextStyle(
@@ -683,6 +808,74 @@ class _GoldMineEventPageState extends State<GoldMineEventPage> {
       ],
     ),
   );
+
+  Widget _buildEventStartButton() {
+    final locked = _status == null || !_status!.unlocked;
+    final attempted = _status?.attemptedToday == true;
+    final disabled = locked || attempted || _starting;
+    return GestureDetector(
+      onTap: disabled ? null : _start,
+      child: Container(
+        width: 260,
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          color: disabled ? const Color(0xFF555555) : const Color(0xFF9B261E),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: disabled ? const Color(0xFF6D6D6D) : const Color(0xFFD05A42),
+            width: 2,
+          ),
+          boxShadow: const [
+            BoxShadow(
+              color: Colors.black54,
+              blurRadius: 5,
+              offset: Offset(0, 3),
+            ),
+          ],
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              width: 34,
+              height: 34,
+              decoration: BoxDecoration(
+                color: Colors.black.withValues(alpha: 0.22),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.white24),
+              ),
+              alignment: Alignment.center,
+              child: Image.asset(
+                'assets/images/icon/battle.png',
+                width: 22,
+                height: 22,
+              ),
+            ),
+            const SizedBox(width: 10),
+            Flexible(
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(
+                  locked
+                      ? '3-3 클리어 필요'
+                      : attempted
+                      ? '오늘 도전 완료'
+                      : _starting
+                      ? '이벤트 준비 중...'
+                      : '전투 시작',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 22,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 
   Widget _panel({required Widget child}) => Container(
     width: double.infinity,

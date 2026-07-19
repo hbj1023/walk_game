@@ -5,6 +5,7 @@ class AppSettingsData {
   static const homeBackgroundAuto = 0;
   static const homeBackgroundChapter1 = 1;
   static const homeBackgroundChapter2 = 2;
+  static const homeBackgroundChapter3 = 3;
 
   final bool soundEnabled;
   final bool bgmEnabled;
@@ -129,7 +130,8 @@ class AppSettingsService {
 
   static int _normalizeHomeBackgroundChapter(int value) {
     if (value == AppSettingsData.homeBackgroundChapter1 ||
-        value == AppSettingsData.homeBackgroundChapter2) {
+        value == AppSettingsData.homeBackgroundChapter2 ||
+        value == AppSettingsData.homeBackgroundChapter3) {
       return value;
     }
     return AppSettingsData.homeBackgroundAuto;

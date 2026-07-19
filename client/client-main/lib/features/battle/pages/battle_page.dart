@@ -6,6 +6,7 @@ import 'package:capstone_app/services/app_settings_service.dart';
 import 'package:capstone_app/services/auth_service.dart';
 import 'package:capstone_app/services/battle_api_service.dart';
 import 'package:capstone_app/services/game_api_service.dart';
+import 'package:capstone_app/services/game_audio_service.dart';
 import 'package:capstone_app/services/game_state.dart';
 import 'package:capstone_app/services/monster_asset_service.dart';
 import 'package:capstone_app/services/step_tracking_controller.dart';
@@ -384,6 +385,7 @@ class _BattlePageState extends State<BattlePage> with WidgetsBindingObserver {
     setState(() => _isAttacking = true);
     Future<void>? attackAnimation;
     if (!_appSettings.powerSavingMode) {
+      GameAudioService.playWeaponSwing();
       attackAnimation = _playPlayerAttackSequence();
     }
     try {
@@ -575,6 +577,8 @@ class _BattlePageState extends State<BattlePage> with WidgetsBindingObserver {
           _isConsumableSelectorExpanded = false;
         }
       });
+
+      GameAudioService.playPotionDrink();
 
       final healText = result.recoveredHp > 0
           ? 'HP +${result.recoveredHp}'

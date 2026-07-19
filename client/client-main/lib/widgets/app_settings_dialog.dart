@@ -14,6 +14,7 @@ const _kRed = Color(0xFF7A1A1A);
 const _kBlue = Color(0xFF245A8F);
 const _kChapter1HomeBg = 'assets/images/bg/home_bg.png';
 const _kChapter2HomeBg = 'assets/images/bg/home_bg_chapter2_shadow_forest.png';
+const _kChapter3HomeBg = 'assets/images/bg/home_bg_chapter3_ancient_quarry.png';
 
 class AppSettingsDialog extends StatefulWidget {
   final Future<void> Function() onLogout;
@@ -35,6 +36,7 @@ class _AppSettingsDialogState extends State<AppSettingsDialog> {
   String _email = '';
   String _name = '';
   bool _chapter2BackgroundUnlocked = false;
+  bool _chapter3BackgroundUnlocked = false;
 
   @override
   void initState() {
@@ -49,13 +51,18 @@ class _AppSettingsDialogState extends State<AppSettingsDialog> {
       AuthService.getSavedName(),
     ]);
     var chapter2Unlocked = false;
+    var chapter3Unlocked = false;
     try {
       final stages = await BattleApiService.fetchNormalStages();
       chapter2Unlocked =
           stages.any((stage) => stage.stageNo >= 6 && stage.isUnlocked) ||
           stages.any((stage) => stage.stageNo == 5 && stage.isCleared);
+      chapter3Unlocked =
+          stages.any((stage) => stage.stageNo >= 11 && stage.isUnlocked) ||
+          stages.any((stage) => stage.stageNo == 10 && stage.isCleared);
     } catch (_) {
       chapter2Unlocked = false;
+      chapter3Unlocked = false;
     }
     if (!mounted) return;
     setState(() {
@@ -63,6 +70,7 @@ class _AppSettingsDialogState extends State<AppSettingsDialog> {
       _email = (results[1] as String?)?.trim() ?? '';
       _name = (results[2] as String?)?.trim() ?? '';
       _chapter2BackgroundUnlocked = chapter2Unlocked;
+      _chapter3BackgroundUnlocked = chapter3Unlocked;
       _isLoading = false;
     });
   }
@@ -95,6 +103,7 @@ class _AppSettingsDialogState extends State<AppSettingsDialog> {
       builder: (_) => _BackgroundSettingsDialog(
         settings: _settings,
         chapter2Unlocked: _chapter2BackgroundUnlocked,
+        chapter3Unlocked: _chapter3BackgroundUnlocked,
         onChanged: _save,
       ),
     );
@@ -117,8 +126,12 @@ class _AppSettingsDialogState extends State<AppSettingsDialog> {
         return '1장 배경';
       case AppSettingsData.homeBackgroundChapter2:
         return _chapter2BackgroundUnlocked ? '2장 배경' : '2장 배경 잠김';
+      case AppSettingsData.homeBackgroundChapter3:
+        return _chapter3BackgroundUnlocked ? '3장 배경' : '3장 배경 잠김';
       default:
-        return _chapter2BackgroundUnlocked ? '자동: 가장 높은 장' : '자동: 1장';
+        return _chapter3BackgroundUnlocked
+            ? '자동: 가장 높은 장'
+            : (_chapter2BackgroundUnlocked ? '자동: 가장 높은 장' : '자동: 1장');
     }
   }
 
@@ -340,11 +353,13 @@ class _SoundSettingsDialogState extends State<_SoundSettingsDialog> {
 class _BackgroundSettingsDialog extends StatefulWidget {
   final AppSettingsData settings;
   final bool chapter2Unlocked;
+  final bool chapter3Unlocked;
   final Future<void> Function(AppSettingsData settings) onChanged;
 
   const _BackgroundSettingsDialog({
     required this.settings,
     required this.chapter2Unlocked,
+    required this.chapter3Unlocked,
     required this.onChanged,
   });
 
@@ -367,6 +382,10 @@ class _BackgroundSettingsDialogState extends State<_BackgroundSettingsDialog> {
         !widget.chapter2Unlocked) {
       return;
     }
+    if (chapter == AppSettingsData.homeBackgroundChapter3 &&
+        !widget.chapter3Unlocked) {
+      return;
+    }
     final next = _settings.copyWith(homeBackgroundChapter: chapter);
     setState(() => _settings = next);
     await widget.onChanged(next);
@@ -384,9 +403,11 @@ class _BackgroundSettingsDialogState extends State<_BackgroundSettingsDialog> {
           _backgroundOption(
             title: '자동',
             subtitle: '열려있는 가장 높은 장 배경으로 변경',
-            assetPath: widget.chapter2Unlocked
-                ? _kChapter2HomeBg
-                : _kChapter1HomeBg,
+            assetPath: widget.chapter3Unlocked
+                ? _kChapter3HomeBg
+                : (widget.chapter2Unlocked
+                      ? _kChapter2HomeBg
+                      : _kChapter1HomeBg),
             value: AppSettingsData.homeBackgroundAuto,
             enabled: true,
           ),
@@ -405,6 +426,14 @@ class _BackgroundSettingsDialogState extends State<_BackgroundSettingsDialog> {
             assetPath: _kChapter2HomeBg,
             value: AppSettingsData.homeBackgroundChapter2,
             enabled: widget.chapter2Unlocked,
+          ),
+          const SizedBox(height: 8),
+          _backgroundOption(
+            title: '3장 배경',
+            subtitle: widget.chapter3Unlocked ? '고대 채석장' : '3장 해금 후 선택 가능',
+            assetPath: _kChapter3HomeBg,
+            value: AppSettingsData.homeBackgroundChapter3,
+            enabled: widget.chapter3Unlocked,
           ),
         ],
       ),

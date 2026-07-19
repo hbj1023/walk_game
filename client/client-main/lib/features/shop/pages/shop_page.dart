@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:capstone_app/services/auth_service.dart';
 import 'package:capstone_app/services/battle_api_service.dart';
 import 'package:capstone_app/services/game_api_service.dart';
+import 'package:capstone_app/services/game_audio_service.dart';
 import 'package:capstone_app/services/game_state.dart';
 import 'package:capstone_app/features/battle/pages/battle_stage_page.dart';
 import 'package:capstone_app/features/home/pages/home_page.dart';
@@ -261,6 +262,9 @@ class _ShopPageState extends State<ShopPage> {
             .where((id) => id.isNotEmpty)
             .toSet();
       });
+      if (item.itemTemplate.isConsumable) {
+        GameAudioService.playPotionPurchase();
+      }
       showGameToast(
         context,
         item.usesBossTicketFragments

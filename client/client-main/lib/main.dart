@@ -3,8 +3,10 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:capstone_app/features/auth/pages/splash_page.dart';
 import 'package:capstone_app/services/app_settings_service.dart';
+import 'package:capstone_app/services/game_audio_service.dart';
 
 void main() {
+  GameAudioService.initialize();
   runApp(const MyApp());
 }
 
@@ -89,7 +91,10 @@ class _AutoPowerSavingGateState extends State<_AutoPowerSavingGate>
   Widget build(BuildContext context) {
     return Listener(
       behavior: HitTestBehavior.translucent,
-      onPointerDown: (_) => _resetIdleTimer(),
+      onPointerDown: (_) {
+        _resetIdleTimer();
+        GameAudioService.ensureBackgroundMusic();
+      },
       onPointerMove: (_) => _resetIdleTimer(),
       onPointerSignal: (_) => _resetIdleTimer(),
       child: widget.child,
