@@ -653,6 +653,13 @@ class _BattleStagePageState extends State<BattleStagePage> {
                 ),
               ),
             ),
+            if (_isStageLoading)
+              const Positioned.fill(
+                child: GameLoadingScreen(
+                  title: '스테이지 정보 확인 중',
+                  message: '준비가 끝나면 전투 화면을 표시합니다.',
+                ),
+              ),
             if (_isStarting) Positioned.fill(child: _buildLoadingOverlay()),
           ],
         ),
