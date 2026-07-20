@@ -18,6 +18,7 @@ import 'package:capstone_app/features/raid/pages/raid_lobby_page.dart';
 import 'package:capstone_app/features/shop/pages/shop_page.dart';
 import 'package:capstone_app/widgets/character_stats_panel.dart';
 import 'package:capstone_app/widgets/game_feedback.dart';
+import 'package:capstone_app/widgets/game_loading_screen.dart';
 import 'package:capstone_app/widgets/game_top_actions.dart';
 import 'package:capstone_app/widgets/player_level_badge.dart';
 import 'package:capstone_app/widgets/pixel_bottom_nav.dart';
@@ -461,6 +462,15 @@ class _RaidListPageState extends State<RaidListPage> {
               ],
             ),
           ),
+          if (_startingRaid)
+            Positioned.fill(
+              child: GameLoadingScreen(
+                backgroundAsset: _raidPageBackgroundAsset,
+                title: '레이드 준비 중',
+                message: '보스 정보를 확인하고 로비를 생성하고 있습니다.',
+                waitingServer: true,
+              ),
+            ),
         ],
       ),
     );

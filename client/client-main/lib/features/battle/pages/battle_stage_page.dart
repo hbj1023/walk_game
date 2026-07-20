@@ -17,6 +17,7 @@ import 'package:capstone_app/features/inventory/pages/inventory_page.dart';
 import 'package:capstone_app/features/raid/pages/raid_list_page.dart';
 import 'package:capstone_app/features/shop/pages/shop_page.dart';
 import 'package:capstone_app/widgets/game_feedback.dart';
+import 'package:capstone_app/widgets/game_loading_screen.dart';
 import 'package:capstone_app/widgets/character_stats_panel.dart';
 import 'package:capstone_app/widgets/game_top_actions.dart';
 import 'package:capstone_app/widgets/player_level_badge.dart';
@@ -660,95 +661,14 @@ class _BattleStagePageState extends State<BattleStagePage> {
   }
 
   Widget _buildLoadingOverlay() {
-    final percent = (_loadingProgress * 100).round().clamp(0, 100);
-    return Stack(
-      children: [
-        ModalBarrier(
-          dismissible: false,
-          color: Colors.black.withValues(alpha: 0.72),
-        ),
-        Center(
-          child: Container(
-            width: 280,
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 14),
-            decoration: BoxDecoration(
-              color: const Color(0xFF161616),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: _kPanelBorder, width: 2),
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                const Text(
-                  '전투 준비 중...',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 10),
-                Text(
-                  _isWaitingServer
-                      ? '로컬 준비 완료. 서버 응답을 기다리는 중입니다.'
-                      : '전투 화면 리소스를 불러오는 중입니다.',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.82),
-                    fontSize: 12,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(8),
-                  child: LinearProgressIndicator(
-                    value: _loadingProgress,
-                    minHeight: 10,
-                    backgroundColor: Colors.black,
-                    valueColor: const AlwaysStoppedAnimation<Color>(_kGold),
-                  ),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  '$percent%',
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                if (_isWaitingServer) ...[
-                  const SizedBox(height: 10),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const SizedBox(
-                        width: 14,
-                        height: 14,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          valueColor: AlwaysStoppedAnimation<Color>(_kGold),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        '서버에서 전투 생성 중...',
-                        style: TextStyle(
-                          color: Colors.white.withValues(alpha: 0.88),
-                          fontSize: 12,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ],
-            ),
-          ),
-        ),
-      ],
+    return GameLoadingScreen(
+      backgroundAsset: _stagePageBackgroundAsset,
+      title: '전투 준비 중',
+      message: _isWaitingServer
+          ? '지역 준비가 끝났습니다.\n서버에서 전투 정보를 확인하고 있습니다.'
+          : '몬스터와 전장 리소스를 불러오고 있습니다.',
+      progress: _loadingProgress,
+      waitingServer: _isWaitingServer,
     );
   }
 

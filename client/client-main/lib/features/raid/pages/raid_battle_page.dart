@@ -10,6 +10,7 @@ import 'package:capstone_app/models/raid_boss.dart';
 import 'package:capstone_app/services/game_api_service.dart';
 import 'package:capstone_app/services/game_state.dart';
 import 'package:capstone_app/widgets/game_feedback.dart';
+import 'package:capstone_app/widgets/game_loading_screen.dart';
 import 'package:capstone_app/widgets/game_top_actions.dart';
 import 'package:capstone_app/widgets/user_profile_avatar.dart';
 
@@ -619,30 +620,22 @@ class _RaidBattlePageState extends State<RaidBattlePage>
             ),
             if (_loadingProgress && _progress == null)
               Positioned.fill(
-                child: Container(
-                  color: Colors.black.withValues(alpha: 0.28),
-                  child: const Center(
-                    child: CircularProgressIndicator(color: _kGold),
-                  ),
+                child: GameLoadingScreen(
+                  backgroundAsset:
+                      widget.boss.bgPath ?? 'assets/images/bg/home_bg.png',
+                  title: '레이드 준비 중',
+                  message: '보스 정보와 파티 진행 상태를 불러오고 있습니다.',
+                  waitingServer: true,
                 ),
               ),
             if (_isLeavingRaid)
               Positioned.fill(
-                child: Container(
-                  color: Colors.black.withValues(alpha: 0.42),
-                  child: const Center(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        CircularProgressIndicator(color: _kGold),
-                        SizedBox(height: 12),
-                        Text(
-                          '레이드 나가는 중',
-                          style: TextStyle(color: Colors.white70, fontSize: 12),
-                        ),
-                      ],
-                    ),
-                  ),
+                child: GameLoadingScreen(
+                  backgroundAsset:
+                      widget.boss.bgPath ?? 'assets/images/bg/home_bg.png',
+                  title: '레이드 정리 중',
+                  message: '진행 정보를 저장하고 로비로 돌아가고 있습니다.',
+                  waitingServer: true,
                 ),
               ),
           ],

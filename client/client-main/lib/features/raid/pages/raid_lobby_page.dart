@@ -9,6 +9,7 @@ import 'package:capstone_app/services/game_api_service.dart';
 import 'package:capstone_app/services/game_state.dart';
 import 'package:capstone_app/features/raid/pages/raid_battle_page.dart';
 import 'package:capstone_app/widgets/game_feedback.dart';
+import 'package:capstone_app/widgets/game_loading_screen.dart';
 import 'package:capstone_app/widgets/game_top_actions.dart';
 import 'package:capstone_app/widgets/user_profile_avatar.dart';
 
@@ -217,7 +218,7 @@ class _RaidLobbyPageState extends State<RaidLobbyPage> {
 
   void _openBattle(RaidProgressSummary summary) {
     if (!mounted || _navigatingToBattle) return;
-    _navigatingToBattle = true;
+    setState(() => _navigatingToBattle = true);
     _refreshTimer?.cancel();
     Navigator.pushReplacement(
       context,
@@ -517,6 +518,16 @@ class _RaidLobbyPageState extends State<RaidLobbyPage> {
               bottom: MediaQuery.of(context).padding.bottom + 14,
               child: _buildStartButton(),
             ),
+            if (_navigatingToBattle)
+              Positioned.fill(
+                child: GameLoadingScreen(
+                  backgroundAsset:
+                      widget.boss.bgPath ?? _raidLobbyBackgroundAsset,
+                  title: '레이드 진입 중',
+                  message: '보스 전장과 파티 정보를 불러오고 있습니다.',
+                  waitingServer: true,
+                ),
+              ),
           ],
         ),
       ),
