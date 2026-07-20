@@ -437,10 +437,7 @@ class _RaidListPageState extends State<RaidListPage> {
                       children: [
                         _buildInvitationPanel(),
                         if (_loadingBosses)
-                          const Padding(
-                            padding: EdgeInsets.symmetric(vertical: 32),
-                            child: CircularProgressIndicator(color: _kGold),
-                          )
+                          const SizedBox.shrink()
                         else if (_bossError != null)
                           _buildErrorPanel(
                             message: _bossError!,

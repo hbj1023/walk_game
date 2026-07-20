@@ -528,6 +528,10 @@ class _RaidLobbyPageState extends State<RaidLobbyPage> {
                   waitingServer: true,
                 ),
               ),
+            if (_loading || _leavingLobby)
+              const Positioned.fill(
+                child: GameLoadingScreen(title: '로딩중', message: '로딩중'),
+              ),
           ],
         ),
       ),

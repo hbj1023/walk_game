@@ -955,11 +955,7 @@ class _BattleStagePageState extends State<BattleStagePage> {
                           ),
                         ),
                         if (_isStageLoading)
-                          const Positioned.fill(
-                            child: Center(
-                              child: CircularProgressIndicator(color: _kGold),
-                            ),
-                          )
+                          const Positioned.fill(child: SizedBox.shrink())
                         else if (_stageError != null)
                           Positioned.fill(child: _buildStageError())
                         else if (stages.isEmpty)

@@ -8,6 +8,7 @@ import 'package:pedometer/pedometer.dart';
 import 'package:capstone_app/services/game_api_service.dart';
 import 'package:capstone_app/services/game_state.dart';
 import 'package:capstone_app/widgets/game_feedback.dart';
+import 'package:capstone_app/widgets/game_loading_screen.dart';
 import 'package:capstone_app/widgets/game_top_actions.dart';
 import 'package:capstone_app/widgets/player_level_badge.dart';
 
@@ -244,7 +245,10 @@ class _GoldMineEventPageState extends State<GoldMineEventPage> {
             ),
             SafeArea(
               child: _loading
-                  ? const Center(child: CircularProgressIndicator(color: _gold))
+                  ? const GameLoadingScreen(
+                      title: '로딩중',
+                      message: '로딩중',
+                    )
                   : _result != null
                   ? Stack(
                       children: [
@@ -512,11 +516,9 @@ class _GoldMineEventPageState extends State<GoldMineEventPage> {
               ),
               if (_finishing)
                 const Positioned.fill(
-                  child: ColoredBox(
-                    color: Color(0x66000000),
-                    child: Center(
-                      child: CircularProgressIndicator(color: _gold),
-                    ),
+                  child: GameLoadingScreen(
+                    title: '로딩중',
+                    message: '로딩중',
                   ),
                 ),
             ],

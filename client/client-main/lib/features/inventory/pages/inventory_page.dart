@@ -12,6 +12,7 @@ import 'package:capstone_app/features/raid/pages/raid_list_page.dart';
 import 'package:capstone_app/features/shop/pages/shop_page.dart';
 import 'package:capstone_app/widgets/character_stats_panel.dart';
 import 'package:capstone_app/widgets/game_feedback.dart';
+import 'package:capstone_app/widgets/game_loading_screen.dart';
 import 'package:capstone_app/widgets/game_top_actions.dart';
 import 'package:capstone_app/widgets/player_level_badge.dart';
 import 'package:capstone_app/widgets/pixel_bottom_nav.dart';
@@ -611,10 +612,7 @@ class _InventoryPageState extends State<InventoryPage> {
                   _buildActiveSetEffectsPanel(),
                   _buildTabBar(),
                   if (_isLoading)
-                    const Padding(
-                      padding: EdgeInsets.only(top: 40),
-                      child: CircularProgressIndicator(color: kGold),
-                    )
+                    const SizedBox.shrink()
                   else if (_error != null)
                     _buildError()
                   else
@@ -623,14 +621,9 @@ class _InventoryPageState extends State<InventoryPage> {
               ),
             ),
           ),
-          if (_isActionLoading)
-            Positioned.fill(
-              child: Container(
-                color: Colors.black38,
-                child: const Center(
-                  child: CircularProgressIndicator(color: kGold),
-                ),
-              ),
+          if (_isLoading || _isActionLoading)
+            const Positioned.fill(
+              child: GameLoadingScreen(title: '로딩중', message: '로딩중'),
             ),
           _buildEquipmentStatFeedbackOverlay(),
         ],

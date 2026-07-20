@@ -10,6 +10,7 @@ import 'package:capstone_app/features/home/pages/home_page.dart';
 import 'package:capstone_app/features/inventory/pages/inventory_page.dart';
 import 'package:capstone_app/features/raid/pages/raid_list_page.dart';
 import 'package:capstone_app/widgets/game_feedback.dart';
+import 'package:capstone_app/widgets/game_loading_screen.dart';
 import 'package:capstone_app/widgets/character_stats_panel.dart';
 import 'package:capstone_app/widgets/game_top_actions.dart';
 import 'package:capstone_app/widgets/player_level_badge.dart';
@@ -655,14 +656,9 @@ class _ShopPageState extends State<ShopPage> {
               ],
             ),
           ),
-          if (_isBuying)
-            Positioned.fill(
-              child: Container(
-                color: Colors.black38,
-                child: const Center(
-                  child: CircularProgressIndicator(color: _kGold),
-                ),
-              ),
+          if (_isLoading || _isBuying)
+            const Positioned.fill(
+              child: GameLoadingScreen(title: '로딩중', message: '로딩중'),
             ),
         ],
       ),
@@ -1004,7 +1000,7 @@ class _ShopPageState extends State<ShopPage> {
 
   Widget _buildBody() {
     if (_isLoading) {
-      return const Center(child: CircularProgressIndicator(color: _kGold));
+      return const SizedBox.shrink();
     }
     if (_error != null) {
       return Center(
