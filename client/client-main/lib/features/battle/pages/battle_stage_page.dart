@@ -623,9 +623,7 @@ class _BattleStagePageState extends State<BattleStagePage> {
       canPop: !_isStarting,
       child: Scaffold(
         extendBody: true,
-        backgroundColor: (_isStageLoading || _isStarting)
-            ? Colors.black
-            : null,
+        backgroundColor: (_isStageLoading || _isStarting) ? Colors.black : null,
         bottomNavigationBar: (_isStageLoading || _isStarting)
             ? null
             : _buildBottomNav(),
@@ -640,7 +638,6 @@ class _BattleStagePageState extends State<BattleStagePage> {
                   mainAxisSize: MainAxisSize.max,
                   children: [
                     _buildTopHud(),
-                    _buildTitle(compact: isCompactLayout),
                     _buildStagePanel(mapHeight, compact: isCompactLayout),
                     _buildMonsterPanel(compact: isCompactLayout),
                     _buildStartButton(compact: isCompactLayout),
@@ -743,46 +740,6 @@ class _BattleStagePageState extends State<BattleStagePage> {
       context: context,
       builder: (context) =>
           CharacterStatsDialog(userName: _userName, level: _gs.level),
-    );
-  }
-
-  Widget _buildTitle({bool compact = false}) {
-    return Padding(
-      padding: EdgeInsets.fromLTRB(8, compact ? 0 : 4, 8, compact ? 2 : 5),
-      child: Column(
-        children: [
-          Text(
-            '✦ 전투 ✦',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: compact ? 20 : 25,
-              fontWeight: FontWeight.bold,
-              shadows: [
-                Shadow(
-                  color: Colors.black,
-                  blurRadius: 8,
-                  offset: Offset(1, 2),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            '모험을 떠나 몬스터를 물리치고 보상을 획득하세요!',
-            style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.88),
-              fontSize: compact ? 8 : 10,
-              shadows: const [
-                Shadow(
-                  color: Colors.black,
-                  blurRadius: 4,
-                  offset: Offset(1, 1),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
     );
   }
 
@@ -950,11 +907,7 @@ class _BattleStagePageState extends State<BattleStagePage> {
                           if (_currentChapter == 3)
                             _buildGoldMineEventNode(constraints),
                           for (int i = 0; i < stages.length; i++)
-                            _buildStageNode(
-                              i,
-                              constraints,
-                              compact: compact,
-                            ),
+                            _buildStageNode(i, constraints, compact: compact),
                         ],
                       ],
                     );
@@ -1357,10 +1310,7 @@ class _BattleStagePageState extends State<BattleStagePage> {
                     ),
                   ),
                   SizedBox(width: compact ? 6 : 8),
-                  _buildRecommendedPowerBadge(
-                    selectedStage,
-                    compact: compact,
-                  ),
+                  _buildRecommendedPowerBadge(selectedStage, compact: compact),
                 ],
               ),
             SizedBox(height: compact ? 4 : 7),
