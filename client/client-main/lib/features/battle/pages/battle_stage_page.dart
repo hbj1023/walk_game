@@ -623,7 +623,12 @@ class _BattleStagePageState extends State<BattleStagePage> {
       canPop: !_isStarting,
       child: Scaffold(
         extendBody: true,
-        bottomNavigationBar: _buildBottomNav(),
+        backgroundColor: (_isStageLoading || _isStarting)
+            ? Colors.black
+            : null,
+        bottomNavigationBar: (_isStageLoading || _isStarting)
+            ? null
+            : _buildBottomNav(),
         body: Stack(
           children: [
             Positioned.fill(child: _buildStagePageBackground()),
