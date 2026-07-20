@@ -459,22 +459,7 @@ class _RaidListPageState extends State<RaidListPage> {
               ],
             ),
           ),
-          if (_loadingBosses)
-            const Positioned.fill(
-              child: GameLoadingScreen(
-                title: '레이드 정보 확인 중',
-                message: '준비가 끝나면 레이드 화면을 표시합니다.',
-              ),
-            ),
-          if (_startingRaid)
-            Positioned.fill(
-              child: GameLoadingScreen(
-                backgroundAsset: _raidPageBackgroundAsset,
-                title: '레이드 준비 중',
-                message: '보스 정보를 확인하고 로비를 생성하고 있습니다.',
-                waitingServer: true,
-              ),
-            ),
+          GameLoadingOverlay(visible: _loadingBosses || _startingRaid),
         ],
       ),
     );

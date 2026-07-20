@@ -204,8 +204,6 @@ class _BattleStagePageState extends State<BattleStagePage> {
   String _userName = '...';
   bool _isStarting = false;
   bool _isStageLoading = true;
-  double _loadingProgress = 0;
-  bool _isWaitingServer = false;
   String? _stageError;
   List<_StageData> _allStages = const [];
   int? _currentCombatPower;
@@ -536,8 +534,6 @@ class _BattleStagePageState extends State<BattleStagePage> {
     String? errorMessage;
     setState(() {
       _isStarting = true;
-      _loadingProgress = 0;
-      _isWaitingServer = false;
     });
     try {
       await AuthService.fetchMainMessage();
@@ -545,7 +541,6 @@ class _BattleStagePageState extends State<BattleStagePage> {
       await _precacheBattleAssets();
       if (!mounted) return;
 
-      setState(() => _isWaitingServer = true);
       final result = selectedStage.isBoss
           ? await BattleApiService.startBossBattle(
               stageNo: selectedStage.stageNo,
@@ -588,8 +583,6 @@ class _BattleStagePageState extends State<BattleStagePage> {
       if (mounted) {
         setState(() {
           _isStarting = false;
-          _loadingProgress = 0;
-          _isWaitingServer = false;
         });
       }
     }
@@ -601,7 +594,6 @@ class _BattleStagePageState extends State<BattleStagePage> {
   Future<void> _precacheBattleAssets() async {
     final total = _kBattlePreloadAssets.length;
     if (total == 0) {
-      setState(() => _loadingProgress = 1);
       return;
     }
 
@@ -612,8 +604,6 @@ class _BattleStagePageState extends State<BattleStagePage> {
       } catch (_) {
         // 프리캐시 실패는 무시하고 진행
       }
-      if (!mounted) return;
-      setState(() => _loadingProgress = (i + 1) / total);
     }
   }
 
@@ -653,29 +643,10 @@ class _BattleStagePageState extends State<BattleStagePage> {
                 ),
               ),
             ),
-            if (_isStageLoading)
-              const Positioned.fill(
-                child: GameLoadingScreen(
-                  title: '스테이지 정보 확인 중',
-                  message: '준비가 끝나면 전투 화면을 표시합니다.',
-                ),
-              ),
-            if (_isStarting) Positioned.fill(child: _buildLoadingOverlay()),
+            GameLoadingOverlay(visible: _isStageLoading || _isStarting),
           ],
         ),
       ),
-    );
-  }
-
-  Widget _buildLoadingOverlay() {
-    return GameLoadingScreen(
-      backgroundAsset: _stagePageBackgroundAsset,
-      title: '전투 준비 중',
-      message: _isWaitingServer
-          ? '지역 준비가 끝났습니다.\n서버에서 전투 정보를 확인하고 있습니다.'
-          : '몬스터와 전장 리소스를 불러오고 있습니다.',
-      progress: _loadingProgress,
-      waitingServer: _isWaitingServer,
     );
   }
 

@@ -244,19 +244,32 @@ class _GoldMineEventPageState extends State<GoldMineEventPage> {
               child: ColoredBox(color: Colors.black.withValues(alpha: 0.12)),
             ),
             SafeArea(
-              child: _loading
-                  ? const GameLoadingScreen(
-                      title: '로딩중',
-                      message: '로딩중',
-                    )
-                  : _result != null
-                  ? Stack(
-                      children: [
-                        Positioned.fill(child: _buildRun(showTracking: false)),
-                        Positioned.fill(child: _buildResult()),
-                      ],
-                    )
-                  : _buildRun(showTracking: _running || _finishing),
+              child: AnimatedSwitcher(
+                duration: const Duration(milliseconds: 260),
+                reverseDuration: const Duration(milliseconds: 220),
+                switchInCurve: Curves.easeOutCubic,
+                switchOutCurve: Curves.easeInCubic,
+                child: _loading
+                    ? const GameLoadingScreen(
+                        key: ValueKey('gold-mine-loading'),
+                        title: '로딩중',
+                        message: '로딩중',
+                      )
+                    : _result != null
+                    ? Stack(
+                        key: const ValueKey('gold-mine-result'),
+                        children: [
+                          Positioned.fill(
+                            child: _buildRun(showTracking: false),
+                          ),
+                          Positioned.fill(child: _buildResult()),
+                        ],
+                      )
+                    : KeyedSubtree(
+                        key: const ValueKey('gold-mine-run'),
+                        child: _buildRun(showTracking: _running || _finishing),
+                      ),
+              ),
             ),
           ],
         ),
@@ -514,13 +527,7 @@ class _GoldMineEventPageState extends State<GoldMineEventPage> {
                       : _buildEventStartButton(),
                 ),
               ),
-              if (_finishing)
-                const Positioned.fill(
-                  child: GameLoadingScreen(
-                    title: '로딩중',
-                    message: '로딩중',
-                  ),
-                ),
+              GameLoadingOverlay(visible: _finishing),
             ],
           ),
         ),

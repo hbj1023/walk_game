@@ -363,10 +363,7 @@ class _HomePageState extends State<HomePage>
                 child: WalkingCharacter(spritePath: _homeRunSprite),
               ),
             ),
-          if (_profileLoading)
-            const Positioned.fill(
-              child: GameLoadingScreen(title: '로딩중', message: '로딩중'),
-            ),
+          GameLoadingOverlay(visible: _profileLoading),
         ],
       ),
     );

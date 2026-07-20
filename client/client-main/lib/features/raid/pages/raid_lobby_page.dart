@@ -518,20 +518,9 @@ class _RaidLobbyPageState extends State<RaidLobbyPage> {
               bottom: MediaQuery.of(context).padding.bottom + 14,
               child: _buildStartButton(),
             ),
-            if (_navigatingToBattle)
-              Positioned.fill(
-                child: GameLoadingScreen(
-                  backgroundAsset:
-                      widget.boss.bgPath ?? _raidLobbyBackgroundAsset,
-                  title: '레이드 진입 중',
-                  message: '보스 전장과 파티 정보를 불러오고 있습니다.',
-                  waitingServer: true,
-                ),
-              ),
-            if (_loading || _leavingLobby)
-              const Positioned.fill(
-                child: GameLoadingScreen(title: '로딩중', message: '로딩중'),
-              ),
+            GameLoadingOverlay(
+              visible: _navigatingToBattle || _loading || _leavingLobby,
+            ),
           ],
         ),
       ),

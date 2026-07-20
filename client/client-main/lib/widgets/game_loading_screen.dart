@@ -57,3 +57,31 @@ class GameLoadingScreen extends StatelessWidget {
     );
   }
 }
+
+class GameLoadingOverlay extends StatelessWidget {
+  final bool visible;
+
+  const GameLoadingOverlay({super.key, required this.visible});
+
+  @override
+  Widget build(BuildContext context) {
+    return Positioned.fill(
+      child: IgnorePointer(
+        ignoring: !visible,
+        child: AnimatedSwitcher(
+          duration: const Duration(milliseconds: 260),
+          reverseDuration: const Duration(milliseconds: 220),
+          switchInCurve: Curves.easeOutCubic,
+          switchOutCurve: Curves.easeInCubic,
+          child: visible
+              ? const GameLoadingScreen(
+                  key: ValueKey('game-loading-visible'),
+                  title: '로딩중',
+                  message: '로딩중',
+                )
+              : const SizedBox.shrink(key: ValueKey('game-loading-hidden')),
+        ),
+      ),
+    );
+  }
+}

@@ -618,26 +618,9 @@ class _RaidBattlePageState extends State<RaidBattlePage>
                 ],
               ),
             ),
-            if (_loadingProgress && _progress == null)
-              Positioned.fill(
-                child: GameLoadingScreen(
-                  backgroundAsset:
-                      widget.boss.bgPath ?? 'assets/images/bg/home_bg.png',
-                  title: '레이드 준비 중',
-                  message: '보스 정보와 파티 진행 상태를 불러오고 있습니다.',
-                  waitingServer: true,
-                ),
-              ),
-            if (_isLeavingRaid)
-              Positioned.fill(
-                child: GameLoadingScreen(
-                  backgroundAsset:
-                      widget.boss.bgPath ?? 'assets/images/bg/home_bg.png',
-                  title: '레이드 정리 중',
-                  message: '진행 정보를 저장하고 로비로 돌아가고 있습니다.',
-                  waitingServer: true,
-                ),
-              ),
+            GameLoadingOverlay(
+              visible: (_loadingProgress && _progress == null) || _isLeavingRaid,
+            ),
           ],
         ),
       ),

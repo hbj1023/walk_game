@@ -656,10 +656,7 @@ class _ShopPageState extends State<ShopPage> {
               ],
             ),
           ),
-          if (_isLoading || _isBuying)
-            const Positioned.fill(
-              child: GameLoadingScreen(title: '로딩중', message: '로딩중'),
-            ),
+          GameLoadingOverlay(visible: _isLoading || _isBuying),
         ],
       ),
     );

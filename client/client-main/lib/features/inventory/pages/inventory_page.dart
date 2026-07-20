@@ -626,10 +626,7 @@ class _InventoryPageState extends State<InventoryPage> {
               ),
             ),
           ),
-          if (_isLoading || _isActionLoading)
-            const Positioned.fill(
-              child: GameLoadingScreen(title: '로딩중', message: '로딩중'),
-            ),
+          GameLoadingOverlay(visible: _isLoading || _isActionLoading),
           _buildEquipmentStatFeedbackOverlay(),
         ],
       ),
