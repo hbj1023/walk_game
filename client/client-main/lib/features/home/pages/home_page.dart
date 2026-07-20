@@ -13,6 +13,7 @@ import 'package:capstone_app/features/raid/pages/raid_list_page.dart';
 import 'package:capstone_app/features/shop/pages/shop_page.dart';
 import 'package:capstone_app/widgets/character_stats_panel.dart';
 import 'package:capstone_app/widgets/game_feedback.dart';
+import 'package:capstone_app/widgets/game_loading_screen.dart';
 import 'package:capstone_app/widgets/game_top_actions.dart';
 import 'package:capstone_app/widgets/player_level_badge.dart';
 import 'package:capstone_app/widgets/pixel_bottom_nav.dart';
@@ -295,7 +296,10 @@ class _HomePageState extends State<HomePage>
     final powerSaving = _appSettings.powerSavingMode;
     return Scaffold(
       extendBody: true,
-      bottomNavigationBar: powerSaving ? null : _buildBottomNav(),
+      backgroundColor: _profileLoading ? Colors.black : null,
+      bottomNavigationBar: (powerSaving || _profileLoading)
+          ? null
+          : _buildBottomNav(),
       body: Stack(
         children: [
           if (powerSaving)
@@ -358,6 +362,10 @@ class _HomePageState extends State<HomePage>
               child: Center(
                 child: WalkingCharacter(spritePath: _homeRunSprite),
               ),
+            ),
+          if (_profileLoading)
+            const Positioned.fill(
+              child: GameLoadingScreen(title: '로딩중', message: '로딩중'),
             ),
         ],
       ),

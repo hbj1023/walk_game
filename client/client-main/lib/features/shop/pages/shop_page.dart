@@ -641,7 +641,7 @@ class _ShopPageState extends State<ShopPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       extendBody: true,
-      backgroundColor: _kBgColor,
+      backgroundColor: (_isLoading || _isBuying) ? Colors.black : _kBgColor,
       bottomNavigationBar: (_isLoading || _isBuying) ? null : _buildBottomNav(),
       body: Stack(
         children: [

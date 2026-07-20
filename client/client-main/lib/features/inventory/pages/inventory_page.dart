@@ -600,7 +600,7 @@ class _InventoryPageState extends State<InventoryPage> {
 
     return Scaffold(
       extendBody: true,
-      backgroundColor: kBgColor,
+      backgroundColor: (_isLoading || _isActionLoading) ? Colors.black : kBgColor,
       bottomNavigationBar: (_isLoading || _isActionLoading)
           ? null
           : _buildBottomNav(),
