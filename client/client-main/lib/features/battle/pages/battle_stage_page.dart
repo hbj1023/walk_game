@@ -611,11 +611,11 @@ class _BattleStagePageState extends State<BattleStagePage> {
   Widget build(BuildContext context) {
     final screenSize = MediaQuery.of(context).size;
     final isShortWide = screenSize.height < 760 && screenSize.width > 700;
-    final isCompactLayout = screenSize.height < 900 || screenSize.width < 430;
+    final isCompactLayout = screenSize.height < 820;
     final mapHeight = isShortWide
         ? math.min(86.0, math.max(76.0, screenSize.height * 0.12))
         : (isCompactLayout
-              ? math.min(160.0, math.max(128.0, screenSize.height * 0.18))
+              ? math.min(170.0, math.max(145.0, screenSize.height * 0.21))
               : math.min(300.0, math.max(205.0, screenSize.height * 0.31)));
     final bottomNavReservedHeight = PixelBottomNav.reservedHeightFor(context);
 
