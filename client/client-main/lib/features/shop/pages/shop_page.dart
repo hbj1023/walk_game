@@ -90,15 +90,15 @@ class _ShopPageState extends State<ShopPage> {
       _error = null;
     });
     try {
-      await AuthService.fetchMainMessage();
       final results = await Future.wait<Object>([
+        AuthService.fetchMainMessage(),
         GameApiService.fetchShops(),
         GameApiService.fetchInventoryItems(),
         BattleApiService.fetchNormalStages(),
       ]);
-      final shops = results[0] as List<Shop>;
-      final inventoryItems = results[1] as List<OwnedInventoryItem>;
-      final stages = results[2] as List<NormalStageInfo>;
+      final shops = results[1] as List<Shop>;
+      final inventoryItems = results[2] as List<OwnedInventoryItem>;
+      final stages = results[3] as List<NormalStageInfo>;
       final selected = shops.isEmpty ? null : shops.first;
       final items = selected == null
           ? <ShopItem>[]
@@ -642,7 +642,7 @@ class _ShopPageState extends State<ShopPage> {
     return Scaffold(
       extendBody: true,
       backgroundColor: _kBgColor,
-      bottomNavigationBar: _buildBottomNav(),
+      bottomNavigationBar: (_isLoading || _isBuying) ? null : _buildBottomNav(),
       body: Stack(
         children: [
           SafeArea(

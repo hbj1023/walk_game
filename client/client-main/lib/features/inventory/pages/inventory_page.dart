@@ -106,8 +106,8 @@ class _InventoryPageState extends State<InventoryPage> {
       _error = null;
     });
     try {
-      await AuthService.fetchMainMessage();
       final results = await Future.wait<Object>([
+        AuthService.fetchMainMessage(),
         GameApiService.fetchInventoryItems(),
         GameApiService.fetchStatUpgradeSummary(),
         GameApiService.fetchExplorationUpgradeSummary(),
@@ -115,10 +115,10 @@ class _InventoryPageState extends State<InventoryPage> {
       ]);
       if (!mounted) return;
       setState(() {
-        _items = results[0] as List<OwnedInventoryItem>;
-        _statSummary = results[1] as StatUpgradeSummary;
-        _explorationSummary = results[2] as ExplorationUpgradeSummary;
-        _characterStatsSummary = results[3] as CharacterStatsSummary;
+        _items = results[1] as List<OwnedInventoryItem>;
+        _statSummary = results[2] as StatUpgradeSummary;
+        _explorationSummary = results[3] as ExplorationUpgradeSummary;
+        _characterStatsSummary = results[4] as CharacterStatsSummary;
         _isLoading = false;
       });
     } catch (e) {
@@ -601,7 +601,9 @@ class _InventoryPageState extends State<InventoryPage> {
     return Scaffold(
       extendBody: true,
       backgroundColor: kBgColor,
-      bottomNavigationBar: _buildBottomNav(),
+      bottomNavigationBar: (_isLoading || _isActionLoading)
+          ? null
+          : _buildBottomNav(),
       body: Stack(
         children: [
           SafeArea(
