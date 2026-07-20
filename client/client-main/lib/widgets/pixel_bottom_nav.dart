@@ -24,10 +24,18 @@ class PixelBottomNav extends StatelessWidget {
     required this.onTap,
   });
 
+  static bool isCompactFor(BuildContext context) {
+    final screenSize = MediaQuery.of(context).size;
+    return screenSize.height < 900 || screenSize.width < 430;
+  }
+
+  static double reservedHeightFor(BuildContext context) {
+    return isCompactFor(context) ? 90 : 120;
+  }
+
   @override
   Widget build(BuildContext context) {
-    final screenSize = MediaQuery.of(context).size;
-    final compact = screenSize.height < 900 || screenSize.width < 430;
+    final compact = isCompactFor(context);
     final selectedHeight = compact ? 72.0 : 90.0;
     final itemHeight = compact ? 62.0 : 78.0;
     final topPadding = compact ? 12.0 : 22.0;
@@ -159,7 +167,7 @@ class _PixelNavIcon extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final compact = MediaQuery.of(context).size.height < 820;
+    final compact = PixelBottomNav.isCompactFor(context);
     if (isSelected) {
       return Image.asset(
         item.icon,

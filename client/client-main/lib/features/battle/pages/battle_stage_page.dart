@@ -626,25 +626,30 @@ class _BattleStagePageState extends State<BattleStagePage> {
         : (isCompactLayout
               ? math.min(160.0, math.max(128.0, screenSize.height * 0.18))
               : math.min(300.0, math.max(205.0, screenSize.height * 0.31)));
+    final bottomNavReservedHeight = PixelBottomNav.reservedHeightFor(context);
 
     return PopScope(
       canPop: !_isStarting,
       child: Scaffold(
-        extendBody: false,
+        extendBody: true,
         bottomNavigationBar: _buildBottomNav(),
         body: Stack(
           children: [
             Positioned.fill(child: _buildStagePageBackground()),
             SafeArea(
-              child: Column(
-                mainAxisSize: MainAxisSize.max,
-                children: [
-                  _buildTopHud(),
-                  _buildTitle(compact: isCompactLayout),
-                  _buildStagePanel(mapHeight, compact: isCompactLayout),
-                  _buildMonsterPanel(compact: isCompactLayout),
-                  _buildStartButton(compact: isCompactLayout),
-                ],
+              bottom: false,
+              child: Padding(
+                padding: EdgeInsets.only(bottom: bottomNavReservedHeight),
+                child: Column(
+                  mainAxisSize: MainAxisSize.max,
+                  children: [
+                    _buildTopHud(),
+                    _buildTitle(compact: isCompactLayout),
+                    _buildStagePanel(mapHeight, compact: isCompactLayout),
+                    _buildMonsterPanel(compact: isCompactLayout),
+                    _buildStartButton(compact: isCompactLayout),
+                  ],
+                ),
               ),
             ),
             if (_isStarting) Positioned.fill(child: _buildLoadingOverlay()),

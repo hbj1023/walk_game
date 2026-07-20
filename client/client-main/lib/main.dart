@@ -1,11 +1,20 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:capstone_app/features/auth/pages/splash_page.dart';
 import 'package:capstone_app/services/app_settings_service.dart';
 import 'package:capstone_app/services/game_audio_service.dart';
 
 void main() {
+  WidgetsFlutterBinding.ensureInitialized();
+  SystemChrome.setSystemUIOverlayStyle(
+    const SystemUiOverlayStyle(
+      systemNavigationBarColor: Color(0xFF070302),
+      systemNavigationBarDividerColor: Colors.transparent,
+      systemNavigationBarIconBrightness: Brightness.light,
+    ),
+  );
   GameAudioService.initialize();
   runApp(const MyApp());
 }
