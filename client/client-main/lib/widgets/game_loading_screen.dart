@@ -24,25 +24,33 @@ class GameLoadingScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const ColoredBox(
-      color: Colors.black,
-      child: Center(
-        child: Text(
-          '로딩중...',
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            color: _gold,
-            fontSize: 24,
-            fontWeight: FontWeight.w900,
-            letterSpacing: 0,
-            decoration: TextDecoration.none,
-            shadows: [
-              Shadow(
-                color: Colors.black,
-                blurRadius: 4,
-                offset: Offset(1, 1),
-              ),
-            ],
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0, end: 1),
+      duration: const Duration(milliseconds: 160),
+      curve: Curves.easeOut,
+      builder: (context, opacity, child) {
+        return Opacity(opacity: opacity, child: child);
+      },
+      child: const ColoredBox(
+        color: Colors.black,
+        child: Center(
+          child: Text(
+            '로딩중...',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: _gold,
+              fontSize: 24,
+              fontWeight: FontWeight.w900,
+              letterSpacing: 0,
+              decoration: TextDecoration.none,
+              shadows: [
+                Shadow(
+                  color: Colors.black,
+                  blurRadius: 4,
+                  offset: Offset(1, 1),
+                ),
+              ],
+            ),
           ),
         ),
       ),

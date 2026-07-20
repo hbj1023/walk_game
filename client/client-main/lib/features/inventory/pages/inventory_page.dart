@@ -596,6 +596,8 @@ class _InventoryPageState extends State<InventoryPage> {
 
   @override
   Widget build(BuildContext context) {
+    final bottomNavReservedHeight = PixelBottomNav.reservedHeightFor(context);
+
     return Scaffold(
       extendBody: true,
       backgroundColor: kBgColor,
@@ -603,8 +605,9 @@ class _InventoryPageState extends State<InventoryPage> {
       body: Stack(
         children: [
           SafeArea(
+            bottom: false,
             child: SingleChildScrollView(
-              padding: const EdgeInsets.only(bottom: 12),
+              padding: EdgeInsets.only(bottom: bottomNavReservedHeight),
               child: Column(
                 children: [
                   _buildTopBar(),
