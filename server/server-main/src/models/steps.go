@@ -25,6 +25,7 @@ type StepSyncResponse struct {
 	DeltaDistanceM                       int     `json:"delta_distance_m"`
 	Agility                              int     `json:"agility"`
 	AttackDistanceM                      float64 `json:"attack_distance_m"`
+	OfflineAttackDistanceM               float64 `json:"offline_attack_distance_m"`
 	AttackDistanceRemainderM             float64 `json:"attack_distance_remainder_m"`
 	AttackCountEarned                    int     `json:"attack_count_earned"`
 	AttackCountBalance                   int     `json:"attack_count_balance"`

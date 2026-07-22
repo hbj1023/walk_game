@@ -1,5 +1,7 @@
 import 'package:flutter/foundation.dart';
 
+import 'offline_attack_notification_service.dart';
+
 // 앱 전역 게임 상태 싱글톤 — 백엔드 연동 전까지 임시로 사용
 // 추후 서버에서 fetch/update로 교체 예정
 // TODO: ChangeNotifierProvider로 위젯 트리에 등록해야 notifyListeners()가 동작함
@@ -36,6 +38,7 @@ class GameState extends ChangeNotifier {
   void setAttackCountBalance(int value) {
     if (_attackCountBalance == value) return;
     _attackCountBalance = value;
+    OfflineAttackNotificationService.updateBalance(value);
     notifyListeners();
   }
 

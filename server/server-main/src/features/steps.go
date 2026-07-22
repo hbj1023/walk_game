@@ -190,6 +190,7 @@ func processStepSync(r *http.Request, profileID string, token string, req StepSy
 		DeltaDistanceM:                       deltaDistanceM,
 		Agility:                              agility,
 		AttackDistanceM:                      round2(attackDistanceM),
+		OfflineAttackDistanceM:               round2(getStepAttackDistanceM(agility, "offline", character.OfflineEfficiencyLevel)),
 		AttackDistanceRemainderM:             round2(attackDistanceRemainderM),
 		AttackCountEarned:                    attackCountEarned,
 		AttackCountBalance:                   attackCountBalance,
