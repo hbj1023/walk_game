@@ -25,14 +25,16 @@ func registerHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	userCreated := true
 	if err := registerPocketBaseUser(r.Context(), req); err != nil {
-		if !isAlreadyRegisteredError(err) {
-			status := statusCodeForError(err, http.StatusBadRequest)
-			writeJSON(w, status, map[string]string{"error": err.Error()})
+		if isAlreadyRegisteredError(err) {
+			writeJSON(w, http.StatusConflict, map[string]string{
+				"error": "이미 가입된 이메일입니다. 로그인해주세요.",
+			})
 			return
 		}
-		userCreated = false
+		status := statusCodeForError(err, http.StatusBadRequest)
+		writeJSON(w, status, map[string]string{"error": err.Error()})
+		return
 	}
 
 	auth, err := loginPocketBaseUser(r.Context(), LoginRequest{
@@ -52,20 +54,13 @@ func registerHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	status := http.StatusCreated
-	message := "회원가입 완료"
-	if !userCreated {
-		status = http.StatusOK
-		message = "이미 가입된 계정입니다. 캐릭터 정보를 확인했습니다."
-	}
-
-	writeJSON(w, status, map[string]any{
-		"message":              message,
+	writeJSON(w, http.StatusCreated, map[string]any{
+		"message":              "회원가입 완료",
 		"token":                auth.Token,
 		"user_id":              auth.Record.ID,
 		"email":                auth.Record.Email,
 		"name":                 auth.Record.Name,
-		"user_created":         userCreated,
+		"user_created":         true,
 		"character_id":         gameCharacter.ID,
 		"character_created":    created,
 		"character_exists":     true,
