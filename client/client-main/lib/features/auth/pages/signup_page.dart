@@ -4,7 +4,8 @@ import 'package:capstone_app/services/auth_service.dart';
 
 const _kAuthGold = Color(0xFFF2C94C);
 const _kAuthBrown = Color(0xFF7A3E1D);
-const _kAuthDark = Color(0xE610130F);
+const _kAuthDark = Color(0xCC10251B);
+const _kAuthField = Color(0xAA06120C);
 const _kAuthRed = Color(0xFF8F1D1D);
 
 class SignupPage extends StatefulWidget {
@@ -80,7 +81,7 @@ class _SignupPageState extends State<SignupPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: const Color(0xFF2F6B3D),
       resizeToAvoidBottomInset: true,
       body: Stack(
         children: [
@@ -180,7 +181,7 @@ class _SignupPanel extends StatelessWidget {
         border: Border.all(color: _kAuthBrown, width: 2.5),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.5),
+            color: const Color(0xFF0A120D).withValues(alpha: 0.34),
             blurRadius: 0,
             offset: const Offset(0, 5),
           ),
@@ -345,7 +346,7 @@ class _PixelTextField extends StatelessWidget {
           ),
           decoration: InputDecoration(
             filled: true,
-            fillColor: Colors.black.withValues(alpha: 0.42),
+            fillColor: _kAuthField,
             hintText: hintText,
             hintStyle: TextStyle(
               color: Colors.white.withValues(alpha: 0.34),
@@ -444,7 +445,15 @@ class _AuthBackground extends StatelessWidget {
       fit: StackFit.expand,
       children: [
         Image.asset('assets/images/bg/home_bg.png', fit: BoxFit.cover),
-        Container(color: Colors.black.withValues(alpha: 0.5)),
+        const DecoratedBox(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [Color(0x330A120D), Color(0x221C4E2F), Color(0x112F6B3D)],
+            ),
+          ),
+        ),
       ],
     );
   }
