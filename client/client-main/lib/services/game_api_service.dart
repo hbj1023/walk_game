@@ -10,6 +10,7 @@ import 'api_config.dart';
 import 'auth_service.dart';
 import 'equipment_image_resolver.dart';
 import 'game_state.dart';
+import 'offline_attack_notification_service.dart';
 
 const kBossEntranceTicketName = '보스 입장권';
 const kBossEntranceTicketFragmentName = '찢어진 보스 입장권';
@@ -658,6 +659,7 @@ class StepSyncResult {
   final int deltaStepCount;
   final int deltaDistanceM;
   final double attackDistanceM;
+  final double offlineAttackDistanceM;
   final double attackDistanceRemainderM;
   final int attackCountEarned;
   final int attackCountBalance;
@@ -677,6 +679,7 @@ class StepSyncResult {
     required this.deltaStepCount,
     required this.deltaDistanceM,
     required this.attackDistanceM,
+    required this.offlineAttackDistanceM,
     required this.attackDistanceRemainderM,
     required this.attackCountEarned,
     required this.attackCountBalance,
@@ -698,6 +701,7 @@ class StepSyncResult {
       deltaStepCount: _asInt(json['delta_step_count']),
       deltaDistanceM: _asInt(json['delta_distance_m']),
       attackDistanceM: _asDouble(json['attack_distance_m']),
+      offlineAttackDistanceM: _asDouble(json['offline_attack_distance_m']),
       attackDistanceRemainderM: _asDouble(json['attack_distance_remainder_m']),
       attackCountEarned: _asInt(json['attack_count_earned']),
       attackCountBalance: _asInt(json['attack_count_balance']),
@@ -1610,6 +1614,12 @@ class GameApiService {
   static void _applyStepSyncResult(StepSyncResult result) {
     GameState.instance.setAttackCountBalance(result.attackCountBalance);
     GameState.instance.setBossTicketFragments(result.bossTicketFragmentBalance);
+    OfflineAttackNotificationService.configure(
+      currentBalance: result.attackCountBalance,
+      capacity: result.offlineAttackCountCap,
+      offlineAttackDistanceM: result.offlineAttackDistanceM,
+      attackDistanceRemainderM: result.attackDistanceRemainderM,
+    );
   }
 
   static Future<StepSyncResult> syncSteps({

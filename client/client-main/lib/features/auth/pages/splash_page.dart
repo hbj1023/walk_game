@@ -8,7 +8,9 @@ import 'package:capstone_app/services/battle_api_service.dart';
 import 'package:capstone_app/services/profile_icon_service.dart';
 import 'package:capstone_app/features/home/pages/home_page.dart';
 import 'package:capstone_app/features/auth/pages/intro_page.dart';
+import 'package:capstone_app/features/auth/pages/initial_permission_page.dart';
 import 'package:capstone_app/features/auth/pages/login_page.dart';
+import 'package:capstone_app/services/initial_permission_service.dart';
 import 'package:capstone_app/widgets/game_loading_screen.dart';
 
 class SplashPage extends StatefulWidget {
@@ -49,11 +51,15 @@ class _SplashPageState extends State<SplashPage> {
         return;
       }
 
-      final page = !hasSeenIntro
+      final destination = !hasSeenIntro
           ? const IntroPage()
           : (token == null || token.isEmpty)
           ? const LoginPage()
           : const HomePage();
+      final page = await InitialPermissionService.shouldShow()
+          ? InitialPermissionPage(nextPage: destination)
+          : destination;
+      if (!mounted) return;
       Navigator.pushReplacement(
         context,
         PageRouteBuilder(
@@ -80,10 +86,7 @@ class _SplashPageState extends State<SplashPage> {
   @override
   Widget build(BuildContext context) {
     return const Scaffold(
-      body: GameLoadingScreen(
-        title: '로딩중',
-        message: '로딩중',
-      ),
+      body: GameLoadingScreen(title: '로딩중', message: '로딩중'),
     );
   }
 }
