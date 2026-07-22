@@ -73,6 +73,31 @@ func TestNormalizeStepSyncRequestAcceptsOfflineSync(t *testing.T) {
 	}
 }
 
+func TestCalculateOfflineStorageUsesCurrentBalanceInsteadOfDailyTotal(t *testing.T) {
+	stored, lost := calculateOfflineStorage(7, 4, 10)
+	if stored != 6 || lost != 1 {
+		t.Fatalf("stored/lost = %d/%d, want 6/1", stored, lost)
+	}
+}
+
+func TestCalculateOfflineStorageRefillsAfterAttacksAreUsed(t *testing.T) {
+	firstStored, _ := calculateOfflineStorage(10, 0, 10)
+	secondStored, secondLost := calculateOfflineStorage(5, 3, 10)
+	if firstStored != 10 {
+		t.Fatalf("first stored = %d, want 10", firstStored)
+	}
+	if secondStored != 5 || secondLost != 0 {
+		t.Fatalf("second stored/lost = %d/%d, want 5/0", secondStored, secondLost)
+	}
+}
+
+func TestCalculateOfflineStorageRejectsWhenInventoryIsFull(t *testing.T) {
+	stored, lost := calculateOfflineStorage(4, 10, 10)
+	if stored != 0 || lost != 4 {
+		t.Fatalf("stored/lost = %d/%d, want 0/4", stored, lost)
+	}
+}
+
 func TestExplorationUpgradeSummaryReflectsCharacterLevels(t *testing.T) {
 	summary := buildExplorationUpgradeSummary(battleCharacterRecord{
 		CoinBalance:            900,
