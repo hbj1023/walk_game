@@ -2487,7 +2487,7 @@ func calculateRaidAttackDistance(teamAgility int) float64 {
 }
 
 func raidMonsterAttackCyclesDue(startedAt string, now time.Time, completedCycles int) int {
-	startedTime, err := time.Parse(time.RFC3339Nano, strings.TrimSpace(startedAt))
+	startedTime, err := parseRaidTimestamp(startedAt)
 	if err != nil || !now.After(startedTime) {
 		return 0
 	}
@@ -2497,6 +2497,23 @@ func raidMonsterAttackCyclesDue(startedAt string, now time.Time, completedCycles
 		return 0
 	}
 	return remaining
+}
+
+func parseRaidTimestamp(value string) (time.Time, error) {
+	value = strings.TrimSpace(value)
+	var lastErr error
+	for _, layout := range []string{
+		time.RFC3339Nano,
+		"2006-01-02 15:04:05.999999999Z07:00",
+		"2006-01-02 15:04:05Z07:00",
+	} {
+		parsed, err := time.Parse(layout, value)
+		if err == nil {
+			return parsed, nil
+		}
+		lastErr = err
+	}
+	return time.Time{}, lastErr
 }
 
 func calculateRaidAttackGaugePercent(ctx context.Context, token string, participants []raidParticipantRecord) (float64, error) {

@@ -111,6 +111,14 @@ func TestRaidMonsterAttackCyclesDueEveryThreeMinutes(t *testing.T) {
 	}
 }
 
+func TestRaidMonsterAttackCyclesDueAcceptsPocketBaseTimestamp(t *testing.T) {
+	started := time.Date(2026, 7, 22, 11, 11, 44, 0, time.UTC)
+	value := "2026-07-22 11:11:44.000Z"
+	if got := raidMonsterAttackCyclesDue(value, started.Add(6*time.Minute), 0); got != 2 {
+		t.Fatalf("PocketBase timestamp due=%d, want 2", got)
+	}
+}
+
 func TestGolemRaidVerifiedRolePartyLosesBerserkerTwoCyclesBeforeClear(t *testing.T) {
 	berserkerDamage := adjustedPlayerDamage(
 		raidParticipantCycleDamage(107, 40, 1),
