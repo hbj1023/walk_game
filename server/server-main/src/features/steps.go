@@ -102,12 +102,11 @@ func processStepSync(r *http.Request, profileID string, token string, req StepSy
 	if normalized.SyncType == "offline" {
 		offlineAttackCountEarned = attackCountEarned
 		offlineAttackCountCap := offlineAttackCountCapForLevel(character.OfflineStorageLevel)
-		availableOfflineSlots := offlineAttackCountCap - existingSummary.OfflineAttackCountEarned
-		if availableOfflineSlots < 0 {
-			availableOfflineSlots = 0
-		}
-		offlineAttackCountStored = minInt(attackCountEarned, availableOfflineSlots)
-		offlineAttackCountLost = attackCountEarned - offlineAttackCountStored
+		offlineAttackCountStored, offlineAttackCountLost = calculateOfflineStorage(
+			attackCountEarned,
+			character.AttackCountBalance,
+			offlineAttackCountCap,
+		)
 		attackCountEarned = offlineAttackCountStored
 	}
 
@@ -204,6 +203,12 @@ func processStepSync(r *http.Request, profileID string, token string, req StepSy
 		BossTicketFragmentDistanceRemainderM: round2(bossTicketFragmentDistanceRemainderM),
 		Token:                                token,
 	}, nil
+}
+
+func calculateOfflineStorage(earned int, currentBalance int, capacity int) (stored int, lost int) {
+	availableSlots := maxInt(capacity-currentBalance, 0)
+	stored = minInt(maxInt(earned, 0), availableSlots)
+	return stored, maxInt(earned-stored, 0)
 }
 
 func normalizeStepSyncRequest(req StepSyncRequest) (StepSyncRequest, time.Time, string, error) {
