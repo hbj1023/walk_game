@@ -646,6 +646,13 @@ func startRaid(ctx context.Context, token string, userID string, raidID string, 
 	if err != nil {
 		return nil, err
 	}
+	if progress.Status == "cleared" && raid.Status != "ended" {
+		participants, err := listActiveRaidParticipantRecords(ctx, token, raidID)
+		if err != nil {
+			return nil, err
+		}
+		return recoverClearedRaidFinalization(ctx, token, raid, progress, participants.Items, nowTimeOrNow(time.Time{}))
+	}
 	if progress.Status == "cleared" || progress.Status == "failed" || progress.Status == "canceled" {
 		return nil, statusError{status: http.StatusBadRequest, message: "raid progress is already finished"}
 	}
@@ -694,6 +701,66 @@ func startRaid(ctx context.Context, token string, userID string, raidID string, 
 		"participant": participant,
 		"lobby":       lobby,
 		"lobby_path":  raidLobbyPath(raidID),
+	}, nil
+}
+
+func nowTimeOrNow(value time.Time) time.Time {
+	if value.IsZero() {
+		return time.Now()
+	}
+	return value
+}
+
+func recoverClearedRaidFinalization(
+	ctx context.Context,
+	token string,
+	raid raidRecord,
+	progress raidProgressRecord,
+	participants []raidParticipantRecord,
+	completedAt time.Time,
+) (map[string]any, error) {
+	monster, err := getMonsterByID(ctx, token, raid.Monster)
+	if err != nil {
+		return nil, err
+	}
+	if err := restoreRaidParticipantsHP(ctx, token, participants); err != nil {
+		return nil, err
+	}
+	if err := createRaidWeeklyClearsForParticipants(ctx, token, raid, participants, completedAt); err != nil {
+		return nil, err
+	}
+
+	rewardCoin := int(raid.RewardCoin)
+	if rewardCoin <= 0 {
+		rewardCoin = randomCoin(monster.RewardCoinMin, monster.RewardCoinMax)
+		if err := awardRaidCoinToParticipants(ctx, token, participants, rewardCoin); err != nil {
+			return nil, err
+		}
+	}
+
+	completedAtText := completedAt.UTC().Format(time.RFC3339)
+	updatedRaid, err := patchRaid(ctx, token, raid.ID, map[string]any{
+		"status":      "ended",
+		"end_time":    completedAtText,
+		"reward_coin": rewardCoin,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return map[string]any{
+		"raid":                      updatedRaid,
+		"progress":                  progress,
+		"attack_cycles":             0,
+		"total_attack_count":        0,
+		"damage_dealt":              0,
+		"monster_attack_cycles":     0,
+		"monster_damage_dealt":      0,
+		"reward_coin":               rewardCoin,
+		"defeated_participants":     []string{},
+		"active_participants":       len(participants),
+		"monster_attack_interval_s": int(raidMonsterAttackInterval.Seconds()),
+		"recovered_finalization":    true,
 	}, nil
 }
 
@@ -1164,9 +1231,23 @@ func addRaidDistance(ctx context.Context, token string, userID string, raidID st
 	if err != nil {
 		return nil, err
 	}
+	requestCharacter, err := getBattleCharacterByID(ctx, token, req.CharacterID)
+	if err != nil {
+		return nil, err
+	}
+	if requestCharacter.CurrentHP <= 0 {
+		return nil, statusError{status: http.StatusConflict, message: "defeated raid participant cannot contribute distance"}
+	}
 	progress, err := getRaidProgress(ctx, token, raidID)
 	if err != nil {
 		return nil, err
+	}
+	if progress.Status == "cleared" && raid.Status != "ended" {
+		participants, err := listActiveRaidParticipantRecords(ctx, token, raidID)
+		if err != nil {
+			return nil, err
+		}
+		return recoverClearedRaidFinalization(ctx, token, raid, progress, participants.Items, time.Now())
 	}
 	if progress.Status == "cleared" || progress.Status == "failed" || progress.Status == "canceled" {
 		return nil, statusError{status: http.StatusBadRequest, message: "raid progress is already finished"}
@@ -1179,16 +1260,23 @@ func addRaidDistance(ctx context.Context, token string, userID string, raidID st
 	if len(participants.Items) == 0 {
 		return nil, statusError{status: http.StatusBadRequest, message: "raid has no active participants"}
 	}
+	aliveParticipants, err := filterAliveRaidParticipants(ctx, token, participants.Items)
+	if err != nil {
+		return nil, err
+	}
+	if len(aliveParticipants) == 0 {
+		return nil, statusError{status: http.StatusBadRequest, message: "raid has no surviving participants"}
+	}
 	monster, err := getMonsterByID(ctx, token, raid.Monster)
 	if err != nil {
 		return nil, err
 	}
-	teamAgility, err := calculateRaidTeamAgility(ctx, token, participants.Items)
+	teamAgility, err := calculateRaidTeamAgility(ctx, token, aliveParticipants)
 	if err != nil {
 		return nil, err
 	}
 	attackDistanceM := calculateRaidAttackDistance(teamAgility)
-	attackGaugePercent, err := calculateRaidAttackGaugePercent(ctx, token, participants.Items)
+	attackGaugePercent, err := calculateRaidAttackGaugePercent(ctx, token, aliveParticipants)
 	if err != nil {
 		return nil, err
 	}
@@ -1201,7 +1289,7 @@ func addRaidDistance(ctx context.Context, token string, userID string, raidID st
 	attackCycles := int(math.Floor(nextCycleDistance / attackDistanceM))
 	nextCycleDistance = math.Mod(nextCycleDistance, attackDistanceM)
 	nextTotalAttackCycles := progress.TotalAttackCycles + float64(attackCycles)
-	damageDealt, totalAttackCount, participantDamages, participantAttackCounts, err := calculateRaidCycleDamage(ctx, token, attackCycles, participants.Items, monster)
+	damageDealt, totalAttackCount, participantDamages, participantAttackCounts, err := calculateRaidCycleDamage(ctx, token, attackCycles, aliveParticipants, monster)
 	if err != nil {
 		return nil, err
 	}
@@ -1212,7 +1300,7 @@ func addRaidDistance(ctx context.Context, token string, userID string, raidID st
 	defeatedParticipants := []string{}
 	if nextMonsterHP > 0 {
 		monsterAttackCycles = raidMonsterAttackCyclesDue(progress.StartedAt, nowTime, int(progress.TotalMonsterAttackCycles))
-		totalMonsterDamage, defeatedParticipants, err = applyRaidMonsterAreaAttack(ctx, token, monster, participants.Items, monsterAttackCycles)
+		totalMonsterDamage, defeatedParticipants, err = applyRaidMonsterAreaAttack(ctx, token, monster, aliveParticipants, monsterAttackCycles)
 		if err != nil {
 			return nil, err
 		}
@@ -1227,7 +1315,7 @@ func addRaidDistance(ctx context.Context, token string, userID string, raidID st
 	if nextMonsterHP <= 0 {
 		nextProgressStatus = "cleared"
 		endedAt = now
-	} else if len(defeatedParticipants) == len(participants.Items) {
+	} else if len(defeatedParticipants) == len(aliveParticipants) {
 		nextProgressStatus = "failed"
 		endedAt = now
 	}
@@ -1309,7 +1397,7 @@ func addRaidDistance(ctx context.Context, token string, userID string, raidID st
 		"monster_damage_dealt":      totalMonsterDamage,
 		"reward_coin":               rewardCoin,
 		"defeated_participants":     defeatedParticipants,
-		"active_participants":       len(participants.Items),
+		"active_participants":       len(aliveParticipants),
 		"team_agility":              teamAgility,
 		"attack_distance_m":         attackDistanceM,
 		"monster_attack_distance_m": 0,
@@ -1416,6 +1504,24 @@ func activeRaidParticipants(participants []raidParticipantRecord) []raidParticip
 		}
 	}
 	return active
+}
+
+func filterAliveRaidParticipants(
+	ctx context.Context,
+	token string,
+	participants []raidParticipantRecord,
+) ([]raidParticipantRecord, error) {
+	alive := make([]raidParticipantRecord, 0, len(participants))
+	for _, participant := range participants {
+		character, err := getBattleCharacterByID(ctx, token, participant.Character)
+		if err != nil {
+			return nil, err
+		}
+		if character.CurrentHP > 0 {
+			alive = append(alive, participant)
+		}
+	}
+	return alive, nil
 }
 
 func leaveAllRaidParticipants(ctx context.Context, token string, raidID string) error {
