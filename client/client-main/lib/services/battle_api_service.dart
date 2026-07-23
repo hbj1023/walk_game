@@ -84,6 +84,8 @@ class NormalBattleRecord {
   final int rewardCoin;
   final int currentSpawnOrder;
   final double monsterAttackGaugeM;
+  final int realtimeAttackCountBalance;
+  final double realtimeAttackDistanceRemainderM;
 
   const NormalBattleRecord({
     required this.id,
@@ -97,6 +99,8 @@ class NormalBattleRecord {
     required this.rewardCoin,
     required this.currentSpawnOrder,
     required this.monsterAttackGaugeM,
+    required this.realtimeAttackCountBalance,
+    required this.realtimeAttackDistanceRemainderM,
   });
 
   factory NormalBattleRecord.fromJson(Map<String, dynamic> json) {
@@ -112,6 +116,10 @@ class NormalBattleRecord {
       rewardCoin: _asInt(json['reward_coin']),
       currentSpawnOrder: _asInt(json['current_spawn_order']),
       monsterAttackGaugeM: _asDouble(json['monster_attack_gauge_m']),
+      realtimeAttackCountBalance: _asInt(json['realtime_attack_count_balance']),
+      realtimeAttackDistanceRemainderM: _asDouble(
+        json['realtime_attack_distance_remainder_m'],
+      ),
     );
   }
 }
@@ -165,12 +173,8 @@ class NormalBattleResult {
       rewardCoin: _asInt(json['reward_coin']),
       rewardExp: _asInt(json['reward_exp']),
       statExpReward: _asInt(json['stat_exp_reward']),
-      bossTicketFragmentEarned: _asInt(
-        json['boss_ticket_fragment_earned'],
-      ),
-      bossTicketFragmentBalance: _asInt(
-        json['boss_ticket_fragment_balance'],
-      ),
+      bossTicketFragmentEarned: _asInt(json['boss_ticket_fragment_earned']),
+      bossTicketFragmentBalance: _asInt(json['boss_ticket_fragment_balance']),
       attackCountBalance: _asInt(json['attack_count_balance']),
       monsterAttackGaugeM: _asDouble(json['monster_attack_gauge_m']),
       monsterAttackDistanceM: _asDouble(json['monster_attack_distance_m']),
@@ -397,9 +401,11 @@ class BattleApiService {
 
   static Future<NormalBattleResult> attackNormalBattle({
     required String battleId,
+    String attackSource = 'offline',
   }) async {
     final response = await _post('/battle/normal/attack', {
       'battle_id': battleId,
+      'attack_source': attackSource,
     });
     return NormalBattleResult.fromJson(response);
   }
@@ -422,9 +428,11 @@ class BattleApiService {
 
   static Future<NormalBattleResult> attackBossBattle({
     required String battleId,
+    String attackSource = 'offline',
   }) async {
     final response = await _post('/battle/boss/attack', {
       'battle_id': battleId,
+      'attack_source': attackSource,
     });
     return NormalBattleResult.fromJson(response);
   }

@@ -82,11 +82,10 @@ func processStepSync(r *http.Request, profileID string, token string, req StepSy
 
 	agility := stats.BaseAgility + stats.UpgradedAgility
 	attackDistanceM := getStepAttackDistanceM(agility, normalized.SyncType, character.OfflineEfficiencyLevel)
-	attackCountEarned, attackDistanceRemainderM := calculateAttackCountEarned(
-		existingSummary.AttackDistanceRemainderM,
-		deltaDistanceM,
-		attackDistanceM,
-	)
+	attackCountEarned := 0
+	attackDistanceRemainderM := existingSummary.AttackDistanceRemainderM
+	summaryAttackDistanceRemainderM := existingSummary.AttackDistanceRemainderM
+	realtimeAttackCountBalance := 0
 	bossTicketFragmentEarned := 0
 	bossTicketFragmentDistanceRemainderM := existingSummary.BossTicketFragmentDistanceRemainderM
 	if normalized.SyncType != "offline" {
@@ -100,6 +99,12 @@ func processStepSync(r *http.Request, profileID string, token string, req StepSy
 	offlineAttackCountStored := 0
 	offlineAttackCountLost := 0
 	if normalized.SyncType == "offline" {
+		attackCountEarned, attackDistanceRemainderM = calculateAttackCountEarned(
+			existingSummary.AttackDistanceRemainderM,
+			deltaDistanceM,
+			attackDistanceM,
+		)
+		summaryAttackDistanceRemainderM = attackDistanceRemainderM
 		offlineAttackCountEarned = attackCountEarned
 		offlineAttackCountCap := offlineAttackCountCapForLevel(character.OfflineStorageLevel)
 		offlineAttackCountStored, offlineAttackCountLost = calculateOfflineStorage(
@@ -108,6 +113,34 @@ func processStepSync(r *http.Request, profileID string, token string, req StepSy
 			offlineAttackCountCap,
 		)
 		attackCountEarned = offlineAttackCountStored
+	} else if normalized.BattleID != "" {
+		unlockBattle := lockNormalBattle(normalized.BattleID)
+		battle, battleErr := getBattleByID(r.Context(), token, normalized.BattleID)
+		if battleErr != nil {
+			unlockBattle()
+			return StepSyncResponse{}, fmt.Errorf("get active battle failed: %w", battleErr)
+		}
+		if battle.Character != character.ID || battle.Status != "in_progress" {
+			unlockBattle()
+			return StepSyncResponse{}, statusError{
+				status:  http.StatusBadRequest,
+				message: "battle is not active for this character",
+			}
+		}
+		attackCountEarned, attackDistanceRemainderM = calculateAttackCountEarned(
+			battle.RealtimeAttackDistanceRemainderM,
+			deltaDistanceM,
+			attackDistanceM,
+		)
+		realtimeAttackCountBalance = battle.RealtimeAttackCountBalance + attackCountEarned
+		_, battleErr = patchBattle(r.Context(), token, battle.ID, map[string]any{
+			"realtime_attack_count_balance":        realtimeAttackCountBalance,
+			"realtime_attack_distance_remainder_m": round2(attackDistanceRemainderM),
+		})
+		unlockBattle()
+		if battleErr != nil {
+			return StepSyncResponse{}, fmt.Errorf("save realtime battle gauge failed: %w", battleErr)
+		}
 	}
 
 	stepLog, err := createStepSyncLog(r, token, profileID, normalized, capturedAt)
@@ -126,7 +159,7 @@ func processStepSync(r *http.Request, profileID string, token string, req StepSy
 		totalStepCount,
 		totalDistanceM,
 		attackCountEarned,
-		attackDistanceRemainderM,
+		summaryAttackDistanceRemainderM,
 		offlineAttackCountEarned,
 		offlineAttackCountStored,
 		offlineAttackCountLost,
@@ -137,12 +170,15 @@ func processStepSync(r *http.Request, profileID string, token string, req StepSy
 		return StepSyncResponse{}, fmt.Errorf("save daily step summary failed: %w", err)
 	}
 
-	attackCountBalance := character.AttackCountBalance + attackCountEarned
-	if err := updateCharacterAttackCount(r, token, character.ID, attackCountBalance); err != nil {
-		return StepSyncResponse{}, fmt.Errorf("update character attack count failed: %w", err)
+	attackCountBalance := character.AttackCountBalance
+	if normalized.SyncType == "offline" {
+		attackCountBalance += attackCountEarned
+		if err := updateCharacterAttackCount(r, token, character.ID, attackCountBalance); err != nil {
+			return StepSyncResponse{}, fmt.Errorf("update character attack count failed: %w", err)
+		}
 	}
 
-	if attackCountEarned > 0 {
+	if normalized.SyncType == "offline" && attackCountEarned > 0 {
 		if err := createAttackCountTransaction(r, token, character.ID, stepLog.ID, attackCountEarned, attackCountBalance); err != nil {
 			return StepSyncResponse{}, fmt.Errorf("create resource transaction failed: %w", err)
 		}
@@ -194,6 +230,7 @@ func processStepSync(r *http.Request, profileID string, token string, req StepSy
 		AttackDistanceRemainderM:             round2(attackDistanceRemainderM),
 		AttackCountEarned:                    attackCountEarned,
 		AttackCountBalance:                   attackCountBalance,
+		RealtimeAttackCountBalance:           realtimeAttackCountBalance,
 		OfflineAttackCountCap:                offlineAttackCountCapForLevel(character.OfflineStorageLevel),
 		OfflineAttackCountEarned:             offlineAttackCountEarned,
 		OfflineAttackCountStored:             offlineAttackCountStored,

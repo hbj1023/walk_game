@@ -84,6 +84,7 @@ class _BattlePageState extends State<BattlePage>
   late int _monsterCurrentHp;
   late int _playerCurrentHp;
   late int _attackCountBalance;
+  int _realtimeAttackCountBalance = 0;
 
   double _monsterAttackGaugeM = 0;
   double _monsterAttackDistanceM = 0;
@@ -188,6 +189,7 @@ class _BattlePageState extends State<BattlePage>
         gpsDistanceM: request.gpsDistanceM,
         abnormalReason: request.abnormalReason,
         syncType: request.syncType,
+        battleId: _battleId,
       ),
       onSyncSuccess: _handleBattleStepSyncSuccess,
       additionalStatusParts: () =>
@@ -208,6 +210,10 @@ class _BattlePageState extends State<BattlePage>
         _showBattleResultDialogOnce();
       } else {
         unawaited(_stepTracker.start());
+        if (_realtimeAttackCountBalance > 0) {
+          _pendingAutoAttacks = _realtimeAttackCountBalance;
+          unawaited(_runQueuedAutoAttacks());
+        }
       }
     });
   }
@@ -284,6 +290,7 @@ class _BattlePageState extends State<BattlePage>
     _monsterCurrentHp = result.battle.monsterCurrentHp;
     _playerCurrentHp = result.battle.characterCurrentHp;
     _attackCountBalance = result.attackCountBalance;
+    _realtimeAttackCountBalance = result.battle.realtimeAttackCountBalance;
     _monsterAttackGaugeM = result.monsterAttackGaugeM;
     _monsterAttackDistanceM = result.monsterAttackDistanceM;
     _rewardCoin = result.rewardCoin;
@@ -362,7 +369,7 @@ class _BattlePageState extends State<BattlePage>
   }
 
   Future<void> _attack() async {
-    await _performAttack(showMissingSnack: true);
+    await _performAttack(showMissingSnack: true, attackSource: 'offline');
   }
 
   void _showBattleToast(
@@ -372,9 +379,15 @@ class _BattlePageState extends State<BattlePage>
     showGameToast(context, message, type: type);
   }
 
-  Future<bool> _performAttack({required bool showMissingSnack}) async {
+  Future<bool> _performAttack({
+    required bool showMissingSnack,
+    required String attackSource,
+  }) async {
     if (_isAttacking || _isUsingConsumable || _battleEnded) return false;
-    if (_attackCountBalance < 1) {
+    final availableAttackCount = attackSource == 'realtime'
+        ? _realtimeAttackCountBalance
+        : _attackCountBalance;
+    if (availableAttackCount < 1) {
       if (showMissingSnack) {
         _showBattleToast(
           '공격권이 부족합니다. 걸음 수를 동기화해주세요.',
@@ -392,8 +405,14 @@ class _BattlePageState extends State<BattlePage>
     }
     try {
       final result = _isBossBattle
-          ? await BattleApiService.attackBossBattle(battleId: _battleId)
-          : await BattleApiService.attackNormalBattle(battleId: _battleId);
+          ? await BattleApiService.attackBossBattle(
+              battleId: _battleId,
+              attackSource: attackSource,
+            )
+          : await BattleApiService.attackNormalBattle(
+              battleId: _battleId,
+              attackSource: attackSource,
+            );
       await attackAnimation;
       if (!mounted) return false;
 
@@ -436,6 +455,7 @@ class _BattlePageState extends State<BattlePage>
     StepSyncContext context,
   ) {
     _attackCountBalance = result.attackCountBalance;
+    _realtimeAttackCountBalance = result.realtimeAttackCountBalance;
     if (result.attackDistanceM > 0) {
       _characterAttackDistanceM = result.attackDistanceM;
     }
@@ -460,9 +480,12 @@ class _BattlePageState extends State<BattlePage>
           await Future<void>.delayed(const Duration(milliseconds: 120));
           continue;
         }
-        if (_attackCountBalance < 1) break;
+        if (_realtimeAttackCountBalance < 1) break;
 
-        final attacked = await _performAttack(showMissingSnack: false);
+        final attacked = await _performAttack(
+          showMissingSnack: false,
+          attackSource: 'realtime',
+        );
         if (!attacked) break;
 
         _pendingAutoAttacks--;

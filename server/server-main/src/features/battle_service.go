@@ -97,21 +97,23 @@ func startNormalBattle(ctx context.Context, token string, userID string, req Nor
 
 	now := time.Now().UTC().Format(time.RFC3339)
 	battle, err := createNormalBattle(ctx, token, map[string]any{
-		"character":              character.ID,
-		"stage":                  stage.ID,
-		"monster":                monster.ID,
-		"battle_type":            "normal",
-		"status":                 "in_progress",
-		"distance_used_m":        0,
-		"attack_count_used":      0,
-		"total_damage_dealt":     0,
-		"total_damage_taken":     0,
-		"reward_coin":            0,
-		"started_at":             now,
-		"monster_current_hp":     monster.HP,
-		"character_current_hp":   characterHP,
-		"monster_attack_gauge_m": 0,
-		"current_spawn_order":    stageMonster.SpawnOrder,
+		"character":                            character.ID,
+		"stage":                                stage.ID,
+		"monster":                              monster.ID,
+		"battle_type":                          "normal",
+		"status":                               "in_progress",
+		"distance_used_m":                      0,
+		"attack_count_used":                    0,
+		"realtime_attack_count_balance":        0,
+		"realtime_attack_distance_remainder_m": 0,
+		"total_damage_dealt":                   0,
+		"total_damage_taken":                   0,
+		"reward_coin":                          0,
+		"started_at":                           now,
+		"monster_current_hp":                   monster.HP,
+		"character_current_hp":                 characterHP,
+		"monster_attack_gauge_m":               0,
+		"current_spawn_order":                  stageMonster.SpawnOrder,
 	})
 	if err != nil {
 		return NormalBattleResponse{}, err
@@ -214,21 +216,23 @@ func startBossBattle(ctx context.Context, token string, userID string, req Norma
 
 	now := time.Now().UTC().Format(time.RFC3339)
 	battle, err := createNormalBattle(ctx, token, map[string]any{
-		"character":              character.ID,
-		"stage":                  stage.ID,
-		"monster":                monster.ID,
-		"battle_type":            "boss",
-		"status":                 "in_progress",
-		"distance_used_m":        0,
-		"attack_count_used":      0,
-		"total_damage_dealt":     0,
-		"total_damage_taken":     0,
-		"reward_coin":            0,
-		"started_at":             now,
-		"monster_current_hp":     monster.HP,
-		"character_current_hp":   characterHP,
-		"monster_attack_gauge_m": 0,
-		"current_spawn_order":    stageMonster.SpawnOrder,
+		"character":                            character.ID,
+		"stage":                                stage.ID,
+		"monster":                              monster.ID,
+		"battle_type":                          "boss",
+		"status":                               "in_progress",
+		"distance_used_m":                      0,
+		"attack_count_used":                    0,
+		"realtime_attack_count_balance":        0,
+		"realtime_attack_distance_remainder_m": 0,
+		"total_damage_dealt":                   0,
+		"total_damage_taken":                   0,
+		"reward_coin":                          0,
+		"started_at":                           now,
+		"monster_current_hp":                   monster.HP,
+		"character_current_hp":                 characterHP,
+		"monster_attack_gauge_m":               0,
+		"current_spawn_order":                  stageMonster.SpawnOrder,
 	})
 	if err != nil {
 		return NormalBattleResponse{}, err
@@ -283,8 +287,16 @@ func attackNormalBattle(ctx context.Context, token string, userID string, req No
 	if battle.Status != "in_progress" {
 		return buildStoredBattleResponse(character, characterMaxHP, battle, monster), nil
 	}
-	if character.AttackCountBalance < 1 {
-		return NormalBattleResponse{}, statusError{status: http.StatusBadRequest, message: "attack_count_balance is not enough"}
+	realtimeAttack := req.AttackSource == "realtime"
+	offlineAttack := req.AttackSource == "" || req.AttackSource == "offline"
+	if !offlineAttack && !realtimeAttack {
+		return NormalBattleResponse{}, statusError{status: http.StatusBadRequest, message: "attack_source must be offline or realtime"}
+	}
+	if realtimeAttack && battle.RealtimeAttackCountBalance < 1 {
+		return NormalBattleResponse{}, statusError{status: http.StatusBadRequest, message: "realtime attack gauge is not enough"}
+	}
+	if !realtimeAttack && character.AttackCountBalance < 1 {
+		return NormalBattleResponse{}, statusError{status: http.StatusBadRequest, message: "offline attack count is not enough"}
 	}
 	if battle.MonsterCurrentHP <= 0 || battle.CharacterCurrentHP <= 0 {
 		if err := finishBrokenNormalBattle(ctx, token, battle); err != nil {
@@ -372,7 +384,12 @@ func attackNormalBattle(ctx context.Context, token string, userID string, req No
 		battlePayload["ended_at"] = now
 	}
 
-	attackCountBalance := character.AttackCountBalance - 1
+	attackCountBalance := character.AttackCountBalance
+	if realtimeAttack {
+		battlePayload["realtime_attack_count_balance"] = battle.RealtimeAttackCountBalance - 1
+	} else {
+		attackCountBalance--
+	}
 	coinBalance := character.CoinBalance
 	level := character.Level
 	expBalance := character.Exp
@@ -387,14 +404,17 @@ func attackNormalBattle(ctx context.Context, token string, userID string, req No
 		characterPersistHP = characterMaxHP
 	}
 
-	updatedCharacter, err := patchBattleCharacter(ctx, token, character.ID, map[string]any{
-		"attack_count_balance": attackCountBalance,
-		"level":                level,
-		"coin_balance":         coinBalance,
-		"exp":                  expBalance,
-		"stat_exp":             statExpBalance,
-		"current_hp":           characterPersistHP,
-	})
+	characterPayload := map[string]any{
+		"level":        level,
+		"coin_balance": coinBalance,
+		"exp":          expBalance,
+		"stat_exp":     statExpBalance,
+		"current_hp":   characterPersistHP,
+	}
+	if !realtimeAttack {
+		characterPayload["attack_count_balance"] = attackCountBalance
+	}
+	updatedCharacter, err := patchBattleCharacter(ctx, token, character.ID, characterPayload)
 	if err != nil {
 		return NormalBattleResponse{}, err
 	}
@@ -416,7 +436,7 @@ func attackNormalBattle(ctx context.Context, token string, userID string, req No
 		}
 	}
 
-	recordNormalBattleLogs(ctx, token, character.ID, battle.ID, status, rewardCoin, rewardExp, statExpReward, attackCountBalance, coinBalance, expBalance, statExpBalance)
+	recordNormalBattleLogs(ctx, token, character.ID, battle.ID, status, rewardCoin, rewardExp, statExpReward, !realtimeAttack, attackCountBalance, coinBalance, expBalance, statExpBalance)
 
 	return NormalBattleResponse{
 		Battle:                    updatedBattle,
@@ -478,8 +498,16 @@ func attackBossBattle(ctx context.Context, token string, userID string, req Norm
 	if battle.Status != "in_progress" {
 		return buildStoredBattleResponse(character, characterMaxHP, battle, monster), nil
 	}
-	if character.AttackCountBalance < 1 {
-		return NormalBattleResponse{}, statusError{status: http.StatusBadRequest, message: "attack_count_balance is not enough"}
+	realtimeAttack := req.AttackSource == "realtime"
+	offlineAttack := req.AttackSource == "" || req.AttackSource == "offline"
+	if !offlineAttack && !realtimeAttack {
+		return NormalBattleResponse{}, statusError{status: http.StatusBadRequest, message: "attack_source must be offline or realtime"}
+	}
+	if realtimeAttack && battle.RealtimeAttackCountBalance < 1 {
+		return NormalBattleResponse{}, statusError{status: http.StatusBadRequest, message: "realtime attack gauge is not enough"}
+	}
+	if !realtimeAttack && character.AttackCountBalance < 1 {
+		return NormalBattleResponse{}, statusError{status: http.StatusBadRequest, message: "offline attack count is not enough"}
 	}
 	if battle.MonsterCurrentHP <= 0 || battle.CharacterCurrentHP <= 0 {
 		if err := finishBrokenNormalBattle(ctx, token, battle); err != nil {
@@ -578,7 +606,12 @@ func attackBossBattle(ctx context.Context, token string, userID string, req Norm
 		battlePayload["ended_at"] = now
 	}
 
-	attackCountBalance := character.AttackCountBalance - 1
+	attackCountBalance := character.AttackCountBalance
+	if realtimeAttack {
+		battlePayload["realtime_attack_count_balance"] = battle.RealtimeAttackCountBalance - 1
+	} else {
+		attackCountBalance--
+	}
 	coinBalance := character.CoinBalance
 	level := character.Level
 	expBalance := character.Exp
@@ -593,14 +626,17 @@ func attackBossBattle(ctx context.Context, token string, userID string, req Norm
 		characterPersistHP = characterMaxHP
 	}
 
-	updatedCharacter, err := patchBattleCharacter(ctx, token, character.ID, map[string]any{
-		"attack_count_balance": attackCountBalance,
-		"level":                level,
-		"coin_balance":         coinBalance,
-		"exp":                  expBalance,
-		"stat_exp":             statExpBalance,
-		"current_hp":           characterPersistHP,
-	})
+	characterPayload := map[string]any{
+		"level":        level,
+		"coin_balance": coinBalance,
+		"exp":          expBalance,
+		"stat_exp":     statExpBalance,
+		"current_hp":   characterPersistHP,
+	}
+	if !realtimeAttack {
+		characterPayload["attack_count_balance"] = attackCountBalance
+	}
+	updatedCharacter, err := patchBattleCharacter(ctx, token, character.ID, characterPayload)
 	if err != nil {
 		return NormalBattleResponse{}, err
 	}
@@ -637,7 +673,7 @@ func attackBossBattle(ctx context.Context, token string, userID string, req Norm
 		}
 	}
 
-	recordNormalBattleLogs(ctx, token, character.ID, battle.ID, status, rewardCoin, rewardExp, statExpReward, attackCountBalance, coinBalance, expBalance, statExpBalance)
+	recordNormalBattleLogs(ctx, token, character.ID, battle.ID, status, rewardCoin, rewardExp, statExpReward, !realtimeAttack, attackCountBalance, coinBalance, expBalance, statExpBalance)
 
 	return NormalBattleResponse{
 		Battle:                    updatedBattle,
@@ -1164,13 +1200,16 @@ func recordNormalBattleLogs(
 	rewardCoin int,
 	rewardExp int,
 	statExpReward int,
+	recordAttackUse bool,
 	attackCountBalance int,
 	coinBalance int,
 	expBalance int,
 	statExpBalance int,
 ) {
-	if err := createBattleResourceTransaction(ctx, token, characterID, battleID, "attack_count", "use", -1, attackCountBalance, "normal battle attack"); err != nil {
-		log.Printf("failed to create normal battle attack_count transaction: %v", err)
+	if recordAttackUse {
+		if err := createBattleResourceTransaction(ctx, token, characterID, battleID, "attack_count", "use", -1, attackCountBalance, "offline battle attack"); err != nil {
+			log.Printf("failed to create offline battle attack_count transaction: %v", err)
+		}
 	}
 
 	if status != "win" || rewardCoin <= 0 {

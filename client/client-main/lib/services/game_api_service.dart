@@ -663,6 +663,7 @@ class StepSyncResult {
   final double attackDistanceRemainderM;
   final int attackCountEarned;
   final int attackCountBalance;
+  final int realtimeAttackCountBalance;
   final int offlineAttackCountCap;
   final int offlineAttackCountEarned;
   final int offlineAttackCountStored;
@@ -683,6 +684,7 @@ class StepSyncResult {
     required this.attackDistanceRemainderM,
     required this.attackCountEarned,
     required this.attackCountBalance,
+    required this.realtimeAttackCountBalance,
     required this.offlineAttackCountCap,
     required this.offlineAttackCountEarned,
     required this.offlineAttackCountStored,
@@ -705,6 +707,7 @@ class StepSyncResult {
       attackDistanceRemainderM: _asDouble(json['attack_distance_remainder_m']),
       attackCountEarned: _asInt(json['attack_count_earned']),
       attackCountBalance: _asInt(json['attack_count_balance']),
+      realtimeAttackCountBalance: _asInt(json['realtime_attack_count_balance']),
       offlineAttackCountCap: _asInt(json['offline_attack_count_cap']),
       offlineAttackCountEarned: _asInt(json['offline_attack_count_earned']),
       offlineAttackCountStored: _asInt(json['offline_attack_count_stored']),
@@ -1644,10 +1647,12 @@ class GameApiService {
     int gpsDistanceM = 0,
     String abnormalReason = '',
     String syncType = 'periodic',
+    String? battleId,
   }) async {
     final response = await _post('/steps/sync', {
       'source_type': 'sensor',
       'sync_type': syncType,
+      if (battleId != null && battleId.isNotEmpty) 'battle_id': battleId,
       'step_count': stepCount,
       'distance_m': 0,
       'stride_m': strideM,

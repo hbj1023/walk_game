@@ -7,7 +7,8 @@ type NormalBattleStartRequest struct {
 }
 
 type NormalBattleAttackRequest struct {
-	BattleID string `json:"battle_id"`
+	BattleID     string `json:"battle_id"`
+	AttackSource string `json:"attack_source"`
 }
 
 type NormalBattleLeaveRequest struct {
@@ -142,23 +143,25 @@ type MonsterRecord struct {
 }
 
 type BattleRecord struct {
-	ID                  string  `json:"id"`
-	Character           string  `json:"character"`
-	Stage               string  `json:"stage"`
-	Monster             string  `json:"monster"`
-	Raid                string  `json:"raid"`
-	BattleType          string  `json:"battle_type"`
-	Status              string  `json:"status"`
-	DistanceUsedM       float64 `json:"distance_used_m"`
-	AttackCountUsed     int     `json:"attack_count_used"`
-	TotalDamageDealt    int     `json:"total_damage_dealt"`
-	TotalDamageTaken    int     `json:"total_damage_taken"`
-	RewardCoin          int     `json:"reward_coin"`
-	StartedAt           string  `json:"started_at"`
-	EndedAt             string  `json:"ended_at"`
-	MonsterCurrentHP    int     `json:"monster_current_hp"`
-	CharacterCurrentHP  int     `json:"character_current_hp"`
-	MonsterAttackGaugeM float64 `json:"monster_attack_gauge_m"`
-	CurrentSpawnOrder   int     `json:"current_spawn_order"`
-	LastAttackedAt      string  `json:"last_attacked_at"`
+	ID                               string  `json:"id"`
+	Character                        string  `json:"character"`
+	Stage                            string  `json:"stage"`
+	Monster                          string  `json:"monster"`
+	Raid                             string  `json:"raid"`
+	BattleType                       string  `json:"battle_type"`
+	Status                           string  `json:"status"`
+	DistanceUsedM                    float64 `json:"distance_used_m"`
+	AttackCountUsed                  int     `json:"attack_count_used"`
+	TotalDamageDealt                 int     `json:"total_damage_dealt"`
+	TotalDamageTaken                 int     `json:"total_damage_taken"`
+	RewardCoin                       int     `json:"reward_coin"`
+	StartedAt                        string  `json:"started_at"`
+	EndedAt                          string  `json:"ended_at"`
+	MonsterCurrentHP                 int     `json:"monster_current_hp"`
+	CharacterCurrentHP               int     `json:"character_current_hp"`
+	MonsterAttackGaugeM              float64 `json:"monster_attack_gauge_m"`
+	RealtimeAttackCountBalance       int     `json:"realtime_attack_count_balance"`
+	RealtimeAttackDistanceRemainderM float64 `json:"realtime_attack_distance_remainder_m"`
+	CurrentSpawnOrder                int     `json:"current_spawn_order"`
+	LastAttackedAt                   string  `json:"last_attacked_at"`
 }
