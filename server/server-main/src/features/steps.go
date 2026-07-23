@@ -79,6 +79,7 @@ func processStepSync(r *http.Request, profileID string, token string, req StepSy
 
 	deltaStepCount, deltaDistanceM := calculateDailyDelta(normalized, existingSummary, summaryFound)
 	totalStepCount, totalDistanceM := calculateDailyTotals(normalized, existingSummary, summaryFound)
+	missionDistanceM := calculateMissionDistance(normalized.SyncType, existingSummary.MissionDistanceM, deltaDistanceM)
 
 	agility := stats.BaseAgility + stats.UpgradedAgility
 	attackDistanceM := getStepAttackDistanceM(agility, normalized.SyncType, character.OfflineEfficiencyLevel)
@@ -88,13 +89,11 @@ func processStepSync(r *http.Request, profileID string, token string, req StepSy
 	realtimeAttackCountBalance := 0
 	bossTicketFragmentEarned := 0
 	bossTicketFragmentDistanceRemainderM := existingSummary.BossTicketFragmentDistanceRemainderM
-	if normalized.SyncType != "offline" {
-		bossTicketFragmentEarned, bossTicketFragmentDistanceRemainderM = calculateAttackCountEarned(
-			existingSummary.BossTicketFragmentDistanceRemainderM,
-			deltaDistanceM,
-			bossTicketFragmentDistanceM,
-		)
-	}
+	bossTicketFragmentEarned, bossTicketFragmentDistanceRemainderM = calculateBossTicketFragmentsEarned(
+		normalized.SyncType,
+		existingSummary.BossTicketFragmentDistanceRemainderM,
+		deltaDistanceM,
+	)
 	offlineAttackCountEarned := 0
 	offlineAttackCountStored := 0
 	offlineAttackCountLost := 0
@@ -158,6 +157,7 @@ func processStepSync(r *http.Request, profileID string, token string, req StepSy
 		summaryFound,
 		totalStepCount,
 		totalDistanceM,
+		missionDistanceM,
 		attackCountEarned,
 		summaryAttackDistanceRemainderM,
 		offlineAttackCountEarned,
@@ -210,7 +210,7 @@ func processStepSync(r *http.Request, profileID string, token string, req StepSy
 		}
 	}
 
-	if err := syncUserDistanceMissions(r.Context(), token, profileID, recordDate, totalDistanceM); err != nil {
+	if err := syncUserDistanceMissions(r.Context(), token, profileID, recordDate, missionDistanceM); err != nil {
 		return StepSyncResponse{}, fmt.Errorf("sync missions failed: %w", err)
 	}
 
@@ -241,6 +241,20 @@ func processStepSync(r *http.Request, profileID string, token string, req StepSy
 		BossTicketFragmentDistanceRemainderM: round2(bossTicketFragmentDistanceRemainderM),
 		Token:                                token,
 	}, nil
+}
+
+func calculateBossTicketFragmentsEarned(syncType string, currentRemainderM float64, deltaDistanceM int) (int, float64) {
+	if syncType == "offline" {
+		return 0, currentRemainderM
+	}
+	return calculateAttackCountEarned(currentRemainderM, deltaDistanceM, bossTicketFragmentDistanceM)
+}
+
+func calculateMissionDistance(syncType string, currentDistanceM int, deltaDistanceM int) int {
+	if syncType == "offline" {
+		return currentDistanceM
+	}
+	return currentDistanceM + maxInt(deltaDistanceM, 0)
 }
 
 func calculateOfflineStorage(earned int, currentBalance int, capacity int) (stored int, lost int) {
@@ -375,6 +389,7 @@ func upsertDailyStepSummary(
 	found bool,
 	totalStepCount int,
 	totalDistanceM int,
+	missionDistanceM int,
 	attackCountEarned int,
 	attackDistanceRemainderM float64,
 	offlineAttackCountEarned int,
@@ -388,6 +403,7 @@ func upsertDailyStepSummary(
 		"record_date":                               recordDate,
 		"total_step_count":                          totalStepCount,
 		"total_distance_m":                          totalDistanceM,
+		"mission_distance_m":                        missionDistanceM,
 		"attack_count_earned":                       attackCountEarned,
 		"attack_distance_remainder_m":               round2(attackDistanceRemainderM),
 		"offline_attack_count_earned":               offlineAttackCountStored,

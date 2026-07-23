@@ -335,10 +335,10 @@ func buildMissionProgressSnapshot(ctx context.Context, token string, userID stri
 		}
 		summaryDay := missionPeriodStart("daily", summaryDate)
 		if !summaryDay.Before(dailyStart) && summaryDay.Before(dailyEnd) {
-			snapshot.DailyDistanceM = float64(summary.TotalDistanceM)
+			snapshot.DailyDistanceM = float64(summary.MissionDistanceM)
 		}
 		if !summaryDay.Before(weeklyStart) && summaryDay.Before(weeklyEnd) {
-			snapshot.WeeklyDistanceM += float64(summary.TotalDistanceM)
+			snapshot.WeeklyDistanceM += float64(summary.MissionDistanceM)
 		}
 	}
 

@@ -52,6 +52,7 @@ type DailyStepSummaryRecord struct {
 	RecordDate                           string  `json:"record_date"`
 	TotalStepCount                       int     `json:"total_step_count"`
 	TotalDistanceM                       int     `json:"total_distance_m"`
+	MissionDistanceM                     int     `json:"mission_distance_m"`
 	AttackCountEarned                    int     `json:"attack_count_earned"`
 	AttackDistanceRemainderM             float64 `json:"attack_distance_remainder_m"`
 	OfflineAttackCountEarned             int     `json:"offline_attack_count_earned"`

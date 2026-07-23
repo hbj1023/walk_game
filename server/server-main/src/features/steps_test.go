@@ -192,6 +192,44 @@ func TestCalculateAttackCountEarnedKeepsRemainder(t *testing.T) {
 	}
 }
 
+func TestOnlineWalkingEarnsBossTicketFragmentAt1800Meters(t *testing.T) {
+	earned, remainder := calculateBossTicketFragmentsEarned("realtime", 0, 1800)
+
+	if earned != 1 || remainder != 0 {
+		t.Fatalf("earned/remainder = %d/%.2f, want 1/0", earned, remainder)
+	}
+}
+
+func TestOnlineWalkingCarriesBossTicketFragmentRemainder(t *testing.T) {
+	earned, remainder := calculateBossTicketFragmentsEarned("periodic", 1700, 250)
+
+	if earned != 1 || remainder != 150 {
+		t.Fatalf("earned/remainder = %d/%.2f, want 1/150", earned, remainder)
+	}
+}
+
+func TestOfflineWalkingDoesNotEarnBossTicketFragments(t *testing.T) {
+	earned, remainder := calculateBossTicketFragmentsEarned("offline", 600, 3600)
+
+	if earned != 0 || remainder != 600 {
+		t.Fatalf("earned/remainder = %d/%.2f, want 0/600", earned, remainder)
+	}
+}
+
+func TestOnlineWalkingAddsMissionDistance(t *testing.T) {
+	got := calculateMissionDistance("realtime", 700, 300)
+	if got != 1000 {
+		t.Fatalf("mission distance = %d, want 1000", got)
+	}
+}
+
+func TestOfflineWalkingDoesNotAddMissionDistance(t *testing.T) {
+	got := calculateMissionDistance("offline", 700, 3000)
+	if got != 700 {
+		t.Fatalf("mission distance = %d, want 700", got)
+	}
+}
+
 func TestSameRecordDateAcceptsPocketBaseDateFormat(t *testing.T) {
 	if !sameRecordDate("2026-05-09 00:00:00.000Z", "2026-05-09") {
 		t.Fatal("sameRecordDate returned false for equivalent dates")
