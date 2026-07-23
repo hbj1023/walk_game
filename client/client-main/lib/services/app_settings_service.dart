@@ -62,6 +62,7 @@ class AppSettingsService {
     const AppSettingsData.defaults(),
   );
   static bool _sessionInitialized = false;
+  static final customPowerSavingUiVisible = ValueNotifier<bool>(false);
 
   static const _soundEnabledKey = 'settings:sound_enabled';
   static const _bgmEnabledKey = 'settings:bgm_enabled';

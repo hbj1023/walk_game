@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import 'package:capstone_app/services/app_settings_service.dart';
+import 'package:capstone_app/services/power_saving_route_observer.dart';
 import 'package:capstone_app/services/auth_service.dart';
 import 'package:capstone_app/services/battle_api_service.dart';
 import 'package:capstone_app/services/game_api_service.dart';
@@ -70,7 +71,8 @@ class BattlePage extends StatefulWidget {
   State<BattlePage> createState() => _BattlePageState();
 }
 
-class _BattlePageState extends State<BattlePage> with WidgetsBindingObserver {
+class _BattlePageState extends State<BattlePage>
+    with WidgetsBindingObserver, CustomPowerSavingRouteAware<BattlePage> {
   final _gs = GameState.instance;
   late final StepTrackingController _stepTracker;
   String _userName = '...';

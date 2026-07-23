@@ -4,6 +4,7 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 
 import 'package:capstone_app/services/app_settings_service.dart';
+import 'package:capstone_app/services/power_saving_route_observer.dart';
 import 'package:capstone_app/services/auth_service.dart';
 import 'package:capstone_app/services/battle_api_service.dart';
 import 'package:capstone_app/services/game_api_service.dart';
@@ -196,7 +197,8 @@ class BattleStagePage extends StatefulWidget {
   State<BattleStagePage> createState() => _BattleStagePageState();
 }
 
-class _BattleStagePageState extends State<BattleStagePage> {
+class _BattleStagePageState extends State<BattleStagePage>
+    with CustomPowerSavingRouteAware<BattleStagePage> {
   final _gs = GameState.instance;
   int _selectedIndex = 0;
   int _currentChapter = 1;
@@ -609,6 +611,7 @@ class _BattleStagePageState extends State<BattleStagePage> {
 
   @override
   Widget build(BuildContext context) {
+    final powerSaving = _appSettings.powerSavingMode;
     final screenSize = MediaQuery.of(context).size;
     final isShortWide = screenSize.height < 760 && screenSize.width > 700;
     final isCompactLayout = screenSize.height < 820;
@@ -623,32 +626,178 @@ class _BattleStagePageState extends State<BattleStagePage> {
       canPop: !_isStarting,
       child: Scaffold(
         extendBody: true,
-        backgroundColor: (_isStageLoading || _isStarting) ? Colors.black : null,
-        bottomNavigationBar: (_isStageLoading || _isStarting)
+        backgroundColor: (powerSaving || _isStageLoading || _isStarting)
+            ? Colors.black
+            : null,
+        bottomNavigationBar: (powerSaving || _isStageLoading || _isStarting)
             ? null
             : _buildBottomNav(),
         body: Stack(
           children: [
             Positioned.fill(child: _buildStagePageBackground()),
-            SafeArea(
-              bottom: false,
-              child: Padding(
-                padding: EdgeInsets.only(bottom: bottomNavReservedHeight),
-                child: Column(
-                  mainAxisSize: MainAxisSize.max,
-                  children: [
-                    _buildTopHud(),
-                    _buildStagePanel(mapHeight, compact: isCompactLayout),
-                    _buildMonsterPanel(compact: isCompactLayout),
-                    _buildStartButton(compact: isCompactLayout),
-                  ],
+            if (powerSaving)
+              Positioned.fill(
+                child: ColoredBox(color: Colors.black.withValues(alpha: 0.9)),
+              )
+            else
+              SafeArea(
+                bottom: false,
+                child: Padding(
+                  padding: EdgeInsets.only(bottom: bottomNavReservedHeight),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.max,
+                    children: [
+                      _buildTopHud(),
+                      _buildStagePanel(mapHeight, compact: isCompactLayout),
+                      _buildMonsterPanel(compact: isCompactLayout),
+                      _buildStartButton(compact: isCompactLayout),
+                    ],
+                  ),
                 ),
               ),
-            ),
+            if (powerSaving) SafeArea(child: _buildStagePowerSavingView()),
             GameLoadingOverlay(visible: _isStageLoading || _isStarting),
           ],
         ),
       ),
+    );
+  }
+
+  Future<void> _setPowerSavingMode(bool enabled) async {
+    await AppSettingsService.save(
+      _appSettings.copyWith(powerSavingMode: enabled),
+    );
+  }
+
+  Widget _buildStagePowerSavingView() {
+    final selectedStage = _selectedStage;
+    final stageName = _goldMineEventSelected
+        ? '황금 광맥'
+        : (selectedStage?.title ?? '전투 대기');
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(24, 28, 24, 24),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              const Icon(
+                Icons.battery_saver_rounded,
+                color: Color(0xFF79E28A),
+                size: 30,
+              ),
+              const SizedBox(width: 10),
+              const Text(
+                '절전 모드',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 22,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              const Spacer(),
+              GestureDetector(
+                onTap: () => _setPowerSavingMode(false),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 8,
+                  ),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF5D201B),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: const Color(0xFFA94B3C)),
+                  ),
+                  child: const Text(
+                    '종료',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const Spacer(),
+          const Icon(
+            Icons.shield_moon_rounded,
+            color: Color(0xFF79E28A),
+            size: 72,
+          ),
+          const SizedBox(height: 18),
+          Text(
+            stageName,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 20,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            '전투를 선택하기 전까지 화면 사용량을 줄입니다.',
+            textAlign: TextAlign.center,
+            style: TextStyle(color: Colors.white60, fontSize: 13),
+          ),
+          const SizedBox(height: 24),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 15),
+            decoration: BoxDecoration(
+              color: const Color(0xFF151515),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: const Color(0xFF3D633F)),
+            ),
+            child: Column(
+              children: [
+                _buildPowerSavingStatusRow('레벨', 'LV.${_gs.level}'),
+                const SizedBox(height: 10),
+                _buildPowerSavingStatusRow(
+                  '공격 기회',
+                  '${_gs.attackCountBalance}회',
+                ),
+                const SizedBox(height: 10),
+                _buildPowerSavingStatusRow('선택 지역', stageName),
+              ],
+            ),
+          ),
+          const Spacer(),
+          const Text(
+            '종료를 누르면 전투 대기 화면으로 돌아갑니다.',
+            textAlign: TextAlign.center,
+            style: TextStyle(color: Colors.white38, fontSize: 11),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPowerSavingStatusRow(String label, String value) {
+    return Row(
+      children: [
+        Text(
+          label,
+          style: const TextStyle(
+            color: Colors.white60,
+            fontSize: 13,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        const Spacer(),
+        Flexible(
+          child: Text(
+            value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 14,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+        ),
+      ],
     );
   }
 
@@ -1415,7 +1564,7 @@ class _BattleStagePageState extends State<BattleStagePage> {
                     ),
                   ),
                   child: const Text(
-                    '3-6',
+                    'EVENT',
                     style: TextStyle(
                       color: _kGold,
                       fontSize: 22,
@@ -1429,7 +1578,7 @@ class _BattleStagePageState extends State<BattleStagePage> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        '황금 광맥 발견',
+                        '황금 광맥',
                         maxLines: 1,
                         style: TextStyle(
                           color: Colors.white,
@@ -1461,12 +1610,14 @@ class _BattleStagePageState extends State<BattleStagePage> {
                     borderRadius: BorderRadius.circular(8),
                     border: Border.all(color: _kPanelBorder, width: 1.5),
                   ),
-                  padding: const EdgeInsets.all(8),
-                  child: Image.asset(
-                    'assets/images/monsters/monster_1-1_basic_goblin.png',
-                    fit: BoxFit.contain,
-                    errorBuilder: (_, _, _) =>
-                        const Icon(Icons.pets, color: Colors.white54, size: 44),
+                  child: const Icon(
+                    Icons.star_rounded,
+                    color: _kGold,
+                    size: 48,
+                    shadows: [
+                      Shadow(color: _kGold, blurRadius: 12),
+                      Shadow(color: Colors.black, blurRadius: 4),
+                    ],
                   ),
                 ),
                 const SizedBox(width: 10),
@@ -1474,8 +1625,8 @@ class _BattleStagePageState extends State<BattleStagePage> {
                   child: Column(
                     children: [
                       _buildMonsterInfoRow(
-                        label: '몬스터',
-                        value: '황금 광맥 도둑 고블린',
+                        label: '이벤트',
+                        value: '거리 보상 획득',
                         unlocked: true,
                       ),
                       const SizedBox(height: 5),
@@ -1676,7 +1827,7 @@ class _BattleStagePageState extends State<BattleStagePage> {
                     Icon(Icons.diamond_outlined, color: _kGold, size: 22),
                     SizedBox(width: 8),
                     Text(
-                      '황금 광맥 발견',
+                      '황금 광맥',
                       style: TextStyle(
                         color: Colors.white,
                         fontSize: 18,

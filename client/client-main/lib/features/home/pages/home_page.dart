@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'package:capstone_app/services/app_settings_service.dart';
+import 'package:capstone_app/services/power_saving_route_observer.dart';
 import 'package:capstone_app/services/auth_service.dart';
 import 'package:capstone_app/services/battle_api_service.dart';
 import 'package:capstone_app/services/game_api_service.dart';
@@ -26,7 +27,7 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage>
-    with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin, CustomPowerSavingRouteAware<HomePage> {
   static const _chapter1HomeBg = 'assets/images/bg/home_bg.png';
   static const _chapter2HomeBg =
       'assets/images/bg/home_bg_chapter2_shadow_forest.png';
