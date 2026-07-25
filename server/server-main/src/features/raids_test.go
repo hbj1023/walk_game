@@ -119,7 +119,7 @@ func TestRaidMonsterAttackCyclesDueAcceptsPocketBaseTimestamp(t *testing.T) {
 	}
 }
 
-func TestGolemRaidVerifiedRolePartyLosesBerserkerTwoCyclesBeforeClear(t *testing.T) {
+func TestGolemRaidChapter33BerserkerFallsAroundTenthCounterattack(t *testing.T) {
 	berserkerDamage := adjustedPlayerDamage(
 		raidParticipantCycleDamage(107, 40, 1),
 		"boss",
@@ -137,9 +137,12 @@ func TestGolemRaidVerifiedRolePartyLosesBerserkerTwoCyclesBeforeClear(t *testing
 		t.Fatalf("verified party clear cycles = %d, want 17 (full=%d remaining=%d)", clearCycles, partyDamage, remainingPartyDamage)
 	}
 
-	berserkerRemainingHP := 548 - formulas.CalculateDamage(85, 42)*13
-	if berserkerRemainingHP > 0 {
-		t.Fatalf("berserker HP after cycle 15 = %d, want defeated", berserkerRemainingHP)
+	damageTaken := formulas.CalculateDamage(100, 42)
+	if remaining := 548 - damageTaken*9; remaining <= 0 {
+		t.Fatalf("berserker HP after 9 counterattacks = %d, want alive", remaining)
+	}
+	if remaining := 548 - damageTaken*10; remaining > 0 {
+		t.Fatalf("berserker HP after 10 counterattacks = %d, want defeated", remaining)
 	}
 }
 

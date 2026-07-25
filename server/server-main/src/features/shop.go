@@ -318,12 +318,19 @@ func listStandardEquipmentTemplates(ctx context.Context, token string) ([]itemTe
 	}
 	templates := make([]itemTemplateRecord, 0, len(list.Items))
 	for _, template := range list.Items {
-		if template.Rarity != "common" && template.Rarity != "rare" {
+		if !shouldEnsureEquipmentShopItem(template) {
 			continue
 		}
 		templates = append(templates, template)
 	}
 	return templates, nil
+}
+
+func shouldEnsureEquipmentShopItem(template itemTemplateRecord) bool {
+	if template.Rarity == "common" || template.Rarity == "rare" {
+		return true
+	}
+	return template.Rarity == "epic" && isSupportedChapterEpicTemplate(template)
 }
 
 func isEquipmentShopWeaponTemplate(template itemTemplateRecord) bool {

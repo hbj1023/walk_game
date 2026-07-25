@@ -42,6 +42,22 @@ func TestEquipmentShopProgressShowsCommonAndRareBeforePurchase(t *testing.T) {
 	}
 }
 
+func TestShouldEnsureEquipmentShopItemRepairsCanonicalEpicLinks(t *testing.T) {
+	epic := testEquipmentTemplate("epic", "sword", "riftbreaker", "weapon")
+	epic.Name = "균열자 대검"
+	epic.ImagePath = "assets/images/equipment/chapter3/ch3_epic_riftstone_greatsword.png"
+	if !shouldEnsureEquipmentShopItem(epic) {
+		t.Fatal("canonical chapter 3 epic should have its shop link ensured")
+	}
+
+	retired := testEquipmentTemplate("epic", "helmet", "crusher", "helmet")
+	retired.Name = "파쇄자 투구"
+	retired.ImagePath = "assets/images/equipment/chapter3/ch3_rare_colossus_helmet.png"
+	if shouldEnsureEquipmentShopItem(retired) {
+		t.Fatal("retired chapter 3 epic should not have its shop link restored")
+	}
+}
+
 func TestEquipmentShopProgressKeepsOwnedCommonAndRareVisible(t *testing.T) {
 	common := testEquipmentTemplate("common", "helmet", "", "")
 	rare := testEquipmentTemplate("rare", "helmet", "", "")
