@@ -1270,6 +1270,8 @@ class GoldMineEventStatus {
   final int clearDistanceM;
   final int maxRewardDistanceM;
   final double maxSpeedKmh;
+  final GoldMineActiveRun? activeRun;
+  final bool resumable;
 
   const GoldMineEventStatus({
     required this.unlocked,
@@ -1278,6 +1280,8 @@ class GoldMineEventStatus {
     required this.clearDistanceM,
     required this.maxRewardDistanceM,
     required this.maxSpeedKmh,
+    required this.activeRun,
+    required this.resumable,
   });
 
   factory GoldMineEventStatus.fromJson(Map<String, dynamic> json) =>
@@ -1288,6 +1292,38 @@ class GoldMineEventStatus {
         clearDistanceM: _asInt(json['clear_distance_m']),
         maxRewardDistanceM: _asInt(json['max_reward_distance_m']),
         maxSpeedKmh: _asDouble(json['max_speed_kmh']),
+        activeRun: json['run'] is Map
+            ? GoldMineActiveRun.fromJson(_asMap(json['run']))
+            : null,
+        resumable: json['resumable'] == true,
+      );
+}
+
+class GoldMineActiveRun {
+  final String id;
+  final String status;
+  final double distanceM;
+  final int stepCount;
+  final double maxSpeedKmh;
+  final int remainingSeconds;
+
+  const GoldMineActiveRun({
+    required this.id,
+    required this.status,
+    required this.distanceM,
+    required this.stepCount,
+    required this.maxSpeedKmh,
+    required this.remainingSeconds,
+  });
+
+  factory GoldMineActiveRun.fromJson(Map<String, dynamic> json) =>
+      GoldMineActiveRun(
+        id: _asString(json['id']),
+        status: _asString(json['status']),
+        distanceM: _asDouble(json['distance_m']),
+        stepCount: _asInt(json['step_count']),
+        maxSpeedKmh: _asDouble(json['max_speed_kmh']),
+        remainingSeconds: _asInt(json['remaining_seconds']),
       );
 }
 
@@ -1368,6 +1404,31 @@ class GameApiService {
   static Future<GoldMineEventStart> startGoldMineEvent() async {
     final response = await _post('/api/events/gold-mine/start', const {});
     return GoldMineEventStart.fromJson(_asMap(response['data']));
+  }
+
+  static Future<GoldMineEventStart> resumeGoldMineEvent(String runId) async {
+    final response = await _post('/api/events/gold-mine/resume', {
+      'run_id': runId,
+    });
+    return GoldMineEventStart.fromJson(_asMap(response['data']));
+  }
+
+  static Future<void> checkpointGoldMineEvent({
+    required String runId,
+    required double distanceM,
+    required int stepCount,
+    required double maxSpeedKmh,
+    required int remainingSeconds,
+    required bool paused,
+  }) async {
+    await _post('/api/events/gold-mine/checkpoint', {
+      'run_id': runId,
+      'distance_m': distanceM,
+      'step_count': stepCount,
+      'max_speed_kmh': maxSpeedKmh,
+      'remaining_seconds': remainingSeconds,
+      'paused': paused,
+    });
   }
 
   static Future<GoldMineEventResult> finishGoldMineEvent({

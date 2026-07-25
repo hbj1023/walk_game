@@ -33,3 +33,33 @@ func TestGoldMineStartedAtAcceptsPocketBaseTimestamp(t *testing.T) {
 		t.Fatalf("timestamp location = %s, want UTC", rfc3339.Location())
 	}
 }
+
+func TestValidateGoldMineCheckpointRejectsBackwardsProgress(t *testing.T) {
+	run := goldMineEventRun{
+		ID: "run", DistanceM: 120, StepCount: 150, MaxSpeedKmh: 12,
+		RemainingSeconds: 90,
+	}
+	valid := goldMineCheckpointRequest{
+		RunID: "run", DistanceM: 130, StepCount: 160, MaxSpeedKmh: 13,
+		RemainingSeconds: 85,
+	}
+	if err := validateGoldMineCheckpoint(valid, run); err != nil {
+		t.Fatalf("valid checkpoint rejected: %v", err)
+	}
+	backwards := valid
+	backwards.DistanceM = 119
+	if err := validateGoldMineCheckpoint(backwards, run); err == nil {
+		t.Fatal("backwards checkpoint should be rejected")
+	}
+}
+
+func TestGoldMineRunResumable(t *testing.T) {
+	run := goldMineEventRun{Status: "paused", RemainingSeconds: 75}
+	if !isGoldMineRunResumable(run) {
+		t.Fatal("paused run with time remaining should be resumable")
+	}
+	run.RemainingSeconds = 0
+	if isGoldMineRunResumable(run) {
+		t.Fatal("run without time remaining should not be resumable")
+	}
+}

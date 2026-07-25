@@ -12,6 +12,16 @@ import 'package:capstone_app/widgets/game_loading_screen.dart';
 import 'package:capstone_app/widgets/game_top_actions.dart';
 import 'package:capstone_app/widgets/player_level_badge.dart';
 
+const _goldMineMilestones =
+    <({int distance, int coin, int fragments, int statExp})>[
+      (distance: 100, coin: 100, fragments: 0, statExp: 0),
+      (distance: 200, coin: 120, fragments: 0, statExp: 0),
+      (distance: 300, coin: 140, fragments: 0, statExp: 0),
+      (distance: 400, coin: 160, fragments: 1, statExp: 0),
+      (distance: 500, coin: 180, fragments: 0, statExp: 1),
+      (distance: 600, coin: 200, fragments: 3, statExp: 0),
+    ];
+
 class GoldMineEventPage extends StatefulWidget {
   const GoldMineEventPage({super.key});
 
@@ -19,7 +29,8 @@ class GoldMineEventPage extends StatefulWidget {
   State<GoldMineEventPage> createState() => _GoldMineEventPageState();
 }
 
-class _GoldMineEventPageState extends State<GoldMineEventPage> {
+class _GoldMineEventPageState extends State<GoldMineEventPage>
+    with WidgetsBindingObserver {
   static const _gold = Color(0xFFFFD45A);
   static const _panelColor = Color(0xFF24170B);
   GoldMineEventStatus? _status;
@@ -28,9 +39,12 @@ class _GoldMineEventPageState extends State<GoldMineEventPage> {
   StreamSubscription<StepCount>? _stepSub;
   Timer? _timer;
   Timer? _spriteTimer;
+  Timer? _rewardFlashTimer;
+  Timer? _checkpointTimer;
   Position? _lastPosition;
   DateTime? _lastPositionAt;
   int? _startSteps;
+  int _storedSteps = 0;
   int _steps = 0;
   int _remainingSeconds = 180;
   double _distanceM = 0;
@@ -39,7 +53,9 @@ class _GoldMineEventPageState extends State<GoldMineEventPage> {
   bool _starting = false;
   bool _running = false;
   bool _finishing = false;
+  bool _savingCheckpoint = false;
   int _runFrame = 0;
+  int? _rewardFlashDistance;
   String? _runId;
   String? _error;
   final GameState _gs = GameState.instance;
@@ -47,16 +63,33 @@ class _GoldMineEventPageState extends State<GoldMineEventPage> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _loadStatus();
   }
 
   @override
   void dispose() {
+    if (_running) unawaited(_saveCheckpoint(paused: true));
+    WidgetsBinding.instance.removeObserver(this);
     _timer?.cancel();
     _spriteTimer?.cancel();
+    _rewardFlashTimer?.cancel();
+    _checkpointTimer?.cancel();
     _positionSub?.cancel();
     _stepSub?.cancel();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if ((state == AppLifecycleState.inactive ||
+            state == AppLifecycleState.paused ||
+            state == AppLifecycleState.detached) &&
+        _running) {
+      unawaited(_pauseForLifecycle());
+    } else if (state == AppLifecycleState.resumed && !_running) {
+      unawaited(_loadStatus());
+    }
   }
 
   Future<void> _loadStatus() async {
@@ -65,7 +98,17 @@ class _GoldMineEventPageState extends State<GoldMineEventPage> {
       if (!mounted) return;
       setState(() {
         _status = status;
-        _remainingSeconds = status.durationSeconds;
+        final active = status.activeRun;
+        if (status.resumable && active != null) {
+          _runId = active.id;
+          _distanceM = active.distanceM;
+          _steps = active.stepCount;
+          _storedSteps = active.stepCount;
+          _maxSpeedKmh = active.maxSpeedKmh;
+          _remainingSeconds = active.remainingSeconds;
+        } else {
+          _remainingSeconds = status.durationSeconds;
+        }
         _loading = false;
       });
     } catch (e) {
@@ -78,7 +121,12 @@ class _GoldMineEventPageState extends State<GoldMineEventPage> {
   }
 
   Future<void> _start() async {
-    if (_starting || _running || _status?.attemptedToday == true) return;
+    final canResume = _status?.resumable == true && _runId != null;
+    if (_starting ||
+        _running ||
+        (_status?.attemptedToday == true && !canResume)) {
+      return;
+    }
     setState(() {
       _starting = true;
       _error = null;
@@ -94,11 +142,15 @@ class _GoldMineEventPageState extends State<GoldMineEventPage> {
       if (initial.accuracy > 60) {
         throw const GameApiException('GPS 정확도가 낮습니다. 야외에서 다시 시도해주세요.');
       }
-      final start = await GameApiService.startGoldMineEvent();
+      final start = canResume
+          ? await GameApiService.resumeGoldMineEvent(_runId!)
+          : await GameApiService.startGoldMineEvent();
       _runId = start.runId;
       _lastPosition = initial;
       _lastPositionAt = DateTime.now();
       _remainingSeconds = start.durationSeconds;
+      _storedSteps = canResume ? _steps : 0;
+      _startSteps = null;
       _listenToSteps();
       _positionSub = Geolocator.getPositionStream(
         locationSettings: const LocationSettings(
@@ -112,8 +164,9 @@ class _GoldMineEventPageState extends State<GoldMineEventPage> {
         _starting = false;
       });
       _spriteTimer = Timer.periodic(const Duration(milliseconds: 90), (_) {
-        if (mounted && _running)
+        if (mounted && _running) {
           setState(() => _runFrame = (_runFrame + 1) % 8);
+        }
       });
       _timer = Timer.periodic(const Duration(seconds: 1), (_) {
         if (!mounted || !_running) return;
@@ -124,6 +177,10 @@ class _GoldMineEventPageState extends State<GoldMineEventPage> {
           setState(() => _remainingSeconds--);
         }
       });
+      _checkpointTimer = Timer.periodic(
+        const Duration(seconds: 5),
+        (_) => unawaited(_saveCheckpoint(paused: false)),
+      );
     } catch (e) {
       if (!mounted) return;
       setState(() {
@@ -138,10 +195,46 @@ class _GoldMineEventPageState extends State<GoldMineEventPage> {
     try {
       _stepSub = Pedometer.stepCountStream.listen((event) {
         _startSteps ??= event.steps;
-        final next = math.max(0, event.steps - (_startSteps ?? event.steps));
+        final next =
+            _storedSteps +
+            math.max<int>(0, event.steps - (_startSteps ?? event.steps));
         if (mounted) setState(() => _steps = next);
       }, onError: (_) {});
     } catch (_) {}
+  }
+
+  Future<void> _saveCheckpoint({required bool paused}) async {
+    if (_savingCheckpoint || _runId == null || _finishing) return;
+    _savingCheckpoint = true;
+    try {
+      await GameApiService.checkpointGoldMineEvent(
+        runId: _runId!,
+        distanceM: _distanceM,
+        stepCount: _steps,
+        maxSpeedKmh: _maxSpeedKmh,
+        remainingSeconds: _remainingSeconds,
+        paused: paused,
+      );
+    } catch (_) {
+      // A later periodic checkpoint retries while the run remains active.
+    } finally {
+      _savingCheckpoint = false;
+    }
+  }
+
+  Future<void> _pauseForLifecycle() async {
+    _timer?.cancel();
+    _spriteTimer?.cancel();
+    _checkpointTimer?.cancel();
+    await _saveCheckpoint(paused: true);
+    await _positionSub?.cancel();
+    await _stepSub?.cancel();
+    if (!mounted) return;
+    setState(() {
+      _running = false;
+      _status = null;
+      _loading = true;
+    });
   }
 
   void _onPosition(Position current) {
@@ -163,10 +256,28 @@ class _GoldMineEventPageState extends State<GoldMineEventPage> {
     );
     final speedKmh = (segment / elapsed) * 3.6;
     if (segment < 1 || speedKmh > 30) return;
+    final previousDistance = _distanceM;
+    final nextDistance = previousDistance + segment;
+    int? reachedDistance;
+    for (final reward in _goldMineMilestones) {
+      if (previousDistance < reward.distance &&
+          nextDistance >= reward.distance) {
+        reachedDistance = reward.distance;
+      }
+    }
     setState(() {
-      _distanceM += segment;
+      _distanceM = nextDistance;
       _maxSpeedKmh = math.max(_maxSpeedKmh, speedKmh);
+      if (reachedDistance != null) {
+        _rewardFlashDistance = reachedDistance;
+      }
     });
+    if (reachedDistance != null) {
+      _rewardFlashTimer?.cancel();
+      _rewardFlashTimer = Timer(const Duration(milliseconds: 1400), () {
+        if (mounted) setState(() => _rewardFlashDistance = null);
+      });
+    }
   }
 
   void _onTrackingError(Object _) {
@@ -178,6 +289,7 @@ class _GoldMineEventPageState extends State<GoldMineEventPage> {
     setState(() => _finishing = true);
     _timer?.cancel();
     _spriteTimer?.cancel();
+    _checkpointTimer?.cancel();
     await _positionSub?.cancel();
     await _stepSub?.cancel();
     try {
@@ -220,6 +332,21 @@ class _GoldMineEventPageState extends State<GoldMineEventPage> {
   int get _nextMilestone {
     for (final value in const [100, 200, 300, 400, 500, 600]) {
       if (_distanceM < value) return value;
+    }
+    return 600;
+  }
+
+  ({int distance, int coin, int fragments, int statExp}) get _nextReward =>
+      _goldMineMilestones.firstWhere(
+        (reward) => _distanceM < reward.distance,
+        orElse: () => _goldMineMilestones.last,
+      );
+
+  int get _previousMilestone {
+    var previous = 0;
+    for (final reward in _goldMineMilestones) {
+      if (_distanceM < reward.distance) return previous;
+      previous = reward.distance;
     }
     return 600;
   }
@@ -280,6 +407,7 @@ class _GoldMineEventPageState extends State<GoldMineEventPage> {
   Widget _buildBriefing() {
     final locked = _status == null || !_status!.unlocked;
     final attempted = _status?.attemptedToday == true;
+    final resumable = _status?.resumable == true;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -325,11 +453,15 @@ class _GoldMineEventPageState extends State<GoldMineEventPage> {
         ],
         const Spacer(),
         FilledButton.icon(
-          onPressed: locked || attempted || _starting ? null : _start,
+          onPressed: locked || (attempted && !resumable) || _starting
+              ? null
+              : _start,
           icon: Icon(_starting ? Icons.hourglass_top : Icons.directions_run),
           label: Text(
             locked
                 ? '3-3 클리어 필요'
+                : resumable
+                ? '이어하기'
                 : attempted
                 ? '오늘 도전 완료'
                 : _starting
@@ -352,7 +484,6 @@ class _GoldMineEventPageState extends State<GoldMineEventPage> {
   Widget _buildRun({bool showTracking = true}) {
     final minutes = _remainingSeconds ~/ 60;
     final seconds = _remainingSeconds % 60;
-    final rewardRatio = (_distanceM / 600).clamp(0.0, 1.0);
     return Column(
       children: [
         Padding(
@@ -446,7 +577,7 @@ class _GoldMineEventPageState extends State<GoldMineEventPage> {
         ),
         const SizedBox(height: 16),
         const Text(
-          '3-6 황금 광맥',
+          '황금 광맥',
           style: TextStyle(
             color: Colors.white,
             fontSize: 27,
@@ -467,56 +598,18 @@ class _GoldMineEventPageState extends State<GoldMineEventPage> {
           ),
         ),
         const SizedBox(height: 10),
-        _buildDistanceBar(rewardRatio),
+        _buildDistanceBar(),
         Expanded(
           child: Stack(
             children: [
               Align(
                 alignment: const Alignment(0, -0.72),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Image.asset(
-                      'assets/images/monsters/monster_1-1_basic_goblin.png',
-                      width: 138,
-                      height: 138,
-                      fit: BoxFit.contain,
-                      filterQuality: FilterQuality.none,
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      '황금 광맥 도둑 고블린',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 18,
-                        fontWeight: FontWeight.w900,
-                        shadows: [Shadow(color: Colors.black, blurRadius: 5)],
-                      ),
-                    ),
-                    Text(
-                      _distanceM >= 600
-                          ? '추적 성공'
-                          : '추격 거리 ${math.max(0, 600 - _distanceM.floor())}m',
-                      style: const TextStyle(
-                        color: _gold,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w900,
-                        shadows: [Shadow(color: Colors.black, blurRadius: 4)],
-                      ),
-                    ),
-                  ],
-                ),
+                child: _buildNextRewardTarget(),
               ),
               Align(
                 alignment: const Alignment(0, 0.64),
                 child: _buildRunnerSprite(),
               ),
-              Positioned(
-                left: 12,
-                bottom: 18,
-                child: _buildEventRewardPreview(),
-              ),
-              Positioned(right: 12, bottom: 92, child: _buildMilestoneRail()),
               Positioned(
                 left: 0,
                 right: 0,
@@ -598,45 +691,159 @@ class _GoldMineEventPageState extends State<GoldMineEventPage> {
     );
   }
 
-  Widget _buildDistanceBar(double ratio) => SizedBox(
-    width: 280,
-    height: 40,
-    child: Stack(
-      alignment: Alignment.center,
-      children: [
-        Positioned.fill(
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              color: Colors.black.withValues(alpha: 0.82),
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: const Color(0xFF2A120E), width: 2),
+  Widget _buildDistanceBar() {
+    final reward = _nextReward;
+    final previous = _previousMilestone;
+    final segmentDistance = math.max(0, _distanceM - previous);
+    final segmentLength = math.max(1, reward.distance - previous);
+    final ratio = (segmentDistance / segmentLength).clamp(0.0, 1.0);
+    final allRewardsReached = _distanceM >= 600;
+    return SizedBox(
+      width: 280,
+      height: 40,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          Positioned.fill(
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: Colors.black.withValues(alpha: 0.82),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: const Color(0xFF2A120E), width: 2),
+              ),
             ),
           ),
-        ),
-        Positioned(
-          left: 4,
-          top: 4,
-          bottom: 4,
-          width: 272 * ratio,
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              color: const Color(0xFFB8841F),
-              borderRadius: BorderRadius.circular(5),
+          Positioned(
+            left: 4,
+            top: 4,
+            bottom: 4,
+            width: 272 * ratio,
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: const Color(0xFFB8841F),
+                borderRadius: BorderRadius.circular(5),
+              ),
             ),
           ),
-        ),
-        Text(
-          '${_distanceM.floor()} / 600m',
-          style: const TextStyle(
-            color: Colors.white,
-            fontSize: 17,
-            fontWeight: FontWeight.w900,
-            shadows: [Shadow(color: Colors.black, blurRadius: 4)],
+          Text(
+            allRewardsReached
+                ? '최고 보상 달성 · ${_distanceM.floor()}m'
+                : '${_distanceM.floor()} / ${reward.distance}m',
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 17,
+              fontWeight: FontWeight.w900,
+              shadows: [Shadow(color: Colors.black, blurRadius: 4)],
+            ),
           ),
-        ),
-      ],
-    ),
-  );
+        ],
+      ),
+    );
+  }
+
+  Widget _buildNextRewardTarget() {
+    final reward = _nextReward;
+    final allRewardsReached = _distanceM >= 600;
+    final flashing = _rewardFlashDistance != null;
+    return AnimatedScale(
+      duration: const Duration(milliseconds: 180),
+      scale: flashing ? 1.12 : 1,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 138,
+            height: 138,
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: const Color(0xFF23170D).withValues(alpha: 0.9),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: flashing ? const Color(0xFFFFFF8A) : _gold,
+                width: flashing ? 4 : 2.5,
+              ),
+              boxShadow: const [
+                BoxShadow(
+                  color: Colors.black54,
+                  blurRadius: 8,
+                  offset: Offset(0, 5),
+                ),
+              ],
+            ),
+            child: allRewardsReached
+                ? const Icon(Icons.workspace_premium, color: _gold, size: 82)
+                : Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Image.asset(
+                        'assets/images/icon/coin_icon.png',
+                        width: 54,
+                        height: 54,
+                      ),
+                      Text(
+                        '+${reward.coin}',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 17,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                      if (reward.fragments > 0 || reward.statExp > 0)
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            if (reward.fragments > 0) ...[
+                              Image.asset(
+                                'assets/images/icon/ticket.png',
+                                width: 20,
+                                height: 20,
+                              ),
+                              Text(
+                                '+${reward.fragments}',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w900,
+                                ),
+                              ),
+                            ],
+                            if (reward.statExp > 0) ...[
+                              const SizedBox(width: 8),
+                              const Icon(
+                                Icons.auto_awesome,
+                                color: Color(0xFF9EE7FF),
+                                size: 20,
+                              ),
+                              Text(
+                                '+${reward.statExp}',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w900,
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                    ],
+                  ),
+          ),
+          const SizedBox(height: 7),
+          Text(
+            flashing
+                ? '${_rewardFlashDistance}m 보상 획득!'
+                : allRewardsReached
+                ? '최고 보상 달성'
+                : '${reward.distance}m 보상',
+            style: const TextStyle(
+              color: _gold,
+              fontSize: 16,
+              fontWeight: FontWeight.w900,
+              shadows: [Shadow(color: Colors.black, blurRadius: 5)],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
   Widget _buildRunnerSprite() {
     const frameWidth = 96.0;
@@ -821,7 +1028,8 @@ class _GoldMineEventPageState extends State<GoldMineEventPage> {
   Widget _buildEventStartButton() {
     final locked = _status == null || !_status!.unlocked;
     final attempted = _status?.attemptedToday == true;
-    final disabled = locked || attempted || _starting;
+    final resumable = _status?.resumable == true;
+    final disabled = locked || (attempted && !resumable) || _starting;
     return GestureDetector(
       onTap: disabled ? null : _start,
       child: Container(
@@ -867,6 +1075,8 @@ class _GoldMineEventPageState extends State<GoldMineEventPage> {
                 child: Text(
                   locked
                       ? '3-3 클리어 필요'
+                      : resumable
+                      ? '이어하기'
                       : attempted
                       ? '오늘 도전 완료'
                       : _starting

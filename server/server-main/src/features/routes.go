@@ -13,6 +13,8 @@ func RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("/steps/sync", stepSyncHandler)
 	mux.HandleFunc("/api/events/gold-mine/status", goldMineEventStatusHandler)
 	mux.HandleFunc("/api/events/gold-mine/start", goldMineEventStartHandler)
+	mux.HandleFunc("/api/events/gold-mine/checkpoint", goldMineEventCheckpointHandler)
+	mux.HandleFunc("/api/events/gold-mine/resume", goldMineEventResumeHandler)
 	mux.HandleFunc("/api/events/gold-mine/finish", goldMineEventFinishHandler)
 	mux.HandleFunc("/battle/normal/start", normalBattleStartHandler)
 	mux.HandleFunc("/battle/normal/attack", normalBattleAttackHandler)

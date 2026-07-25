@@ -181,6 +181,16 @@ func TestChapter3EpicOnlyAllowsCanonicalRiftbreakerEquipment(t *testing.T) {
 		t.Fatal("canonical riftbreaker helmet should work without legacy set_key")
 	}
 
+	nameOnly := withoutSetKey
+	nameOnly.ImagePath = ""
+	nameOnly.CatalogKey = ""
+	if equipmentShopChapter(nameOnly) != 3 {
+		t.Fatal("riftbreaker name should identify chapter 3 when legacy metadata is missing")
+	}
+	if !isSupportedChapterEpicTemplate(nameOnly) {
+		t.Fatal("canonical riftbreaker helmet should work with name-only legacy data")
+	}
+
 	retired := testEquipmentTemplate("epic", "helmet", "crusher", "helmet")
 	retired.Name = "파쇄자 투구"
 	retired.ImagePath = "assets/images/equipment/chapter3/ch3_rare_colossus_helmet.png"

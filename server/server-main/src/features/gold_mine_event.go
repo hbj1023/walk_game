@@ -30,9 +30,23 @@ type goldMineEventRun struct {
 	DistanceM             float64 `json:"distance_m"`
 	StepCount             int     `json:"step_count"`
 	MaxSpeedKmh           float64 `json:"max_speed_kmh"`
+	RemainingSeconds      int     `json:"remaining_seconds"`
 	RewardCoin            int     `json:"reward_coin"`
 	RewardStatExp         int     `json:"reward_stat_exp"`
 	RewardTicketFragments int     `json:"reward_ticket_fragments"`
+}
+
+type goldMineCheckpointRequest struct {
+	RunID            string  `json:"run_id"`
+	DistanceM        float64 `json:"distance_m"`
+	StepCount        int     `json:"step_count"`
+	MaxSpeedKmh      float64 `json:"max_speed_kmh"`
+	RemainingSeconds int     `json:"remaining_seconds"`
+	Paused           bool    `json:"paused"`
+}
+
+type goldMineResumeRequest struct {
+	RunID string `json:"run_id"`
 }
 
 type goldMineFinishRequest struct {
@@ -101,6 +115,52 @@ func goldMineEventFinishHandler(w http.ResponseWriter, r *http.Request) {
 	writeInventoryResponse(w, http.StatusOK, "gold mine event finished", data)
 }
 
+func goldMineEventCheckpointHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeJSON(w, http.StatusMethodNotAllowed, map[string]string{"error": "method not allowed"})
+		return
+	}
+	user, token, err := refreshAuth(r.Context(), r.Header.Get("Authorization"))
+	if err != nil {
+		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
+		return
+	}
+	var req goldMineCheckpointRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid request body"})
+		return
+	}
+	data, err := checkpointGoldMineEvent(r.Context(), token, user.ID, req, time.Now().UTC())
+	if err != nil {
+		writeJSON(w, statusCodeForError(err, http.StatusBadRequest), map[string]string{"error": err.Error()})
+		return
+	}
+	writeInventoryResponse(w, http.StatusOK, "gold mine event checkpoint saved", data)
+}
+
+func goldMineEventResumeHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeJSON(w, http.StatusMethodNotAllowed, map[string]string{"error": "method not allowed"})
+		return
+	}
+	user, token, err := refreshAuth(r.Context(), r.Header.Get("Authorization"))
+	if err != nil {
+		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
+		return
+	}
+	var req goldMineResumeRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid request body"})
+		return
+	}
+	data, err := resumeGoldMineEvent(r.Context(), token, user.ID, req.RunID, time.Now().UTC())
+	if err != nil {
+		writeJSON(w, statusCodeForError(err, http.StatusBadRequest), map[string]string{"error": err.Error()})
+		return
+	}
+	writeInventoryResponse(w, http.StatusOK, "gold mine event resumed", data)
+}
+
 func goldMineEventStatus(ctx context.Context, token, userID string) (map[string]any, error) {
 	character, err := getBattleCharacterByUserID(ctx, token, userID)
 	if err != nil {
@@ -140,7 +200,8 @@ func startGoldMineEvent(ctx context.Context, token, userID string) (map[string]a
 		"user": userID, "character": character.ID, "run_date": runDate,
 		"status": "running", "started_at": now.Format(time.RFC3339),
 		"distance_m": 0, "step_count": 0, "max_speed_kmh": 0,
-		"reward_coin": 0, "reward_stat_exp": 0, "reward_ticket_fragments": 0,
+		"remaining_seconds": goldMineDurationSeconds,
+		"reward_coin":       0, "reward_stat_exp": 0, "reward_ticket_fragments": 0,
 	}
 	resp, err := pocketBaseRequest(ctx, http.MethodPost, pocketBaseCollectionURL(goldMineEventRunsCollection), token, payload)
 	if err != nil {
@@ -157,6 +218,90 @@ func startGoldMineEvent(ctx context.Context, token, userID string) (map[string]a
 	return map[string]any{"run": run, "duration_seconds": goldMineDurationSeconds}, nil
 }
 
+func checkpointGoldMineEvent(ctx context.Context, token, userID string, req goldMineCheckpointRequest, now time.Time) (map[string]any, error) {
+	req.RunID = strings.TrimSpace(req.RunID)
+	if err := validateGoldMineCheckpoint(req, goldMineEventRun{}); err != nil {
+		return nil, err
+	}
+	character, err := getBattleCharacterByUserID(ctx, token, userID)
+	if err != nil {
+		return nil, err
+	}
+	run, err := getGoldMineRun(ctx, token, req.RunID)
+	if err != nil {
+		return nil, err
+	}
+	if run.Character != character.ID || (run.Status != "running" && run.Status != "paused") {
+		return nil, statusError{status: http.StatusConflict, message: "gold mine event run is not active"}
+	}
+	if err := validateGoldMineCheckpoint(req, run); err != nil {
+		return nil, err
+	}
+	startedAt, err := parsePocketBaseDate(run.StartedAt)
+	if err != nil {
+		return nil, errors.New("invalid gold mine event start time")
+	}
+	elapsed := now.Sub(startedAt).Seconds()
+	distanceSinceCheckpoint := req.DistanceM - run.DistanceM
+	if elapsed < 0 ||
+		distanceSinceCheckpoint > elapsed*(goldMineMaxSpeedKmh/3.6)+15 {
+		return nil, statusError{status: http.StatusBadRequest, message: "abnormal movement speed detected"}
+	}
+	status := "running"
+	if req.Paused {
+		status = "paused"
+	}
+	payload := map[string]any{
+		"status": status, "started_at": now.Format(time.RFC3339),
+		"distance_m": req.DistanceM, "step_count": req.StepCount,
+		"max_speed_kmh": req.MaxSpeedKmh, "remaining_seconds": req.RemainingSeconds,
+	}
+	updated, err := patchGoldMineRun(ctx, token, run.ID, payload)
+	if err != nil {
+		return nil, err
+	}
+	return map[string]any{"run": updated}, nil
+}
+
+func resumeGoldMineEvent(ctx context.Context, token, userID, runID string, now time.Time) (map[string]any, error) {
+	runID = strings.TrimSpace(runID)
+	if runID == "" {
+		return nil, statusError{status: http.StatusBadRequest, message: "gold mine event run id is required"}
+	}
+	character, err := getBattleCharacterByUserID(ctx, token, userID)
+	if err != nil {
+		return nil, err
+	}
+	run, err := getGoldMineRun(ctx, token, runID)
+	if err != nil {
+		return nil, err
+	}
+	if run.Character != character.ID || !isGoldMineRunResumable(run) {
+		return nil, statusError{status: http.StatusConflict, message: "gold mine event run cannot be resumed"}
+	}
+	updated, err := patchGoldMineRun(ctx, token, run.ID, map[string]any{
+		"status": "running", "started_at": now.Format(time.RFC3339),
+	})
+	if err != nil {
+		return nil, err
+	}
+	return map[string]any{"run": updated, "duration_seconds": updated.RemainingSeconds}, nil
+}
+
+func validateGoldMineCheckpoint(req goldMineCheckpointRequest, run goldMineEventRun) error {
+	if req.RunID == "" || req.DistanceM < 0 || req.StepCount < 0 || req.MaxSpeedKmh < 0 ||
+		req.MaxSpeedKmh > goldMineMaxSpeedKmh || req.RemainingSeconds < 0 ||
+		req.RemainingSeconds > goldMineDurationSeconds {
+		return statusError{status: http.StatusBadRequest, message: "invalid gold mine event checkpoint"}
+	}
+	if run.ID != "" && (req.DistanceM < run.DistanceM || req.StepCount < run.StepCount ||
+		req.MaxSpeedKmh < run.MaxSpeedKmh ||
+		(run.RemainingSeconds > 0 && req.RemainingSeconds > run.RemainingSeconds)) {
+		return statusError{status: http.StatusConflict, message: "gold mine event checkpoint cannot move backwards"}
+	}
+	return nil
+}
+
 func finishGoldMineEvent(ctx context.Context, token, userID string, req goldMineFinishRequest, now time.Time) (map[string]any, error) {
 	req.RunID = strings.TrimSpace(req.RunID)
 	if req.RunID == "" || req.DistanceM < 0 || req.StepCount < 0 || req.MaxSpeedKmh < 0 {
@@ -170,7 +315,7 @@ func finishGoldMineEvent(ctx context.Context, token, userID string, req goldMine
 	if err != nil {
 		return nil, err
 	}
-	if run.Character != character.ID || run.Status != "running" {
+	if run.Character != character.ID || (run.Status != "running" && run.Status != "paused") {
 		return nil, statusError{status: http.StatusConflict, message: "gold mine event run is not active"}
 	}
 	startedAt, err := parsePocketBaseDate(run.StartedAt)
@@ -178,10 +323,17 @@ func finishGoldMineEvent(ctx context.Context, token, userID string, req goldMine
 		return nil, errors.New("invalid gold mine event start time")
 	}
 	elapsed := now.Sub(startedAt).Seconds()
-	if elapsed < 10 || elapsed > goldMineDurationSeconds+30 {
+	allowedSeconds := run.RemainingSeconds
+	if allowedSeconds <= 0 {
+		allowedSeconds = goldMineDurationSeconds
+	}
+	if elapsed < 0 || elapsed > float64(allowedSeconds+30) {
 		return nil, statusError{status: http.StatusBadRequest, message: "gold mine event duration is invalid"}
 	}
-	if req.MaxSpeedKmh > goldMineMaxSpeedKmh || req.DistanceM > elapsed*(goldMineMaxSpeedKmh/3.6)+15 {
+	distanceSinceCheckpoint := req.DistanceM - run.DistanceM
+	if distanceSinceCheckpoint < 0 ||
+		req.MaxSpeedKmh > goldMineMaxSpeedKmh ||
+		distanceSinceCheckpoint > elapsed*(goldMineMaxSpeedKmh/3.6)+15 {
 		return nil, statusError{status: http.StatusBadRequest, message: "abnormal movement speed detected"}
 	}
 	if req.DistanceM >= 50 && req.StepCount <= 0 {
@@ -209,7 +361,8 @@ func finishGoldMineEvent(ctx context.Context, token, userID string, req goldMine
 	}
 	payload := map[string]any{
 		"status": "finished", "finished_at": now.Format(time.RFC3339),
-		"distance_m": req.DistanceM, "step_count": req.StepCount, "max_speed_kmh": req.MaxSpeedKmh,
+		"remaining_seconds": 0,
+		"distance_m":        req.DistanceM, "step_count": req.StepCount, "max_speed_kmh": req.MaxSpeedKmh,
 		"reward_coin": rewardCoin, "reward_stat_exp": rewardStatExp, "reward_ticket_fragments": rewardFragments,
 	}
 	resp, err := pocketBaseRequest(ctx, http.MethodPatch, pocketBaseRecordURL(goldMineEventRunsCollection, run.ID), token, payload)
@@ -226,6 +379,22 @@ func finishGoldMineEvent(ctx context.Context, token, userID string, req goldMine
 		"reward_ticket_fragments": rewardFragments, "boss_ticket_fragment_balance": fragmentBalance,
 		"character": updatedCharacter, "cleared": rewardDistance >= 400,
 	}, nil
+}
+
+func patchGoldMineRun(ctx context.Context, token, runID string, payload map[string]any) (goldMineEventRun, error) {
+	resp, err := pocketBaseRequest(ctx, http.MethodPatch, pocketBaseRecordURL(goldMineEventRunsCollection, runID), token, payload)
+	if err != nil {
+		return goldMineEventRun{}, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return goldMineEventRun{}, mapPocketBaseError(resp, "failed to update gold mine event run")
+	}
+	var run goldMineEventRun
+	if err := json.NewDecoder(resp.Body).Decode(&run); err != nil {
+		return goldMineEventRun{}, err
+	}
+	return run, nil
 }
 
 func goldMineRewardsForDistance(distanceM int) (coin, statExp, fragments int) {
@@ -306,6 +475,11 @@ func buildGoldMineStatus(unlocked bool, run goldMineEventRun, found bool) map[st
 	}
 	if found {
 		data["run"] = run
+		data["resumable"] = isGoldMineRunResumable(run)
 	}
 	return data
+}
+
+func isGoldMineRunResumable(run goldMineEventRun) bool {
+	return (run.Status == "running" || run.Status == "paused") && run.RemainingSeconds > 0
 }

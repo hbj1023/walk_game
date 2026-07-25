@@ -574,6 +574,7 @@ func equipmentShopChapter(template itemTemplateRecord) int {
 		setKey == "crusher" ||
 		setKey == "riftbreaker" ||
 		strings.Contains(strings.ToLower(template.ImagePath), "/chapter3/") ||
+		strings.Contains(strings.ToLower(template.Name), "균열자") ||
 		strings.Contains(strings.ToLower(template.Name), "파쇄자") ||
 		strings.Contains(strings.ToLower(template.Name), "채석단") {
 		return 3
