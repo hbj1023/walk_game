@@ -173,7 +173,7 @@ func finishGoldMineEvent(ctx context.Context, token, userID string, req goldMine
 	if run.Character != character.ID || run.Status != "running" {
 		return nil, statusError{status: http.StatusConflict, message: "gold mine event run is not active"}
 	}
-	startedAt, err := time.Parse(time.RFC3339Nano, run.StartedAt)
+	startedAt, err := parsePocketBaseDate(run.StartedAt)
 	if err != nil {
 		return nil, errors.New("invalid gold mine event start time")
 	}

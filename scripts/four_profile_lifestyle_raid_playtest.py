@@ -50,6 +50,9 @@ OFFLINE_SYNC_CHUNK_STEPS = 500
 OFFLINE_RETURN_DELAY_MINUTES = 30
 TWO_PHASE_RAID = os.environ.get("DLR_PLAYTEST_TWO_PHASE_RAID", "") == "1"
 MAX_TARGET_STAGE = 15 if TWO_PHASE_RAID else 13
+FIRST_RAID_PHASE = "3-3 희귀 장비 17주기 측정"
+FINAL_EPIC_RAID_PHASE = "3-5 에픽 장비 최종"
+GOLD_MINE_FEATURE = "gold_mine_event"
 LOCK_PATH = REPORT_DIR / "four-profile-lifestyle.lock"
 _LOCK_HANDLE: Any = None
 
@@ -557,6 +560,7 @@ def run_offline_session_with_returns(
     chunks: list[dict[str, Any]] = []
     returns: list[dict[str, Any]] = []
     current_time = captured
+    was_full = int(runner.main().get("attack_count_balance", 0) or 0) >= 10
 
     while remaining_steps > 0:
         chunk_steps = min(OFFLINE_SYNC_CHUNK_STEPS, remaining_steps)
@@ -580,8 +584,13 @@ def run_offline_session_with_returns(
         )
         storage_cap = int(result.get("offline_attack_count_cap", 10) or 10)
         balance = int(result.get("attack_count_balance", 0) or 0)
-        if balance < storage_cap:
+        is_full = balance >= storage_cap
+        if not is_full:
+            was_full = False
             continue
+        if was_full:
+            continue
+        was_full = True
 
         return_time = chunk_time + dt.timedelta(minutes=OFFLINE_RETURN_DELAY_MINUTES)
         before = balance
@@ -598,6 +607,7 @@ def run_offline_session_with_returns(
             }
         )
         current_time = max(current_time, return_time)
+        was_full = after >= storage_cap
 
     return {
         "type": "offline_farm",
@@ -610,6 +620,102 @@ def run_offline_session_with_returns(
         "offline_stored": sum(int(chunk["offline_stored"] or 0) for chunk in chunks),
         "offline_lost": sum(int(chunk["offline_lost"] or 0) for chunk in chunks),
     }
+
+
+def test_gold_mine_event(
+    state: dict[str, Any],
+    runners: list[Runner],
+) -> None:
+    """Exercise unlock, milestone rewards, persistence, and the daily guard."""
+    if any(
+        check.get("feature") == GOLD_MINE_FEATURE
+        for check in state.get("feature_checks", [])
+    ):
+        return
+
+    targets = (100.0, 400.0, 500.0, 600.0)
+    started: list[tuple[Runner, float, str, dict[str, Any]]] = []
+    for runner, distance in zip(runners, targets):
+        before = runner.api.get("/api/events/gold-mine/status").get("data", {})
+        if not before.get("unlocked"):
+            raise RuntimeError(
+                f"gold mine was not unlocked for {runner.account['name']}"
+            )
+        if before.get("attempted_today"):
+            state["feature_checks"].append(
+                {
+                    "feature": GOLD_MINE_FEATURE,
+                    "profile": runner.account["name"],
+                    "distance_m": distance,
+                    "status": "already_attempted",
+                    "before": before,
+                }
+            )
+            continue
+        payload = runner.api.post("/api/events/gold-mine/start", {})
+        data = payload.get("data", payload)
+        run = data.get("run", data)
+        run_id = str(run.get("id") or "")
+        if not run_id:
+            raise RuntimeError(
+                f"gold mine start did not return a run id for {runner.account['name']}"
+            )
+        started.append((runner, distance, run_id, before))
+        emit(
+            "GOLD_MINE_STARTED",
+            profile=runner.account["name"],
+            distance_m=distance,
+            run_id=run_id,
+        )
+
+    if started:
+        time.sleep(75)
+
+    for runner, distance, run_id, before in started:
+        result_payload = runner.api.post(
+            "/api/events/gold-mine/finish",
+            {
+                "run_id": run_id,
+                "distance_m": distance,
+                "step_count": max(1, round(distance / 0.75)),
+                "max_speed_kmh": 28.8,
+            },
+        )
+        result = result_payload.get("data", result_payload)
+        after = runner.api.get("/api/events/gold-mine/status").get("data", {})
+        duplicate_rejected = False
+        duplicate_error = ""
+        try:
+            runner.api.post("/api/events/gold-mine/start", {})
+        except ApiError as exc:
+            duplicate_rejected = True
+            duplicate_error = str(exc)
+        if not duplicate_rejected:
+            raise RuntimeError(
+                f"gold mine allowed a second daily entry for {runner.account['name']}"
+            )
+        state["feature_checks"].append(
+            {
+                "feature": GOLD_MINE_FEATURE,
+                "profile": runner.account["name"],
+                "distance_m": distance,
+                "status": "verified",
+                "before": before,
+                "result": result,
+                "after": after,
+                "duplicate_start_rejected": duplicate_rejected,
+                "duplicate_error": duplicate_error,
+            }
+        )
+        emit(
+            "GOLD_MINE_VERIFIED",
+            profile=runner.account["name"],
+            distance_m=distance,
+            reward_coin=result.get("reward_coin"),
+            reward_stat_exp=result.get("reward_stat_exp"),
+            reward_fragments=result.get("reward_ticket_fragments"),
+        )
+    save(state)
 
 
 def finish_current_normal_battle(runner: Runner, entry: dict[str, Any], day: int) -> bool:
@@ -1358,12 +1464,13 @@ def main() -> int:
             date = start_date + dt.timedelta(days=profile_day - 1)
             run_raid_preparation_day(state, entry, runner, profile_day, date)
             save(state)
+    test_gold_mine_event(state, runners)
     if TWO_PHASE_RAID:
         first_raid = next(
             (
                 attempt
                 for attempt in state.get("raid_attempts", [])
-                if attempt.get("phase") == "3-3 희귀 장비 측정"
+                if attempt.get("phase") == FIRST_RAID_PHASE
             ),
             None,
         )
@@ -1371,8 +1478,8 @@ def main() -> int:
             first_raid = run_raid(
                 state,
                 runners,
-                phase="3-3 희귀 장비 측정",
-                max_cycles=8,
+                phase=FIRST_RAID_PHASE,
+                max_cycles=17,
                 cancel_after_limit=True,
             )
             state["raid_attempts"].append(first_raid)
@@ -1421,7 +1528,11 @@ def main() -> int:
             "균열자 에픽 장비가 상점 응답에 없어" in issue
             for issue in state.get("issues", [])
         )
-        final_phase = "3-5 최강 보유 장비 최종" if used_epic_fallback else "3-5 에픽 장비 최종"
+        final_phase = (
+            "3-5 최강 보유 장비 최종"
+            if used_epic_fallback
+            else FINAL_EPIC_RAID_PHASE
+        )
         raid = run_raid(state, runners, phase=final_phase)
         state["raid_attempts"].append(raid)
         save(state)
