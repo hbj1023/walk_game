@@ -54,7 +54,7 @@ migrate((app) => {
 
   const golems = app.findRecordsByFilter(
     "monsters",
-    `monster_type="raid" && is_active=true`,
+    `monster_type="raid" && is_active=true && reward_coin_max>0`,
     "",
     10,
     0,
