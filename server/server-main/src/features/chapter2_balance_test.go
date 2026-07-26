@@ -36,8 +36,8 @@ func TestChapter2BossKeepsHighRiskFastKillIdentity(t *testing.T) {
 	}{
 		{name: "vanguard", hp: 518, attack: 40, defense: 44, agility: 21, damageTakenPercent: -4, maxHits: 14, expectPotionPressure: true},
 		{name: "berserker", hp: 504, attack: 69, defense: 21, agility: 9, bossDamagePercent: 15, damageTakenPercent: 5, maxHits: 7},
-		{name: "sentinel", hp: 480, attack: 35, defense: 47, agility: 28, bossDamagePercent: 6, gaugePercent: -10, maxHits: 15, expectPotionPressure: true},
-		{name: "shadow", hp: 480, attack: 32, defense: 21, agility: 68, maxHits: 19},
+		{name: "sentinel", hp: 480, attack: 40, defense: 47, agility: 28, bossDamagePercent: 6, gaugePercent: -10, maxHits: 14, expectPotionPressure: true},
+		{name: "shadow", hp: 480, attack: 42, defense: 21, agility: 68, maxHits: 14},
 		{name: "colossus", hp: 528, attack: 67, defense: 30, agility: 7, bossDamagePercent: 8, damageTakenPercent: -8, maxHits: 7},
 	}
 

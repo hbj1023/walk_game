@@ -76,3 +76,67 @@ func TestChapter3CommonFourPieceSetsCanClearStage33(t *testing.T) {
 		})
 	}
 }
+
+func TestChapter3CommonThreePieceSetsReachStage33Pacing(t *testing.T) {
+	const (
+		stage33HP      = 280
+		stage33Defense = 32
+	)
+
+	builds := []struct {
+		name    string
+		attack  int
+		minHits int
+		maxHits int
+	}{
+		{name: "swordsman", attack: 58, minHits: 8, maxHits: 12},
+		{name: "berserker", attack: 81, minHits: 5, maxHits: 8},
+		{name: "spearmaster", attack: 56, minHits: 9, maxHits: 12},
+		{name: "rogue", attack: 59, minHits: 8, maxHits: 12},
+		{name: "knight", attack: 70, minHits: 7, maxHits: 10},
+	}
+
+	for _, build := range builds {
+		t.Run(build.name, func(t *testing.T) {
+			damage := formulas.CalculateDamageAtPercent(build.attack, stage33Defense, 100)
+			hits := ceilDiv(stage33HP, damage)
+			if hits < build.minHits || hits > build.maxHits {
+				t.Fatalf("stage 3-3 hits = %d, want %d..%d", hits, build.minHits, build.maxHits)
+			}
+		})
+	}
+}
+
+func TestChapter3RareFourPieceBossPacing(t *testing.T) {
+	const (
+		bossHP      = 480
+		bossDefense = 46
+	)
+
+	builds := []struct {
+		name               string
+		attack             int
+		penetrationPercent int
+		bossDamagePercent  int
+		minHits            int
+		maxHits            int
+	}{
+		{name: "swordsman", attack: 73, penetrationPercent: 30, minHits: 10, maxHits: 15},
+		{name: "berserker", attack: 101, penetrationPercent: 20, bossDamagePercent: 15, minHits: 7, maxHits: 11},
+		{name: "spearmaster", attack: 70, penetrationPercent: 30, minHits: 10, maxHits: 15},
+		{name: "rogue", attack: 74, penetrationPercent: 25, minHits: 10, maxHits: 15},
+		{name: "knight", attack: 87, penetrationPercent: 20, minHits: 8, maxHits: 12},
+	}
+
+	for _, build := range builds {
+		t.Run(build.name, func(t *testing.T) {
+			effectiveDefense := bossDefense * (100 - build.penetrationPercent) / 100
+			damage := formulas.CalculateDamageAtPercent(build.attack, effectiveDefense, 100)
+			damage = damage * (100 + build.bossDamagePercent) / 100
+			hits := ceilDiv(bossHP, damage)
+			if hits < build.minHits || hits > build.maxHits {
+				t.Fatalf("stage 3-5 hits = %d, want %d..%d", hits, build.minHits, build.maxHits)
+			}
+		})
+	}
+}

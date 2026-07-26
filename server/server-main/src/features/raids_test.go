@@ -16,17 +16,17 @@ func raidCyclesToDefeatForTest(hp int, defense int, participantAttacks []int) in
 }
 
 func TestRaidMonsterScaledHPUsesFourPlayerBaseline(t *testing.T) {
-	monster := monsterRecord{HP: 2900}
+	monster := monsterRecord{HP: 3400}
 
 	cases := []struct {
 		participants int
 		want         int
 	}{
-		{participants: 4, want: 2900},
-		{participants: 3, want: 2610},
-		{participants: 2, want: 2320},
-		{participants: 1, want: 2030},
-		{participants: 0, want: 2030},
+		{participants: 4, want: 3400},
+		{participants: 3, want: 3060},
+		{participants: 2, want: 2720},
+		{participants: 1, want: 2380},
+		{participants: 0, want: 2380},
 	}
 
 	for _, tc := range cases {
@@ -47,7 +47,7 @@ func TestRaidMonsterComingSoonFlagsWyvern(t *testing.T) {
 
 func TestGolemRaidChapter3FourPlayerAttackCycleTargets(t *testing.T) {
 	const (
-		golemHP      = 2900
+		golemHP      = 3400
 		golemDefense = 40
 	)
 
@@ -59,17 +59,17 @@ func TestGolemRaidChapter3FourPlayerAttackCycleTargets(t *testing.T) {
 		{
 			name:    "chapter 3-3 party can clear with tight pacing",
 			attacks: []int{75, 75, 75, 75},
-			want:    21,
+			want:    25,
 		},
 		{
 			name:    "chapter 3-5 party clears comfortably",
 			attacks: []int{95, 95, 95, 95},
-			want:    14,
+			want:    16,
 		},
 		{
 			name:    "mixed chapter 3 party stays inside target range",
 			attacks: []int{75, 85, 95, 105},
-			want:    15,
+			want:    17,
 		},
 	}
 
@@ -130,11 +130,11 @@ func TestGolemRaidChapter33BerserkerFallsAroundTenthCounterattack(t *testing.T) 
 		raidParticipantCycleDamage(73, swordsmanDefense, 1) +
 		raidParticipantCycleDamage(56, 40, 1) +
 		raidParticipantCycleDamage(88, 40, 1)
-	remainingAfterFifteen := 2900 - partyDamage*15
+	remainingAfterFifteen := 3400 - partyDamage*15
 	remainingPartyDamage := partyDamage - berserkerDamage
 	clearCycles := 15 + (remainingAfterFifteen+remainingPartyDamage-1)/remainingPartyDamage
-	if clearCycles != 17 {
-		t.Fatalf("verified party clear cycles = %d, want 17 (full=%d remaining=%d)", clearCycles, partyDamage, remainingPartyDamage)
+	if clearCycles != 22 {
+		t.Fatalf("verified party clear cycles = %d, want 22 (full=%d remaining=%d)", clearCycles, partyDamage, remainingPartyDamage)
 	}
 
 	damageTaken := formulas.CalculateDamage(100, 42)
