@@ -16,17 +16,17 @@ func raidCyclesToDefeatForTest(hp int, defense int, participantAttacks []int) in
 }
 
 func TestRaidMonsterScaledHPUsesFourPlayerBaseline(t *testing.T) {
-	monster := monsterRecord{HP: 3400}
+	monster := monsterRecord{HP: 4300}
 
 	cases := []struct {
 		participants int
 		want         int
 	}{
-		{participants: 4, want: 3400},
-		{participants: 3, want: 3060},
-		{participants: 2, want: 2720},
-		{participants: 1, want: 2380},
-		{participants: 0, want: 2380},
+		{participants: 4, want: 4300},
+		{participants: 3, want: 3870},
+		{participants: 2, want: 3440},
+		{participants: 1, want: 3010},
+		{participants: 0, want: 3010},
 	}
 
 	for _, tc := range cases {
@@ -47,8 +47,8 @@ func TestRaidMonsterComingSoonFlagsWyvern(t *testing.T) {
 
 func TestGolemRaidChapter3FourPlayerAttackCycleTargets(t *testing.T) {
 	const (
-		golemHP      = 3400
-		golemDefense = 40
+		golemHP      = 4300
+		golemDefense = 45
 	)
 
 	cases := []struct {
@@ -57,19 +57,14 @@ func TestGolemRaidChapter3FourPlayerAttackCycleTargets(t *testing.T) {
 		want    int
 	}{
 		{
-			name:    "chapter 3-3 party can clear with tight pacing",
-			attacks: []int{75, 75, 75, 75},
-			want:    25,
+			name:    "chapter 3-3 rare party needs running pace",
+			attacks: []int{91, 115, 103, 78},
+			want:    21,
 		},
 		{
-			name:    "chapter 3-5 party clears comfortably",
-			attacks: []int{95, 95, 95, 95},
-			want:    16,
-		},
-		{
-			name:    "mixed chapter 3 party stays inside target range",
-			attacks: []int{75, 85, 95, 105},
-			want:    17,
+			name:    "chapter 3-5 epic party clears at walking pace",
+			attacks: []int{134, 125, 129, 117},
+			want:    14,
 		},
 	}
 
@@ -79,6 +74,16 @@ func TestGolemRaidChapter3FourPlayerAttackCycleTargets(t *testing.T) {
 				t.Fatalf("raid cycles = %d, want %d", got, tc.want)
 			}
 		})
+	}
+
+	rareWalkingCycles := raidCyclesToDefeatForTest(
+		golemHP,
+		golemDefense,
+		[]int{91, 115, 103, 78},
+	)
+	runningCounterattacks := (rareWalkingCycles + 1) / 2
+	if runningCounterattacks != 11 {
+		t.Fatalf("chapter 3-3 running counterattacks = %d, want 11", runningCounterattacks)
 	}
 }
 
@@ -119,30 +124,26 @@ func TestRaidMonsterAttackCyclesDueAcceptsPocketBaseTimestamp(t *testing.T) {
 	}
 }
 
-func TestGolemRaidChapter33BerserkerFallsAroundTenthCounterattack(t *testing.T) {
-	berserkerDamage := adjustedPlayerDamage(
-		raidParticipantCycleDamage(107, 40, 1),
-		"boss",
-		battleSetEffects{BossDamagePercent: 15},
-	)
-	swordsmanDefense := adjustedMonsterDefense(40, battleSetEffects{DefensePenetrationPercent: 15})
-	partyDamage := berserkerDamage +
-		raidParticipantCycleDamage(73, swordsmanDefense, 1) +
-		raidParticipantCycleDamage(56, 40, 1) +
-		raidParticipantCycleDamage(88, 40, 1)
-	remainingAfterFifteen := 3400 - partyDamage*15
-	remainingPartyDamage := partyDamage - berserkerDamage
-	clearCycles := 15 + (remainingAfterFifteen+remainingPartyDamage-1)/remainingPartyDamage
-	if clearCycles != 22 {
-		t.Fatalf("verified party clear cycles = %d, want 22 (full=%d remaining=%d)", clearCycles, partyDamage, remainingPartyDamage)
+func TestGolemRaidChapter33WalkingPartyLosesFragileMembers(t *testing.T) {
+	berserkerDamageTaken := formulas.CalculateDamage(115, 42)
+	if remaining := 618 - berserkerDamageTaken*8; remaining <= 0 {
+		t.Fatalf("berserker HP after 8 counterattacks = %d, want alive", remaining)
+	}
+	if remaining := 618 - berserkerDamageTaken*9; remaining > 0 {
+		t.Fatalf("berserker HP after 9 counterattacks = %d, want defeated", remaining)
 	}
 
-	damageTaken := formulas.CalculateDamage(100, 42)
-	if remaining := 548 - damageTaken*9; remaining <= 0 {
-		t.Fatalf("berserker HP after 9 counterattacks = %d, want alive", remaining)
+	swordsmanDamageTaken := formulas.CalculateDamage(115, 65)
+	if remaining := 712 - swordsmanDamageTaken*14; remaining <= 0 {
+		t.Fatalf("swordsman HP after 14 counterattacks = %d, want alive", remaining)
 	}
-	if remaining := 548 - damageTaken*10; remaining > 0 {
-		t.Fatalf("berserker HP after 10 counterattacks = %d, want defeated", remaining)
+	if remaining := 712 - swordsmanDamageTaken*15; remaining > 0 {
+		t.Fatalf("swordsman HP after 15 counterattacks = %d, want defeated", remaining)
+	}
+
+	epicDamageTaken := formulas.CalculateDamage(115, 98)
+	if remaining := 890 - epicDamageTaken*14; remaining <= 0 {
+		t.Fatalf("epic character HP after 14 counterattacks = %d, want alive", remaining)
 	}
 }
 
