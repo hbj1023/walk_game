@@ -1038,6 +1038,7 @@ class RaidProgressSummary {
   final RaidRecordInfo raid;
   final RaidProgressInfo progress;
   final RaidMonsterInfo? monster;
+  final int monsterMaxHp;
   final List<RaidParticipantInfo> participants;
   final List<RaidInvitationInfo> invitations;
   final int pendingInvitationCount;
@@ -1053,6 +1054,7 @@ class RaidProgressSummary {
     required this.raid,
     required this.progress,
     required this.monster,
+    required this.monsterMaxHp,
     required this.participants,
     required this.invitations,
     required this.pendingInvitationCount,
@@ -1082,6 +1084,7 @@ class RaidProgressSummary {
       monster: monsterMap.isNotEmpty
           ? RaidMonsterInfo.fromJson(monsterMap)
           : raid.monster,
+      monsterMaxHp: _asInt(json['monster_max_hp']),
       participants: participants,
       invitations: invitations,
       pendingInvitationCount: _asInt(json['pending_invitation_count']) > 0

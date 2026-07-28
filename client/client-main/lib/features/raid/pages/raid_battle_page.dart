@@ -98,6 +98,8 @@ class _RaidBattlePageState extends State<RaidBattlePage>
   bool get _canLeaveRoute => _raidFinished || _routeExitAllowed;
 
   int get _maxBossHp {
+    final scaledHp = _summary?.monsterMaxHp ?? 0;
+    if (scaledHp > 0) return scaledHp;
     final hp = _monster?.hp ?? widget.boss.hp;
     return hp > 0 ? hp : 1;
   }

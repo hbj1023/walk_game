@@ -1486,10 +1486,15 @@ func getRaidProgressSummary(ctx context.Context, token string, raidID string) (m
 			monster = record
 		}
 	}
+	monsterMaxHP := raidMonsterScaledHP(
+		monsterRecord{HP: int(math.Round(mapFloat(monster["hp"])))},
+		len(activeParticipants),
+	)
 	return map[string]any{
 		"raid":                      raid,
 		"progress":                  progress,
 		"monster":                   monster,
+		"monster_max_hp":            monsterMaxHP,
 		"participants":              participantSummaries,
 		"invitations":               invitations.Items,
 		"pending_invitation_count":  len(invitations.Items),

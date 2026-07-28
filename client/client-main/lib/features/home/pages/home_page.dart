@@ -929,11 +929,12 @@ class _HomePageState extends State<HomePage>
 
   double _dailyQuestProgress(List<UserMission> dailyMissions) {
     if (dailyMissions.isEmpty) return 0;
-    final totalProgress = dailyMissions.fold<double>(
-      0,
-      (sum, mission) => sum + mission.progress,
-    );
-    return (totalProgress / dailyMissions.length).clamp(0.0, 1.0).toDouble();
+    final completedCount = dailyMissions
+        .where((mission) => mission.isClaimed || mission.progress >= 1.0)
+        .length;
+    return (completedCount / dailyMissions.length)
+        .clamp(0.0, 1.0)
+        .toDouble();
   }
 
   UserMission? _nextDailyMission(List<UserMission> dailyMissions) {
