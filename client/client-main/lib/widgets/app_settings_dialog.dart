@@ -535,15 +535,38 @@ class _CustomerCenterDialog extends StatefulWidget {
 class _CustomerCenterDialogState extends State<_CustomerCenterDialog> {
   final _screenController = TextEditingController();
   final _messageController = TextEditingController();
+  final _scrollController = ScrollController();
+  final _messageFocusNode = FocusNode();
   bool _isSubmitting = false;
   String? _notice;
   bool _noticeSuccess = true;
 
   @override
+  void initState() {
+    super.initState();
+    _messageFocusNode.addListener(_scrollToMessageField);
+  }
+
+  @override
   void dispose() {
     _screenController.dispose();
     _messageController.dispose();
+    _messageFocusNode.removeListener(_scrollToMessageField);
+    _messageFocusNode.dispose();
+    _scrollController.dispose();
     super.dispose();
+  }
+
+  void _scrollToMessageField() {
+    if (!_messageFocusNode.hasFocus) return;
+    Future<void>.delayed(const Duration(milliseconds: 350), () {
+      if (!mounted || !_scrollController.hasClients) return;
+      _scrollController.animateTo(
+        _scrollController.position.maxScrollExtent,
+        duration: const Duration(milliseconds: 220),
+        curve: Curves.easeOut,
+      );
+    });
   }
 
   Future<void> _submitBugReport() async {
@@ -611,6 +634,7 @@ class _CustomerCenterDialogState extends State<_CustomerCenterDialog> {
       title: '고객센터',
       icon: Icons.support_agent,
       maxWidth: 460,
+      scrollController: _scrollController,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -637,11 +661,13 @@ class _CustomerCenterDialogState extends State<_CustomerCenterDialog> {
           const SizedBox(height: 8),
           _darkTextField(
             controller: _messageController,
+            focusNode: _messageFocusNode,
             label: '내용',
             hint: '무엇을 하다가 어떤 문제가 생겼는지 짧게 적어주세요.',
             minLines: 4,
             maxLines: 5,
             maxLength: 1000,
+            keyboardType: TextInputType.multiline,
           ),
           if (_notice != null) ...[
             const SizedBox(height: 8),
@@ -826,12 +852,14 @@ class _SettingsShell extends StatelessWidget {
   final IconData icon;
   final double maxWidth;
   final Widget child;
+  final ScrollController? scrollController;
 
   const _SettingsShell({
     required this.title,
     required this.icon,
     required this.maxWidth,
     required this.child,
+    this.scrollController,
   });
 
   @override
@@ -848,6 +876,8 @@ class _SettingsShell extends StatelessWidget {
             border: Border.all(color: _kBorder, width: 2),
           ),
           child: SingleChildScrollView(
+            controller: scrollController,
+            keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -1053,6 +1083,7 @@ Widget _darkTextField({
   required TextEditingController controller,
   required String label,
   required String hint,
+  FocusNode? focusNode,
   int minLines = 1,
   int maxLines = 1,
   int? maxLength,
@@ -1062,6 +1093,7 @@ Widget _darkTextField({
 }) {
   return TextField(
     controller: controller,
+    focusNode: focusNode,
     minLines: obscureText ? 1 : minLines,
     maxLines: obscureText ? 1 : maxLines,
     maxLength: maxLength,
