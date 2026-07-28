@@ -1289,7 +1289,14 @@ func addRaidDistance(ctx context.Context, token string, userID string, raidID st
 	attackCycles := int(math.Floor(nextCycleDistance / attackDistanceM))
 	nextCycleDistance = math.Mod(nextCycleDistance, attackDistanceM)
 	nextTotalAttackCycles := progress.TotalAttackCycles + float64(attackCycles)
-	damageDealt, totalAttackCount, participantDamages, participantAttackCounts, err := calculateRaidCycleDamage(ctx, token, attackCycles, aliveParticipants, monster)
+	damageDealt, totalAttackCount, participantDamages, participantAttackCounts, err := calculateRaidCycleDamage(
+		ctx,
+		token,
+		attackCycles,
+		int(progress.TotalAttackCycles),
+		aliveParticipants,
+		monster,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -2442,6 +2449,7 @@ func calculateRaidCycleDamage(
 	ctx context.Context,
 	token string,
 	attackCycles int,
+	completedAttackCycles int,
 	participants []raidParticipantRecord,
 	monster monsterRecord,
 ) (int, int, map[string]int, map[string]int, error) {
@@ -2466,9 +2474,14 @@ func calculateRaidCycleDamage(
 		if err != nil {
 			return 0, 0, nil, nil, err
 		}
-		monsterDefense := adjustedMonsterDefense(monster.Defense, statContext.Effects)
 		damage := 0
-		for range attackCycles {
+		for cycleOffset := range attackCycles {
+			monsterDefense := raidMonsterDefenseForAttackCycle(
+				monster.Defense,
+				statContext.Effects,
+				completedAttackCycles,
+				cycleOffset,
+			)
 			baseDamage := formulas.CalculateRandomDamage(statContext.Stats.Attack, monsterDefense)
 			damage += adjustedPlayerDamage(baseDamage, "boss", statContext.Effects)
 		}
@@ -2477,6 +2490,16 @@ func calculateRaidCycleDamage(
 		totalDamage += damage
 	}
 	return totalDamage, attackCycles * activeAttackers, participantDamages, participantAttackCounts, nil
+}
+
+func raidMonsterDefenseForAttackCycle(
+	monsterDefense int,
+	effects battleSetEffects,
+	completedAttackCycles int,
+	cycleOffset int,
+) int {
+	attackNumber := max(0, completedAttackCycles) + max(0, cycleOffset) + 1
+	return adjustedMonsterDefenseForHit(monsterDefense, effects, attackNumber)
 }
 
 func raidParticipantCycleDamage(attack int, monsterDefense int, attackCycles int) int {

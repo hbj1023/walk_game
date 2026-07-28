@@ -114,3 +114,20 @@ func TestAdjustedMonsterDefenseForHitStacksWithoutLimitAndStopsAtZero(t *testing
 		t.Fatalf("defense after excessive stacks = %d, want floor 0", got)
 	}
 }
+
+func TestRaidMonsterDefenseForAttackCycleContinuesAcrossDistanceSyncs(t *testing.T) {
+	effects := battleSetEffects{DefenseShredPerHit: 3}
+
+	if got := raidMonsterDefenseForAttackCycle(45, effects, 0, 0); got != 42 {
+		t.Fatalf("first raid cycle defense = %d, want 42", got)
+	}
+	if got := raidMonsterDefenseForAttackCycle(45, effects, 4, 0); got != 30 {
+		t.Fatalf("fifth raid cycle defense = %d, want 30", got)
+	}
+	if got := raidMonsterDefenseForAttackCycle(45, effects, 4, 2); got != 24 {
+		t.Fatalf("seventh raid cycle defense = %d, want 24", got)
+	}
+	if got := raidMonsterDefenseForAttackCycle(45, effects, 14, 0); got != 0 {
+		t.Fatalf("fifteenth raid cycle defense = %d, want 0", got)
+	}
+}
