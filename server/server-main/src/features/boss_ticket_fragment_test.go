@@ -19,16 +19,16 @@ func TestBossTicketFragmentDropRejectsInvalidRoll(t *testing.T) {
 }
 
 func TestBossTicketFragmentDropsOnlyInRecommendedCombatPowerRange(t *testing.T) {
-	if isRecommendedCombatPowerRange(10, 829) {
+	if isRecommendedCombatPowerRange(10, 779) {
 		t.Fatal("power below the recommended value must not be eligible")
 	}
-	if !isRecommendedCombatPowerRange(10, 830) {
+	if !isRecommendedCombatPowerRange(10, 780) {
 		t.Fatal("recommended power must be eligible")
 	}
-	if !isRecommendedCombatPowerRange(10, 1162) {
+	if !isRecommendedCombatPowerRange(10, 1092) {
 		t.Fatal("the upper edge of the recommended range must be eligible")
 	}
-	if isRecommendedCombatPowerRange(10, 1163) {
+	if isRecommendedCombatPowerRange(10, 1093) {
 		t.Fatal("the reward-reduction range must not be eligible")
 	}
 }

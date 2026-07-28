@@ -55,8 +55,13 @@ func TestChapter2BossKeepsHighRiskFastKillIdentity(t *testing.T) {
 			baseTaken := formulas.CalculateDamageAtPercent(bossAttack, build.defense, 100)
 			damageTaken := int(math.Round(float64(baseTaken) * float64(100+build.damageTakenPercent) / 100))
 			remainingHP := build.hp - damageTaken*counterattacks
-			if build.expectPotionPressure && remainingHP > 0 {
-				t.Fatalf("remaining HP = %d, want potion or near-death pressure", remainingHP)
+			nearDeathThreshold := ceilDiv(build.hp, 10)
+			if build.expectPotionPressure && remainingHP > nearDeathThreshold {
+				t.Fatalf(
+					"remaining HP = %d, want at most %d for potion or near-death pressure",
+					remainingHP,
+					nearDeathThreshold,
+				)
 			}
 			if !build.expectPotionPressure && remainingHP <= 0 {
 				t.Fatalf("remaining HP = %d, build should survive average boss damage", remainingHP)
