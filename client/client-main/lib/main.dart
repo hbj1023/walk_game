@@ -8,9 +8,18 @@ import 'package:capstone_app/services/app_settings_service.dart';
 import 'package:capstone_app/services/game_audio_service.dart';
 import 'package:capstone_app/services/power_saving_route_observer.dart';
 
+Timer? _systemUiRestoreTimer;
+
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await _applyAndroidImmersiveMode();
+  if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
+    SystemChrome.setSystemUIChangeCallback((systemOverlaysAreVisible) async {
+      if (systemOverlaysAreVisible) {
+        _scheduleAndroidImmersiveMode();
+      }
+    });
+  }
   SystemChrome.setSystemUIOverlayStyle(
     const SystemUiOverlayStyle(
       systemNavigationBarColor: Color(0xFF070302),
@@ -25,6 +34,15 @@ Future<void> main() async {
 Future<void> _applyAndroidImmersiveMode() async {
   if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) return;
   await SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+}
+
+void _scheduleAndroidImmersiveMode() {
+  if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) return;
+  _systemUiRestoreTimer?.cancel();
+  _systemUiRestoreTimer = Timer(
+    const Duration(milliseconds: 700),
+    () => unawaited(_applyAndroidImmersiveMode()),
+  );
 }
 
 class MyApp extends StatelessWidget {
@@ -79,7 +97,7 @@ class _AutoPowerSavingGateState extends State<_AutoPowerSavingGate>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
-      unawaited(_applyAndroidImmersiveMode());
+      _scheduleAndroidImmersiveMode();
       _resetIdleTimer();
     } else {
       _idleTimer?.cancel();

@@ -306,35 +306,37 @@ class _HomePageState extends State<HomePage>
           if (powerSaving)
             const Positioned.fill(child: ColoredBox(color: Color(0xFF050505)))
           else
-            AnimatedBuilder(
-              animation: _bgController,
-              builder: (context, child) {
-                final h = MediaQuery.of(context).size.height;
-                final tileW = h * _bgAspectRatio;
-                final offset = _bgController.value * tileW;
-                return Stack(
-                  children: [
-                    Positioned(
-                      left: -offset,
-                      top: 0,
-                      bottom: 0,
-                      width: tileW,
-                      child: child!,
-                    ),
-                    Positioned(
-                      left: tileW - offset,
-                      top: 0,
-                      bottom: 0,
-                      width: tileW,
-                      child: child,
-                    ),
-                  ],
-                );
-              },
-              child: Image.asset(
-                _homeBgAsset,
-                key: ValueKey(_homeBgAsset),
-                fit: BoxFit.fill,
+            Positioned.fill(
+              child: AnimatedBuilder(
+                animation: _bgController,
+                builder: (context, child) {
+                  final h = MediaQuery.of(context).size.height;
+                  final tileW = h * _bgAspectRatio;
+                  final offset = _bgController.value * tileW;
+                  return Stack(
+                    children: [
+                      Positioned(
+                        left: -offset,
+                        top: 0,
+                        bottom: 0,
+                        width: tileW,
+                        child: child!,
+                      ),
+                      Positioned(
+                        left: tileW - offset,
+                        top: 0,
+                        bottom: 0,
+                        width: tileW,
+                        child: child,
+                      ),
+                    ],
+                  );
+                },
+                child: Image.asset(
+                  _homeBgAsset,
+                  key: ValueKey(_homeBgAsset),
+                  fit: BoxFit.fill,
+                ),
               ),
             ),
           if (powerSaving)
