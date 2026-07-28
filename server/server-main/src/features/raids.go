@@ -2460,6 +2460,8 @@ func calculateRaidCycleDamage(
 	}
 	totalDamage := 0
 	activeAttackers := 0
+	participantStats := make(map[string]battleStatContext, len(participants))
+	partyDefenseShredPerHit := 0.0
 	for _, participant := range participants {
 		character, err := getBattleCharacterByID(ctx, token, participant.Character)
 		if err != nil {
@@ -2474,11 +2476,20 @@ func calculateRaidCycleDamage(
 		if err != nil {
 			return 0, 0, nil, nil, err
 		}
+		participantStats[participant.ID] = statContext
+		partyDefenseShredPerHit = max(partyDefenseShredPerHit, statContext.Effects.DefenseShredPerHit)
+	}
+	for _, participant := range participants {
+		statContext, ok := participantStats[participant.ID]
+		if !ok {
+			continue
+		}
 		damage := 0
 		for cycleOffset := range attackCycles {
 			monsterDefense := raidMonsterDefenseForAttackCycle(
 				monster.Defense,
 				statContext.Effects,
+				partyDefenseShredPerHit,
 				completedAttackCycles,
 				cycleOffset,
 			)
@@ -2495,10 +2506,12 @@ func calculateRaidCycleDamage(
 func raidMonsterDefenseForAttackCycle(
 	monsterDefense int,
 	effects battleSetEffects,
+	partyDefenseShredPerHit float64,
 	completedAttackCycles int,
 	cycleOffset int,
 ) int {
 	attackNumber := max(0, completedAttackCycles) + max(0, cycleOffset) + 1
+	effects.DefenseShredPerHit = partyDefenseShredPerHit
 	return adjustedMonsterDefenseForHit(monsterDefense, effects, attackNumber)
 }
 

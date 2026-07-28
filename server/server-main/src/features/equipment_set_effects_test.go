@@ -118,16 +118,24 @@ func TestAdjustedMonsterDefenseForHitStacksWithoutLimitAndStopsAtZero(t *testing
 func TestRaidMonsterDefenseForAttackCycleContinuesAcrossDistanceSyncs(t *testing.T) {
 	effects := battleSetEffects{DefenseShredPerHit: 3}
 
-	if got := raidMonsterDefenseForAttackCycle(45, effects, 0, 0); got != 42 {
+	if got := raidMonsterDefenseForAttackCycle(45, effects, 3, 0, 0); got != 42 {
 		t.Fatalf("first raid cycle defense = %d, want 42", got)
 	}
-	if got := raidMonsterDefenseForAttackCycle(45, effects, 4, 0); got != 30 {
+	if got := raidMonsterDefenseForAttackCycle(45, effects, 3, 4, 0); got != 30 {
 		t.Fatalf("fifth raid cycle defense = %d, want 30", got)
 	}
-	if got := raidMonsterDefenseForAttackCycle(45, effects, 4, 2); got != 24 {
+	if got := raidMonsterDefenseForAttackCycle(45, effects, 3, 4, 2); got != 24 {
 		t.Fatalf("seventh raid cycle defense = %d, want 24", got)
 	}
-	if got := raidMonsterDefenseForAttackCycle(45, effects, 14, 0); got != 0 {
+	if got := raidMonsterDefenseForAttackCycle(45, effects, 3, 14, 0); got != 0 {
 		t.Fatalf("fifteenth raid cycle defense = %d, want 0", got)
+	}
+}
+
+func TestRaidMonsterDefenseForAttackCycleSharesPartyShredWithOtherSets(t *testing.T) {
+	nonRiftbreakerEffects := battleSetEffects{DefensePenetrationPercent: 20}
+
+	if got := raidMonsterDefenseForAttackCycle(45, nonRiftbreakerEffects, 3, 2, 0); got != 27 {
+		t.Fatalf("third raid cycle defense for party member = %d, want 27", got)
 	}
 }
