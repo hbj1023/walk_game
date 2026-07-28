@@ -329,13 +329,6 @@ class _GoldMineEventPageState extends State<GoldMineEventPage>
     }
   }
 
-  int get _nextMilestone {
-    for (final value in const [100, 200, 300, 400, 500, 600]) {
-      if (_distanceM < value) return value;
-    }
-    return 600;
-  }
-
   ({int distance, int coin, int fragments, int statExp}) get _nextReward =>
       _goldMineMilestones.firstWhere(
         (reward) => _distanceM < reward.distance,
@@ -401,83 +394,6 @@ class _GoldMineEventPageState extends State<GoldMineEventPage>
           ],
         ),
       ),
-    );
-  }
-
-  Widget _buildBriefing() {
-    final locked = _status == null || !_status!.unlocked;
-    final attempted = _status?.attemptedToday == true;
-    final resumable = _status?.resumable == true;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        _panel(
-          child: const Column(
-            children: [
-              Icon(Icons.diamond_outlined, color: _gold, size: 58),
-              SizedBox(height: 10),
-              Text(
-                '3분 동안 광맥을 향해 달리세요',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 21,
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
-              SizedBox(height: 8),
-              Text(
-                'GPS 거리로 측정하고 만보기로 움직임을 확인합니다.\n600m 이후에는 기록만 계속 올라갑니다.',
-                textAlign: TextAlign.center,
-                style: TextStyle(color: Colors.white70, height: 1.5),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 12),
-        _panel(
-          child: const Column(
-            children: [
-              _RewardLine('400m', '520골드 · 찢어진 입장권 1개'),
-              _RewardLine('500m', '누적 700골드 · 스탯 포인트 1개'),
-              _RewardLine('600m', '누적 900골드 · 찢어진 입장권 총 4개'),
-            ],
-          ),
-        ),
-        if (_error != null) ...[
-          const SizedBox(height: 10),
-          Text(
-            _error!,
-            textAlign: TextAlign.center,
-            style: const TextStyle(color: Colors.redAccent),
-          ),
-        ],
-        const Spacer(),
-        FilledButton.icon(
-          onPressed: locked || (attempted && !resumable) || _starting
-              ? null
-              : _start,
-          icon: Icon(_starting ? Icons.hourglass_top : Icons.directions_run),
-          label: Text(
-            locked
-                ? '3-3 클리어 필요'
-                : resumable
-                ? '이어하기'
-                : attempted
-                ? '오늘 도전 완료'
-                : _starting
-                ? 'GPS 확인 중'
-                : '이벤트 시작',
-          ),
-          style: FilledButton.styleFrom(
-            backgroundColor: const Color(0xFFA76A13),
-            padding: const EdgeInsets.symmetric(vertical: 17),
-            textStyle: const TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.w900,
-            ),
-          ),
-        ),
-      ],
     );
   }
 
@@ -597,6 +513,22 @@ class _GoldMineEventPageState extends State<GoldMineEventPage>
             shadows: [Shadow(color: Colors.black, blurRadius: 5)],
           ),
         ),
+        if (_error != null) ...[
+          const SizedBox(height: 6),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Text(
+              _error!,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: Color(0xFFFF8A80),
+                fontSize: 12,
+                fontWeight: FontWeight.w800,
+                shadows: [Shadow(color: Colors.black, blurRadius: 4)],
+              ),
+            ),
+          ),
+        ],
         const SizedBox(height: 10),
         _buildDistanceBar(),
         Expanded(
@@ -872,132 +804,6 @@ class _GoldMineEventPageState extends State<GoldMineEventPage>
     );
   }
 
-  Widget _buildTrackingStatus() => Container(
-    padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 7),
-    decoration: BoxDecoration(
-      color: Colors.black.withValues(alpha: 0.72),
-      borderRadius: BorderRadius.circular(7),
-      border: Border.all(color: const Color(0xFF8D6328), width: 2),
-    ),
-    child: Text(
-      '걸음 $_steps\n${_maxSpeedKmh.toStringAsFixed(1)}km/h',
-      textAlign: TextAlign.center,
-      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800),
-    ),
-  );
-
-  Widget _buildEventRewardPreview() {
-    final earnedCoin = _distanceM >= 600
-        ? 900
-        : _distanceM >= 500
-        ? 700
-        : _distanceM >= 400
-        ? 520
-        : 0;
-    final earnedTickets = _distanceM >= 600
-        ? 4
-        : _distanceM >= 400
-        ? 1
-        : 0;
-    final earnedStat = _distanceM >= 500 ? 1 : 0;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-      decoration: BoxDecoration(
-        color: Colors.black.withValues(alpha: 0.72),
-        borderRadius: BorderRadius.circular(7),
-        border: Border.all(color: const Color(0xFF8D6328), width: 2),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          _eventRewardIcon(
-            image: 'assets/images/icon/coin_icon.png',
-            value: '$earnedCoin',
-          ),
-          const SizedBox(height: 4),
-          _eventRewardIcon(
-            image: 'assets/images/icon/ticket.png',
-            value: '$earnedTickets',
-          ),
-          const SizedBox(height: 4),
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(
-                Icons.auto_awesome,
-                color: Color(0xFF9EE7FF),
-                size: 18,
-              ),
-              const SizedBox(width: 4),
-              Text(
-                '$earnedStat',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _eventRewardIcon({required String image, required String value}) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Image.asset(image, width: 18, height: 18, fit: BoxFit.contain),
-        const SizedBox(width: 4),
-        Text(
-          value,
-          style: const TextStyle(
-            color: Colors.white,
-            fontSize: 11,
-            fontWeight: FontWeight.w900,
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildMilestoneRail() => Column(
-    mainAxisSize: MainAxisSize.min,
-    children: [
-      _milestoneBadge(600, '최고'),
-      const SizedBox(height: 5),
-      _milestoneBadge(500, '스탯'),
-      const SizedBox(height: 5),
-      _milestoneBadge(400, '입장권'),
-    ],
-  );
-
-  Widget _milestoneBadge(int distance, String label) {
-    final reached = _distanceM >= distance;
-    return Container(
-      width: 58,
-      padding: const EdgeInsets.symmetric(vertical: 5),
-      decoration: BoxDecoration(
-        color: Colors.black.withValues(alpha: 0.75),
-        borderRadius: BorderRadius.circular(6),
-        border: Border.all(
-          color: reached ? _gold : const Color(0xFF6E5530),
-          width: 2,
-        ),
-      ),
-      child: Text(
-        reached ? '$distance ✓\n$label' : '$distance\n$label',
-        textAlign: TextAlign.center,
-        style: TextStyle(
-          color: reached ? _gold : Colors.white70,
-          fontSize: 10,
-          fontWeight: FontWeight.w900,
-        ),
-      ),
-    );
-  }
-
   Widget _buildDistancePanel() => Container(
     width: 220,
     padding: const EdgeInsets.symmetric(vertical: 9),
@@ -1123,35 +929,4 @@ class _GoldMineEventPageState extends State<GoldMineEventPage>
       ],
     ),
   );
-}
-
-class _RewardLine extends StatelessWidget {
-  final String distance;
-  final String reward;
-  const _RewardLine(this.distance, this.reward);
-  @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.symmetric(vertical: 7),
-    child: Row(
-      children: [
-        SizedBox(
-          width: 54,
-          child: Text(
-            distance,
-            style: const TextStyle(
-              color: _GoldMineColors.gold,
-              fontWeight: FontWeight.w900,
-            ),
-          ),
-        ),
-        Expanded(
-          child: Text(reward, style: const TextStyle(color: Colors.white70)),
-        ),
-      ],
-    ),
-  );
-}
-
-abstract final class _GoldMineColors {
-  static const gold = Color(0xFFFFD45A);
 }

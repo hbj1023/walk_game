@@ -1809,36 +1809,6 @@ class _BattleStagePageState extends State<BattleStagePage>
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          if (false && _currentChapter == 3 && _goldMineEventUnlocked) ...[
-            GestureDetector(
-              onTap: _isStarting ? null : _openGoldMineEvent,
-              child: Container(
-                width: double.infinity,
-                margin: const EdgeInsets.only(bottom: 7),
-                padding: const EdgeInsets.symmetric(vertical: 10),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF9A6515),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: _kGold, width: 2),
-                ),
-                child: const Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(Icons.diamond_outlined, color: _kGold, size: 22),
-                    SizedBox(width: 8),
-                    Text(
-                      '황금 광맥',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 18,
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ],
           GestureDetector(
             onTap: (locked || _isStarting)
                 ? null
