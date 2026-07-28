@@ -2266,21 +2266,28 @@ class _BattlePageState extends State<BattlePage>
         }
         switch (item.index) {
           case 0:
-            _pushReplacement(const ShopPage());
+            _pushMainNavReplacement(const ShopPage(), targetIndex: 0);
             break;
           case 1:
-            _pushReplacement(const InventoryPage());
+            _pushMainNavReplacement(const InventoryPage(), targetIndex: 1);
             break;
           case 2:
-            _pushReplacement(const HomePage());
+            _pushMainNavReplacement(const HomePage(), targetIndex: 2);
             break;
           case 3:
             break;
           case 4:
-            _pushReplacement(const RaidListPage());
+            _pushMainNavReplacement(const RaidListPage(), targetIndex: 4);
             break;
         }
       },
+    );
+  }
+
+  void _pushMainNavReplacement(Widget page, {required int targetIndex}) {
+    Navigator.pushReplacement(
+      context,
+      buildMainNavRoute(page: page, fromIndex: 3, toIndex: targetIndex),
     );
   }
 

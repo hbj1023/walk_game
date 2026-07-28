@@ -1,5 +1,32 @@
 import 'package:flutter/material.dart';
 
+PageRouteBuilder<T> buildMainNavRoute<T>({
+  required Widget page,
+  required int fromIndex,
+  required int toIndex,
+}) {
+  final enterFromRight = toIndex > fromIndex;
+  final beginOffset = Offset(enterFromRight ? 1 : -1, 0);
+
+  return PageRouteBuilder<T>(
+    pageBuilder: (context, animation, secondaryAnimation) => page,
+    transitionsBuilder: (context, animation, secondaryAnimation, child) {
+      final position = Tween<Offset>(
+        begin: beginOffset,
+        end: Offset.zero,
+      ).animate(CurvedAnimation(parent: animation, curve: Curves.easeOutCubic));
+      return ColoredBox(
+        color: const Color(0xFF100B08),
+        child: ClipRect(
+          child: SlideTransition(position: position, child: child),
+        ),
+      );
+    },
+    transitionDuration: const Duration(milliseconds: 260),
+    reverseTransitionDuration: const Duration(milliseconds: 220),
+  );
+}
+
 class PixelBottomNavItem {
   final String icon;
   final String label;

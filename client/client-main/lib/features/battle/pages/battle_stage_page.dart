@@ -1924,38 +1924,28 @@ class _BattleStagePageState extends State<BattleStagePage>
       onTap: (item) async {
         switch (item.index) {
           case 0:
-            _pushReplacement(const ShopPage());
+            _pushReplacement(const ShopPage(), targetIndex: 0);
             break;
           case 1:
-            _pushReplacement(const InventoryPage());
+            _pushReplacement(const InventoryPage(), targetIndex: 1);
             break;
           case 2:
-            _pushReplacement(const HomePage());
+            _pushReplacement(const HomePage(), targetIndex: 2);
             break;
           case 3:
             break;
           case 4:
-            _pushReplacement(const RaidListPage());
+            _pushReplacement(const RaidListPage(), targetIndex: 4);
             break;
         }
       },
     );
   }
 
-  void _pushReplacement(Widget page) {
+  void _pushReplacement(Widget page, {required int targetIndex}) {
     Navigator.pushReplacement(
       context,
-      PageRouteBuilder(
-        pageBuilder: (context, _, _) => page,
-        transitionsBuilder: (context, animation, _, child) {
-          final curved = CurvedAnimation(
-            parent: animation,
-            curve: Curves.easeInOut,
-          );
-          return FadeTransition(opacity: curved, child: child);
-        },
-        transitionDuration: const Duration(milliseconds: 280),
-      ),
+      buildMainNavRoute(page: page, fromIndex: 3, toIndex: targetIndex),
     );
   }
 
