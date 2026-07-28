@@ -346,7 +346,9 @@ class _BattlePageState extends State<BattlePage>
         _consumables = consumables;
         _equippedWeaponType = equippedWeapons.isEmpty
             ? ''
-            : equippedWeapons.first.itemTemplate.weaponType;
+            : equippedWeapons.first.itemTemplate.weaponType
+                  .trim()
+                  .toLowerCase();
         if (!_isAttacking) {
           _currentPlayerSpritePath = _equippedWeaponIdleSprite;
           _currentPlayerSpriteFrameCount = _kPlayerAttackFrameCount;

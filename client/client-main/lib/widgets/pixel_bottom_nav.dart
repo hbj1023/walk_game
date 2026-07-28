@@ -11,10 +11,10 @@ PageRouteBuilder<T> buildMainNavRoute<T>({
   return PageRouteBuilder<T>(
     pageBuilder: (context, animation, secondaryAnimation) => page,
     transitionsBuilder: (context, animation, secondaryAnimation, child) {
-      final position = Tween<Offset>(
-        begin: beginOffset,
-        end: Offset.zero,
-      ).animate(CurvedAnimation(parent: animation, curve: Curves.easeOutCubic));
+      final position = Tween<Offset>(begin: beginOffset, end: Offset.zero)
+          .animate(
+            CurvedAnimation(parent: animation, curve: Curves.easeInOutCubic),
+          );
       return ColoredBox(
         color: const Color(0xFF100B08),
         child: ClipRect(
@@ -22,8 +22,8 @@ PageRouteBuilder<T> buildMainNavRoute<T>({
         ),
       );
     },
-    transitionDuration: const Duration(milliseconds: 260),
-    reverseTransitionDuration: const Duration(milliseconds: 220),
+    transitionDuration: const Duration(milliseconds: 420),
+    reverseTransitionDuration: const Duration(milliseconds: 360),
   );
 }
 

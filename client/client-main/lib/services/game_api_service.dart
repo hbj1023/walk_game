@@ -71,7 +71,7 @@ class ItemTemplate {
       name: _asString(json['name']),
       itemType: _asString(json['item_type']),
       equipmentSlot: _asString(json['equipment_slot']),
-      weaponType: _asString(json['weapon_type']),
+      weaponType: _asString(json['weapon_type']).trim().toLowerCase(),
       setKey: _asString(json['set_key']),
       setPieceType: _asString(json['set_piece_type']),
       imagePath: _asString(json['image_path']),
