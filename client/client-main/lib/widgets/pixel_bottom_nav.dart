@@ -1,10 +1,142 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+
+class MainNavSwipeController {
+  MainNavSwipeController._();
+
+  static final List<_MainNavSwipeRegistration> _registrations = [];
+  static List<PixelBottomNavItem> _items = const [];
+  static int _currentIndex = 0;
+  static Future<void> Function(PixelBottomNavItem item)? _onSwipe;
+  static int? _pointer;
+  static Offset? _startPosition;
+  static Offset? _latestPosition;
+  static bool _animateNextRoute = false;
+
+  static void activate({
+    required Object owner,
+    required List<PixelBottomNavItem> items,
+    required int currentIndex,
+    required Future<void> Function(PixelBottomNavItem item) onSwipe,
+  }) {
+    _registrations.removeWhere(
+      (registration) => identical(registration.owner, owner),
+    );
+    _registrations.add(
+      _MainNavSwipeRegistration(
+        owner: owner,
+        items: items,
+        currentIndex: currentIndex,
+        onSwipe: onSwipe,
+      ),
+    );
+    _items = items;
+    _currentIndex = currentIndex;
+    _onSwipe = onSwipe;
+  }
+
+  static void deactivate(Object owner) {
+    _registrations.removeWhere(
+      (registration) => identical(registration.owner, owner),
+    );
+    if (_registrations.isEmpty) {
+      _items = const [];
+      _onSwipe = null;
+    } else {
+      final previous = _registrations.last;
+      _items = previous.items;
+      _currentIndex = previous.currentIndex;
+      _onSwipe = previous.onSwipe;
+    }
+    cancelPointer();
+  }
+
+  static void pointerDown(PointerDownEvent event) {
+    if (_onSwipe == null || _pointer != null) return;
+    _pointer = event.pointer;
+    _startPosition = event.position;
+    _latestPosition = event.position;
+  }
+
+  static void pointerMove(PointerMoveEvent event) {
+    if (_pointer != event.pointer) return;
+    _latestPosition = event.position;
+  }
+
+  static void pointerUp(PointerUpEvent event) {
+    if (_pointer != event.pointer) return;
+    _latestPosition = event.position;
+    final start = _startPosition;
+    final end = _latestPosition;
+    cancelPointer();
+    if (start == null || end == null) return;
+
+    final delta = end - start;
+    if (delta.dx.abs() < 72 || delta.dx.abs() < delta.dy.abs() * 1.45) {
+      return;
+    }
+
+    final targetIndex = _currentIndex + (delta.dx < 0 ? 1 : -1);
+    PixelBottomNavItem? target;
+    for (final item in _items) {
+      if (item.index == targetIndex) {
+        target = item;
+        break;
+      }
+    }
+    final callback = _onSwipe;
+    if (target == null || callback == null) return;
+
+    _animateNextRoute = true;
+    unawaited(
+      callback(target).whenComplete(() {
+        _animateNextRoute = false;
+      }),
+    );
+  }
+
+  static void cancelPointer() {
+    _pointer = null;
+    _startPosition = null;
+    _latestPosition = null;
+  }
+
+  static bool takeAnimatedRouteRequest() {
+    final animate = _animateNextRoute;
+    _animateNextRoute = false;
+    return animate;
+  }
+}
+
+class _MainNavSwipeRegistration {
+  const _MainNavSwipeRegistration({
+    required this.owner,
+    required this.items,
+    required this.currentIndex,
+    required this.onSwipe,
+  });
+
+  final Object owner;
+  final List<PixelBottomNavItem> items;
+  final int currentIndex;
+  final Future<void> Function(PixelBottomNavItem item) onSwipe;
+}
 
 PageRouteBuilder<T> buildMainNavRoute<T>({
   required Widget page,
   required int fromIndex,
   required int toIndex,
 }) {
+  final animate = MainNavSwipeController.takeAnimatedRouteRequest();
+  if (!animate) {
+    return PageRouteBuilder<T>(
+      pageBuilder: (context, animation, secondaryAnimation) => page,
+      transitionDuration: Duration.zero,
+      reverseTransitionDuration: Duration.zero,
+    );
+  }
+
   final enterFromRight = toIndex > fromIndex;
   final beginOffset = Offset(enterFromRight ? 1 : -1, 0);
 
@@ -18,15 +150,12 @@ PageRouteBuilder<T> buildMainNavRoute<T>({
       return ClipRect(
         child: SlideTransition(
           position: position,
-          child: ColoredBox(
-            color: const Color(0xFF100B08),
-            child: child,
-          ),
+          child: ColoredBox(color: const Color(0xFF100B08), child: child),
         ),
       );
     },
-    transitionDuration: const Duration(milliseconds: 420),
-    reverseTransitionDuration: const Duration(milliseconds: 360),
+    transitionDuration: const Duration(milliseconds: 280),
+    reverseTransitionDuration: const Duration(milliseconds: 240),
   );
 }
 
@@ -42,7 +171,7 @@ class PixelBottomNavItem {
   });
 }
 
-class PixelBottomNav extends StatelessWidget {
+class PixelBottomNav extends StatefulWidget {
   final List<PixelBottomNavItem> items;
   final int currentIndex;
   final Future<void> Function(PixelBottomNavItem item) onTap;
@@ -54,6 +183,9 @@ class PixelBottomNav extends StatelessWidget {
     required this.onTap,
   });
 
+  @override
+  State<PixelBottomNav> createState() => _PixelBottomNavState();
+
   static bool isCompactFor(BuildContext context) {
     final screenSize = MediaQuery.of(context).size;
     return screenSize.height < 900 || screenSize.width < 430;
@@ -62,10 +194,42 @@ class PixelBottomNav extends StatelessWidget {
   static double reservedHeightFor(BuildContext context) {
     return isCompactFor(context) ? 90 : 120;
   }
+}
+
+class _PixelBottomNavState extends State<PixelBottomNav> {
+  @override
+  void initState() {
+    super.initState();
+    _activateSwipe();
+  }
+
+  @override
+  void didUpdateWidget(covariant PixelBottomNav oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _activateSwipe();
+  }
+
+  @override
+  void dispose() {
+    MainNavSwipeController.deactivate(this);
+    super.dispose();
+  }
+
+  void _activateSwipe() {
+    MainNavSwipeController.activate(
+      owner: this,
+      items: widget.items,
+      currentIndex: widget.currentIndex,
+      onSwipe: (item) async {
+        if (!(ModalRoute.of(context)?.isCurrent ?? true)) return;
+        await widget.onTap(item);
+      },
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
-    final compact = isCompactFor(context);
+    final compact = PixelBottomNav.isCompactFor(context);
     final selectedHeight = compact ? 72.0 : 90.0;
     final itemHeight = compact ? 62.0 : 78.0;
     final topPadding = compact ? 12.0 : 22.0;
@@ -88,8 +252,8 @@ class PixelBottomNav extends StatelessWidget {
         padding: EdgeInsets.fromLTRB(7, topPadding, 7, bottomPadding),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.end,
-          children: items.map((item) {
-            final isSelected = currentIndex == item.index;
+          children: widget.items.map((item) {
+            final isSelected = widget.currentIndex == item.index;
             return Expanded(
               child: Padding(
                 padding: EdgeInsets.only(
@@ -98,7 +262,7 @@ class PixelBottomNav extends StatelessWidget {
                   top: isSelected ? 0 : 10,
                 ),
                 child: GestureDetector(
-                  onTap: () => onTap(item),
+                  onTap: () => widget.onTap(item),
                   child: AnimatedContainer(
                     duration: const Duration(milliseconds: 120),
                     height: isSelected ? selectedHeight : itemHeight,

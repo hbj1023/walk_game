@@ -15,6 +15,7 @@ class GameAudioService {
   static bool _backgroundStarting = false;
   static bool _initialized = false;
   static bool _appInForeground = true;
+  static int _playbackGeneration = 0;
   static AppSettingsData _settings = const AppSettingsData.defaults();
 
   static void initialize() {
@@ -31,13 +32,15 @@ class GameAudioService {
 
   static void setAppInForeground(bool isForeground) {
     initialize();
-    if (_appInForeground == isForeground) return;
-    _appInForeground = isForeground;
-    if (isForeground) {
-      unawaited(_applyBackgroundSettings());
-    } else {
+    if (!isForeground) {
+      _appInForeground = false;
+      _playbackGeneration++;
       unawaited(_stopAudioForBackground());
+      return;
     }
+    if (_appInForeground) return;
+    _appInForeground = true;
+    unawaited(_applyBackgroundSettings());
   }
 
   static Future<void> _stopAudioForBackground() async {
@@ -74,11 +77,13 @@ class GameAudioService {
   }
 
   static Future<void> _startBackgroundMusic() async {
+    final generation = _playbackGeneration;
     try {
       await _backgroundPlayer.setReleaseMode(ReleaseMode.loop);
       await _backgroundPlayer.setVolume(_backgroundVolume);
+      if (generation != _playbackGeneration || !_canPlayBackground) return;
       await _backgroundPlayer.play(AssetSource('audio/game_background.wav'));
-      if (!_canPlayBackground) {
+      if (generation != _playbackGeneration || !_canPlayBackground) {
         await _backgroundPlayer.stop();
         return;
       }
@@ -97,7 +102,12 @@ class GameAudioService {
     }
     try {
       if (!_canPlayBackground) {
-        await _backgroundPlayer.pause();
+        if (_appInForeground) {
+          await _backgroundPlayer.pause();
+        } else {
+          _backgroundStarted = false;
+          await _backgroundPlayer.stop();
+        }
         return;
       }
       await _backgroundPlayer.setVolume(_backgroundVolume);
