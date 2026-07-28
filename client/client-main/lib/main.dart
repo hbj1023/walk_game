@@ -77,6 +77,7 @@ class _AutoPowerSavingGate extends StatefulWidget {
 class _AutoPowerSavingGateState extends State<_AutoPowerSavingGate>
     with WidgetsBindingObserver {
   Timer? _idleTimer;
+  bool _appInForeground = true;
 
   @override
   void initState() {
@@ -97,9 +98,17 @@ class _AutoPowerSavingGateState extends State<_AutoPowerSavingGate>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
+      GameAudioService.setAppInForeground(true);
+      if (mounted) {
+        setState(() => _appInForeground = true);
+      }
       _scheduleAndroidImmersiveMode();
       _resetIdleTimer();
     } else {
+      GameAudioService.setAppInForeground(false);
+      if (mounted) {
+        setState(() => _appInForeground = false);
+      }
       _idleTimer?.cancel();
     }
   }
@@ -148,12 +157,15 @@ class _AutoPowerSavingGateState extends State<_AutoPowerSavingGate>
           },
           onPointerMove: (_) => _resetIdleTimer(),
           onPointerSignal: (_) => _resetIdleTimer(),
-          child: Stack(
-            children: [
-              widget.child ?? const SizedBox.shrink(),
-              if (showGlobalPowerSaving)
-                Positioned.fill(child: _buildGlobalPowerSavingView()),
-            ],
+          child: TickerMode(
+            enabled: _appInForeground,
+            child: Stack(
+              children: [
+                widget.child ?? const SizedBox.shrink(),
+                if (showGlobalPowerSaving)
+                  Positioned.fill(child: _buildGlobalPowerSavingView()),
+              ],
+            ),
           ),
         );
       },

@@ -9,10 +9,12 @@ class GameAudioService {
   GameAudioService._();
 
   static final AudioPlayer _backgroundPlayer = AudioPlayer();
+  static final Set<AudioPlayer> _effectPlayers = <AudioPlayer>{};
   static const double _backgroundBaseVolume = 0.22;
   static bool _backgroundStarted = false;
   static bool _backgroundStarting = false;
   static bool _initialized = false;
+  static bool _appInForeground = true;
   static AppSettingsData _settings = const AppSettingsData.defaults();
 
   static void initialize() {
@@ -25,6 +27,39 @@ class GameAudioService {
   static void _onSettingsChanged() {
     _settings = AppSettingsService.notifier.value;
     unawaited(_applyBackgroundSettings());
+  }
+
+  static void setAppInForeground(bool isForeground) {
+    initialize();
+    if (_appInForeground == isForeground) return;
+    _appInForeground = isForeground;
+    if (isForeground) {
+      unawaited(_applyBackgroundSettings());
+    } else {
+      unawaited(_stopAudioForBackground());
+    }
+  }
+
+  static Future<void> _stopAudioForBackground() async {
+    try {
+      if (_backgroundStarted) {
+        await _backgroundPlayer.pause();
+      }
+    } catch (error) {
+      debugPrint('Background music pause failed: $error');
+    }
+
+    final players = _effectPlayers.toList(growable: false);
+    for (final player in players) {
+      try {
+        await player.stop();
+        await player.dispose();
+      } catch (error) {
+        debugPrint('Sound effect stop failed: $error');
+      } finally {
+        _effectPlayers.remove(player);
+      }
+    }
   }
 
   static void ensureBackgroundMusic() {
@@ -45,6 +80,9 @@ class GameAudioService {
       await _backgroundPlayer.setVolume(_backgroundVolume);
       await _backgroundPlayer.play(AssetSource('audio/game_background.wav'));
       _backgroundStarted = true;
+      if (!_canPlayBackground) {
+        await _backgroundPlayer.pause();
+      }
     } catch (error) {
       debugPrint('Background music playback failed: $error');
     } finally {
@@ -70,11 +108,13 @@ class GameAudioService {
   }
 
   static bool get _canPlayBackground =>
+      _appInForeground &&
       _settings.soundEnabled &&
       _settings.bgmEnabled &&
       _settings.masterVolume > 0;
 
   static bool get _canPlayEffects =>
+      _appInForeground &&
       _settings.soundEnabled &&
       _settings.sfxEnabled &&
       _settings.masterVolume > 0;
@@ -105,6 +145,7 @@ class GameAudioService {
 
   static Future<void> _playOneShot(String assetPath, double volume) async {
     final player = AudioPlayer();
+    _effectPlayers.add(player);
     try {
       await player.setReleaseMode(ReleaseMode.release);
       await player.setVolume(
@@ -115,7 +156,9 @@ class GameAudioService {
     } catch (error) {
       debugPrint('Sound effect playback failed ($assetPath): $error');
     } finally {
-      await player.dispose();
+      if (_effectPlayers.remove(player)) {
+        await player.dispose();
+      }
     }
   }
 }
