@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:capstone_app/features/auth/pages/splash_page.dart';
@@ -7,8 +8,9 @@ import 'package:capstone_app/services/app_settings_service.dart';
 import 'package:capstone_app/services/game_audio_service.dart';
 import 'package:capstone_app/services/power_saving_route_observer.dart';
 
-void main() {
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await _applyAndroidImmersiveMode();
   SystemChrome.setSystemUIOverlayStyle(
     const SystemUiOverlayStyle(
       systemNavigationBarColor: Color(0xFF070302),
@@ -18,6 +20,11 @@ void main() {
   );
   GameAudioService.initialize();
   runApp(const MyApp());
+}
+
+Future<void> _applyAndroidImmersiveMode() async {
+  if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) return;
+  await SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
 }
 
 class MyApp extends StatelessWidget {
@@ -72,6 +79,7 @@ class _AutoPowerSavingGateState extends State<_AutoPowerSavingGate>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
+      unawaited(_applyAndroidImmersiveMode());
       _resetIdleTimer();
     } else {
       _idleTimer?.cancel();
