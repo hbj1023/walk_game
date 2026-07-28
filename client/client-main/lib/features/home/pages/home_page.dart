@@ -934,7 +934,9 @@ class _HomePageState extends State<HomePage>
     final completedCount = dailyMissions
         .where((mission) => mission.isClaimed || mission.progress >= 1.0)
         .length;
-    return (completedCount / dailyMissions.length).clamp(0.0, 1.0).toDouble();
+    return (completedCount / dailyMissions.length)
+        .clamp(0.0, 1.0)
+        .toDouble();
   }
 
   UserMission? _nextDailyMission(List<UserMission> dailyMissions) {
@@ -958,6 +960,13 @@ class _HomePageState extends State<HomePage>
       return '완료 $completedCount/${dailyMissions.length} · 모두 달성';
     }
     return '완료 $completedCount/${dailyMissions.length} · ${nextMission.title} ${nextMission.progressValue.toInt()}/${nextMission.targetValue.toInt()}${nextMission.unit}';
+  }
+
+  Widget _buildPageFadeTransition(Animation<double> opacity, Widget child) {
+    return ColoredBox(
+      color: const Color(0xFF100B08),
+      child: FadeTransition(opacity: opacity, child: child),
+    );
   }
 
   Widget _buildBottomNav() {
@@ -993,41 +1002,73 @@ class _HomePageState extends State<HomePage>
       items: items,
       currentIndex: _currentNavIndex,
       onTap: (item) async {
-        if (item.index == _currentNavIndex) return;
-
-        Widget? page;
-        switch (item.index) {
-          case 0:
-            page = const ShopPage();
-            break;
-          case 1:
-            page = const InventoryPage();
-            break;
-          case 3:
-            page = const BattleStagePage();
-            break;
-          case 4:
-            page = const RaidListPage();
-            break;
-        }
-        if (page == null) return;
-
-        if (item.index == 3) {
+        if (item.index == 0) {
+          Navigator.push(
+            context,
+            PageRouteBuilder(
+              pageBuilder: (context, _, _) => const ShopPage(),
+              transitionsBuilder: (context, animation, _, child) {
+                final curved = CurvedAnimation(
+                  parent: animation,
+                  curve: Curves.easeInOut,
+                );
+                return _buildPageFadeTransition(curved, child);
+              },
+              transitionDuration: const Duration(milliseconds: 300),
+            ),
+          ).then((_) => _returnHomeFromRoute());
+        } else if (item.index == 1) {
+          Navigator.push(
+            context,
+            PageRouteBuilder(
+              pageBuilder: (context, _, _) => const InventoryPage(),
+              transitionsBuilder: (context, animation, _, child) {
+                final curved = CurvedAnimation(
+                  parent: animation,
+                  curve: Curves.easeInOut,
+                );
+                return _buildPageFadeTransition(curved, child);
+              },
+              transitionDuration: const Duration(milliseconds: 300),
+            ),
+          ).then((_) => _returnHomeFromRoute());
+        } else if (item.index == 4) {
+          Navigator.push(
+            context,
+            PageRouteBuilder(
+              pageBuilder: (context, _, _) => const RaidListPage(),
+              transitionsBuilder: (context, animation, _, child) {
+                final curved = CurvedAnimation(
+                  parent: animation,
+                  curve: Curves.easeInOut,
+                );
+                return _buildPageFadeTransition(curved, child);
+              },
+              transitionDuration: const Duration(milliseconds: 300),
+            ),
+          ).then((_) => _returnHomeFromRoute());
+        } else if (item.index == 3) {
           if (_stepTracker.isTracking) {
             await _stepTracker.stop();
             if (!mounted) return;
           }
+          Navigator.push(
+            context,
+            PageRouteBuilder(
+              pageBuilder: (context, _, _) => const BattleStagePage(),
+              transitionsBuilder: (context, animation, _, child) {
+                final curved = CurvedAnimation(
+                  parent: animation,
+                  curve: Curves.easeInOut,
+                );
+                return _buildPageFadeTransition(curved, child);
+              },
+              transitionDuration: const Duration(milliseconds: 300),
+            ),
+          ).then((_) => _returnHomeFromRoute());
+        } else {
+          setState(() => _currentNavIndex = item.index);
         }
-
-        await Navigator.push(
-          context,
-          buildMainNavRoute(
-            page: page,
-            fromIndex: _currentNavIndex,
-            toIndex: item.index,
-          ),
-        );
-        _returnHomeFromRoute();
       },
     );
   }

@@ -15,7 +15,6 @@ class GameAudioService {
   static bool _backgroundStarting = false;
   static bool _initialized = false;
   static bool _appInForeground = true;
-  static int _playbackGeneration = 0;
   static AppSettingsData _settings = const AppSettingsData.defaults();
 
   static void initialize() {
@@ -32,23 +31,22 @@ class GameAudioService {
 
   static void setAppInForeground(bool isForeground) {
     initialize();
-    if (!isForeground) {
-      _appInForeground = false;
-      _playbackGeneration++;
+    if (_appInForeground == isForeground) return;
+    _appInForeground = isForeground;
+    if (isForeground) {
+      unawaited(_applyBackgroundSettings());
+    } else {
       unawaited(_stopAudioForBackground());
-      return;
     }
-    if (_appInForeground) return;
-    _appInForeground = true;
-    unawaited(_applyBackgroundSettings());
   }
 
   static Future<void> _stopAudioForBackground() async {
-    _backgroundStarted = false;
     try {
-      await _backgroundPlayer.stop();
+      if (_backgroundStarted) {
+        await _backgroundPlayer.pause();
+      }
     } catch (error) {
-      debugPrint('Background music stop failed: $error');
+      debugPrint('Background music pause failed: $error');
     }
 
     final players = _effectPlayers.toList(growable: false);
@@ -77,17 +75,14 @@ class GameAudioService {
   }
 
   static Future<void> _startBackgroundMusic() async {
-    final generation = _playbackGeneration;
     try {
       await _backgroundPlayer.setReleaseMode(ReleaseMode.loop);
       await _backgroundPlayer.setVolume(_backgroundVolume);
-      if (generation != _playbackGeneration || !_canPlayBackground) return;
       await _backgroundPlayer.play(AssetSource('audio/game_background.wav'));
-      if (generation != _playbackGeneration || !_canPlayBackground) {
-        await _backgroundPlayer.stop();
-        return;
-      }
       _backgroundStarted = true;
+      if (!_canPlayBackground) {
+        await _backgroundPlayer.pause();
+      }
     } catch (error) {
       debugPrint('Background music playback failed: $error');
     } finally {
@@ -102,12 +97,7 @@ class GameAudioService {
     }
     try {
       if (!_canPlayBackground) {
-        if (_appInForeground) {
-          await _backgroundPlayer.pause();
-        } else {
-          _backgroundStarted = false;
-          await _backgroundPlayer.stop();
-        }
+        await _backgroundPlayer.pause();
         return;
       }
       await _backgroundPlayer.setVolume(_backgroundVolume);

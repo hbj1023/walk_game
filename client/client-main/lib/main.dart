@@ -7,7 +7,6 @@ import 'package:capstone_app/features/auth/pages/splash_page.dart';
 import 'package:capstone_app/services/app_settings_service.dart';
 import 'package:capstone_app/services/game_audio_service.dart';
 import 'package:capstone_app/services/power_saving_route_observer.dart';
-import 'package:capstone_app/widgets/pixel_bottom_nav.dart';
 
 Timer? _systemUiRestoreTimer;
 
@@ -152,25 +151,11 @@ class _AutoPowerSavingGateState extends State<_AutoPowerSavingGate>
             !AppSettingsService.customPowerSavingUiVisible.value;
         return Listener(
           behavior: HitTestBehavior.translucent,
-          onPointerDown: (event) {
+          onPointerDown: (_) {
             _resetIdleTimer();
             GameAudioService.ensureBackgroundMusic();
-            if (!showGlobalPowerSaving) {
-              MainNavSwipeController.pointerDown(event);
-            }
           },
-          onPointerMove: (event) {
-            _resetIdleTimer();
-            if (!showGlobalPowerSaving) {
-              MainNavSwipeController.pointerMove(event);
-            }
-          },
-          onPointerUp: (event) {
-            if (!showGlobalPowerSaving) {
-              MainNavSwipeController.pointerUp(event);
-            }
-          },
-          onPointerCancel: (_) => MainNavSwipeController.cancelPointer(),
+          onPointerMove: (_) => _resetIdleTimer(),
           onPointerSignal: (_) => _resetIdleTimer(),
           child: TickerMode(
             enabled: _appInForeground,

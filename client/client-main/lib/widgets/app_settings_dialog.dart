@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import 'package:capstone_app/app_build_info.dart';
 import 'package:capstone_app/services/app_settings_service.dart';
 import 'package:capstone_app/services/auth_service.dart';
 import 'package:capstone_app/services/battle_api_service.dart';
@@ -150,14 +149,6 @@ class _AppSettingsDialogState extends State<AppSettingsDialog> {
           : Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Align(
-                  alignment: Alignment.centerRight,
-                  child: Text(
-                    appVersionLabel,
-                    style: TextStyle(color: Colors.white38, fontSize: 11),
-                  ),
-                ),
-                const SizedBox(height: 8),
                 _menuTile(
                   icon: Icons.volume_up,
                   title: '사운드 설정',

@@ -1215,7 +1215,17 @@ class _RaidListPageState extends State<RaidListPage> {
     if (page == null) return;
     Navigator.pushReplacement(
       context,
-      buildMainNavRoute(page: page, fromIndex: 4, toIndex: index),
+      PageRouteBuilder(
+        pageBuilder: (context, _, _) => page!,
+        transitionsBuilder: (context, animation, _, child) {
+          final curved = CurvedAnimation(
+            parent: animation,
+            curve: Curves.easeInOut,
+          );
+          return FadeTransition(opacity: curved, child: child);
+        },
+        transitionDuration: const Duration(milliseconds: 300),
+      ),
     );
   }
 }

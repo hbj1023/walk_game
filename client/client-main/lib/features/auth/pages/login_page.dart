@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import 'package:capstone_app/app_build_info.dart';
 import 'package:capstone_app/features/auth/pages/signup_page.dart';
 import 'package:capstone_app/features/home/pages/home_page.dart';
 import 'package:capstone_app/services/app_settings_service.dart';
@@ -234,12 +233,6 @@ class _LoginPageState extends State<LoginPage> {
                           fontWeight: FontWeight.w800,
                         ),
                       ),
-                    ),
-                    const SizedBox(height: 4),
-                    const Text(
-                      appVersionLabel,
-                      textAlign: TextAlign.center,
-                      style: TextStyle(color: Colors.white54, fontSize: 11),
                     ),
                   ],
                 ),

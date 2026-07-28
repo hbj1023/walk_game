@@ -346,7 +346,7 @@ class _BattlePageState extends State<BattlePage>
         _consumables = consumables;
         _equippedWeaponType = equippedWeapons.isEmpty
             ? ''
-            : equippedWeapons.first.itemTemplate.effectiveWeaponType;
+            : equippedWeapons.first.itemTemplate.weaponType;
         if (!_isAttacking) {
           _currentPlayerSpritePath = _equippedWeaponIdleSprite;
           _currentPlayerSpriteFrameCount = _kPlayerAttackFrameCount;
@@ -2266,28 +2266,21 @@ class _BattlePageState extends State<BattlePage>
         }
         switch (item.index) {
           case 0:
-            _pushMainNavReplacement(const ShopPage(), targetIndex: 0);
+            _pushReplacement(const ShopPage());
             break;
           case 1:
-            _pushMainNavReplacement(const InventoryPage(), targetIndex: 1);
+            _pushReplacement(const InventoryPage());
             break;
           case 2:
-            _pushMainNavReplacement(const HomePage(), targetIndex: 2);
+            _pushReplacement(const HomePage());
             break;
           case 3:
             break;
           case 4:
-            _pushMainNavReplacement(const RaidListPage(), targetIndex: 4);
+            _pushReplacement(const RaidListPage());
             break;
         }
       },
-    );
-  }
-
-  void _pushMainNavReplacement(Widget page, {required int targetIndex}) {
-    Navigator.pushReplacement(
-      context,
-      buildMainNavRoute(page: page, fromIndex: 3, toIndex: targetIndex),
     );
   }
 
