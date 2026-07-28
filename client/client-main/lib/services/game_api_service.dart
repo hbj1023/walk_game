@@ -92,7 +92,57 @@ class ItemTemplate {
 
   bool get isEquipment => itemType == 'equipment';
   bool get isConsumable => itemType == 'consumable';
-  bool get isWeapon => equipmentSlot == 'sword';
+  bool get isWeapon =>
+      equipmentSlot.trim().toLowerCase() == 'sword' ||
+      setPieceType.trim().toLowerCase() == 'weapon';
+
+  String get effectiveWeaponType {
+    const supportedTypes = {
+      'sword',
+      'dagger',
+      'axe',
+      'spear',
+      'greatsword',
+    };
+    final explicitType = weaponType.trim().toLowerCase();
+    if (supportedTypes.contains(explicitType)) return explicitType;
+
+    final normalizedSetKey = setKey.trim().toLowerCase();
+    final setWeaponType = switch (normalizedSetKey) {
+      'vanguard' || 'chapter1-adventurer' || 'quarry_swordsman' => 'sword',
+      'berserker' || 'quarry_berserker' => 'axe',
+      'sentinel' || 'quarry_spearmaster' => 'spear',
+      'shadow' || 'poison_assassin' || 'quarry_rogue' => 'dagger',
+      'colossus' || 'crusher' || 'riftbreaker' || 'quarry_knight' =>
+        'greatsword',
+      _ => '',
+    };
+    if (setWeaponType.isNotEmpty) return setWeaponType;
+
+    if (name.contains('대검')) return 'greatsword';
+    if (name.contains('도끼')) return 'axe';
+    if (name.contains('창')) return 'spear';
+    if (name.contains('단검')) return 'dagger';
+    if (name.contains('검')) return 'sword';
+
+    final lowerName = name.toLowerCase();
+    if (lowerName.contains('greatsword') || lowerName.contains('colossus')) {
+      return 'greatsword';
+    }
+    if (lowerName.contains('axe') || lowerName.contains('berserker')) {
+      return 'axe';
+    }
+    if (lowerName.contains('spear') || lowerName.contains('sentinel')) {
+      return 'spear';
+    }
+    if (lowerName.contains('dagger') || lowerName.contains('shadow')) {
+      return 'dagger';
+    }
+    if (lowerName.contains('sword') || lowerName.contains('vanguard')) {
+      return 'sword';
+    }
+    return '';
+  }
   String get normalizedName => name.replaceAll(' ', '').trim();
   bool get isBossEntranceTicket =>
       normalizedName == kBossEntranceTicketName.replaceAll(' ', '');

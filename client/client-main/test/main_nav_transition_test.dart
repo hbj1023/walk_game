@@ -34,12 +34,36 @@ void main() {
     await tester.pumpAndSettle();
     expect(tester.getTopLeft(find.byKey(const Key('target-page'))).dx, 0);
   });
+
+  testWidgets('화면 교체 방식에서도 전체 페이지가 슬라이드된다', (
+    tester,
+  ) async {
+    await _pumpTransitionHarness(
+      tester,
+      fromIndex: 1,
+      toIndex: 3,
+      replace: true,
+    );
+
+    await tester.tap(find.byKey(const Key('open-target')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 80));
+
+    expect(
+      tester.getTopLeft(find.byKey(const Key('target-page'))).dx,
+      greaterThan(0),
+    );
+
+    await tester.pumpAndSettle();
+    expect(tester.getTopLeft(find.byKey(const Key('target-page'))).dx, 0);
+  });
 }
 
 Future<void> _pumpTransitionHarness(
   WidgetTester tester, {
   required int fromIndex,
   required int toIndex,
+  bool replace = false,
 }) async {
   await tester.pumpWidget(
     MaterialApp(
@@ -49,17 +73,19 @@ Future<void> _pumpTransitionHarness(
             child: ElevatedButton(
               key: const Key('open-target'),
               onPressed: () {
-                Navigator.push(
-                  context,
-                  buildMainNavRoute(
-                    page: const ColoredBox(
-                      key: Key('target-page'),
-                      color: Colors.black,
-                    ),
-                    fromIndex: fromIndex,
-                    toIndex: toIndex,
+                final route = buildMainNavRoute(
+                  page: const ColoredBox(
+                    key: Key('target-page'),
+                    color: Colors.black,
                   ),
+                  fromIndex: fromIndex,
+                  toIndex: toIndex,
                 );
+                if (replace) {
+                  Navigator.pushReplacement(context, route);
+                } else {
+                  Navigator.push(context, route);
+                }
               },
               child: const Text('열기'),
             ),

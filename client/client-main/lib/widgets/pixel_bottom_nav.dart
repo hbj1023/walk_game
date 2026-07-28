@@ -15,10 +15,13 @@ PageRouteBuilder<T> buildMainNavRoute<T>({
           .animate(
             CurvedAnimation(parent: animation, curve: Curves.easeInOutCubic),
           );
-      return ColoredBox(
-        color: const Color(0xFF100B08),
-        child: ClipRect(
-          child: SlideTransition(position: position, child: child),
+      return ClipRect(
+        child: SlideTransition(
+          position: position,
+          child: ColoredBox(
+            color: const Color(0xFF100B08),
+            child: child,
+          ),
         ),
       );
     },
