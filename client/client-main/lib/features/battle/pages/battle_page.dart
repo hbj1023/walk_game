@@ -108,6 +108,7 @@ class _BattlePageState extends State<BattlePage>
   int _currentPlayerSpriteFrameCount = _kPlayerAttackFrameCount;
   int _playerAnimationFrame = 0;
   double _playerSpriteOffsetY = 0;
+  Timer? _playerIdleAnimationTimer;
   bool _isAttacking = false;
   bool _isLeavingBattle = false;
   bool _isUsingConsumable = false;
@@ -164,10 +165,7 @@ class _BattlePageState extends State<BattlePage>
       _kPlayerAttackSpritesByWeapon[_equippedWeaponType] ??
       'assets/images/character/attack2_up.png';
 
-  String get _equippedWeaponIdleSprite =>
-      _kSupportedPlayerWeaponTypes.contains(_equippedWeaponType)
-      ? 'assets/images/character/weapon_attacks/idle_up_$_equippedWeaponType.png'
-      : _kPlayerIdleSprite;
+  String get _equippedWeaponIdleSprite => _kPlayerIdleSprite;
 
   String get _equippedWeaponRunSprite =>
       _kSupportedPlayerWeaponTypes.contains(_equippedWeaponType)
@@ -200,6 +198,7 @@ class _BattlePageState extends State<BattlePage>
           : null,
     )..addListener(_onStepTrackerChanged);
     _applyResult(widget.initialResult, clearDamageText: true);
+    _startPlayerIdleAnimation();
     _syncActiveBattleMarker();
     _loadAppSettings();
     _loadUserName();
@@ -220,12 +219,33 @@ class _BattlePageState extends State<BattlePage>
 
   @override
   void dispose() {
+    _playerIdleAnimationTimer?.cancel();
     unawaited(_stepTracker.stop(syncPending: true, updateState: false));
     _stepTracker.removeListener(_onStepTrackerChanged);
     _stepTracker.dispose();
     AppSettingsService.notifier.removeListener(_onAppSettingsChanged);
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
+  }
+
+  void _startPlayerIdleAnimation() {
+    _playerIdleAnimationTimer?.cancel();
+    _playerIdleAnimationTimer = Timer.periodic(
+      const Duration(milliseconds: 100),
+      (_) {
+        if (!mounted ||
+            _isAttacking ||
+            _battleEnded ||
+            _appSettings.powerSavingMode ||
+            _currentPlayerSpritePath != _kPlayerIdleSprite) {
+          return;
+        }
+        setState(() {
+          _playerAnimationFrame =
+              (_playerAnimationFrame + 1) % _kPlayerAttackFrameCount;
+        });
+      },
+    );
   }
 
   @override
@@ -530,6 +550,7 @@ class _BattlePageState extends State<BattlePage>
     if (!mounted) return;
     setState(() {
       _currentPlayerSpritePath = _equippedWeaponIdleSprite;
+      _currentPlayerSpriteFrameCount = _kPlayerAttackFrameCount;
       _playerAnimationFrame = 0;
       _playerSpriteOffsetY = 0;
     });
