@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:capstone_app/features/auth/pages/password_reset_page.dart';
 import 'package:capstone_app/features/auth/pages/splash_page.dart';
 import 'package:capstone_app/services/app_settings_service.dart';
 import 'package:capstone_app/services/game_audio_service.dart';
@@ -50,6 +51,9 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final resetToken = kIsWeb
+        ? (Uri.base.queryParameters['resetToken'] ?? '').trim()
+        : '';
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'Walk Master', //앱 이름
@@ -60,7 +64,9 @@ class MyApp extends StatelessWidget {
       navigatorObservers: [powerSavingRouteObserver],
       builder: (context, child) =>
           _MobileFrame(child: _AutoPowerSavingGate(child: child)),
-      home: const SplashPage(),
+      home: resetToken.isEmpty
+          ? const SplashPage()
+          : PasswordResetPage(token: resetToken),
     );
   }
 }

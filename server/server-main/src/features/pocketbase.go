@@ -89,6 +89,56 @@ func loginPocketBaseUser(ctx context.Context, req LoginRequest) (pocketBaseAuthR
 	return auth, nil
 }
 
+func requestPocketBasePasswordReset(ctx context.Context, email string) error {
+	resp, err := pocketBaseRequest(
+		ctx,
+		http.MethodPost,
+		pocketBasePasswordResetRequestURL(),
+		"",
+		map[string]any{"email": email},
+	)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
+		return nil
+	}
+
+	return statusError{
+		status:  http.StatusBadGateway,
+		message: "password reset request failed",
+	}
+}
+
+func confirmPocketBasePasswordReset(ctx context.Context, request passwordResetConfirmRequest) error {
+	resp, err := pocketBaseRequest(
+		ctx,
+		http.MethodPost,
+		pocketBasePasswordResetConfirmURL(),
+		"",
+		map[string]any{
+			"token":           request.Token,
+			"password":        request.Password,
+			"passwordConfirm": request.PasswordConfirm,
+		},
+	)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
+		return nil
+	}
+
+	return statusError{
+		status:  http.StatusBadRequest,
+		message: "password reset confirmation failed",
+	}
+}
+
 func refreshAuth(ctx context.Context, authorization string) (pocketBaseUser, string, error) {
 	token := strings.TrimSpace(strings.TrimPrefix(authorization, "Bearer "))
 	if token == "" || !strings.HasPrefix(authorization, "Bearer ") {
@@ -278,6 +328,22 @@ func pocketBaseAuthWithPasswordURL() string {
 
 func pocketBaseAuthRefreshURL() string {
 	return fmt.Sprintf("%s/api/collections/%s/auth-refresh", pocketBaseURL(), usersCollection)
+}
+
+func pocketBasePasswordResetRequestURL() string {
+	return fmt.Sprintf(
+		"%s/api/collections/%s/request-password-reset",
+		pocketBaseURL(),
+		usersCollection,
+	)
+}
+
+func pocketBasePasswordResetConfirmURL() string {
+	return fmt.Sprintf(
+		"%s/api/collections/%s/confirm-password-reset",
+		pocketBaseURL(),
+		usersCollection,
+	)
 }
 
 func statusCodeForError(err error, fallback int) int {

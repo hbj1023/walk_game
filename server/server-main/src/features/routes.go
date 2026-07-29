@@ -9,6 +9,8 @@ import (
 func RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("/register", registerHandler)
 	mux.HandleFunc("/login", loginHandler)
+	mux.HandleFunc("/password-reset/request", passwordResetRequestHandler)
+	mux.HandleFunc("/password-reset/confirm", passwordResetConfirmHandler)
 	mux.HandleFunc("/main", mainHandler)
 	mux.HandleFunc("/steps/sync", stepSyncHandler)
 	mux.HandleFunc("/api/events/gold-mine/status", goldMineEventStatusHandler)

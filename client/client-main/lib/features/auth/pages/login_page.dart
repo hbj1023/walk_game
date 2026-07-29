@@ -27,6 +27,7 @@ class _LoginPageState extends State<LoginPage> {
   final FocusNode _passwordFocusNode = FocusNode();
 
   bool _isLoading = false;
+  bool _isResettingPassword = false;
   bool _obscurePassword = true;
   String? _emailNotice;
   String? _passwordNotice;
@@ -34,6 +35,7 @@ class _LoginPageState extends State<LoginPage> {
   static final RegExp _hangulRegex = RegExp(r'[가-힣]');
   static final RegExp _upperAlphaRegex = RegExp(r'[A-Z]');
   static final RegExp _lowerAlphaRegex = RegExp(r'[a-z]');
+  bool get _isBusy => _isLoading || _isResettingPassword;
 
   @override
   void initState() {
@@ -109,7 +111,7 @@ class _LoginPageState extends State<LoginPage> {
   }
 
   Future<void> _login() async {
-    if (_isLoading) return;
+    if (_isBusy) return;
 
     final email = _emailController.text.trim();
     final password = _pwController.text.trim();
@@ -165,7 +167,7 @@ class _LoginPageState extends State<LoginPage> {
   }
 
   Future<void> _goToSignUp() async {
-    if (_isLoading) return;
+    if (_isBusy) return;
 
     final signedUpEmail = await Navigator.push<String>(
       context,
@@ -190,6 +192,147 @@ class _LoginPageState extends State<LoginPage> {
     }
   }
 
+  Future<void> _requestPasswordReset() async {
+    if (_isBusy) return;
+
+    final email = await _showPasswordResetEmailDialog();
+    if (!mounted || email == null) return;
+
+    setState(() => _isResettingPassword = true);
+    try {
+      final message = await AuthService.requestPasswordReset(email: email);
+      _emailController.text = email;
+      _showSnackBar(message);
+    } on AuthException catch (error) {
+      _showSnackBar(error.message);
+    } catch (_) {
+      _showSnackBar('비밀번호 재설정 요청 중 문제가 발생했습니다. 잠시 후 다시 시도해주세요.');
+    } finally {
+      if (mounted) setState(() => _isResettingPassword = false);
+    }
+  }
+
+  Future<String?> _showPasswordResetEmailDialog() async {
+    final controller = TextEditingController(
+      text: _emailController.text.trim(),
+    );
+    String? errorText;
+    final result = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              backgroundColor: const Color(0xFF10251B),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+                side: const BorderSide(color: _kAuthBrown, width: 2),
+              ),
+              title: const Text(
+                '비밀번호 찾기',
+                style: TextStyle(
+                  fontFamily: 'Galmuri',
+                  color: _kAuthGold,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    const Text(
+                      '가입할 때 사용한 이메일로 비밀번호 재설정 안내를 보내드립니다.',
+                      style: TextStyle(color: Colors.white70, height: 1.45),
+                    ),
+                    const SizedBox(height: 16),
+                    TextField(
+                      controller: controller,
+                      autofocus: true,
+                      keyboardType: TextInputType.emailAddress,
+                      textInputAction: TextInputAction.done,
+                      inputFormatters: const [_EmailLowerCaseFormatter()],
+                      autocorrect: false,
+                      enableSuggestions: false,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w700,
+                      ),
+                      decoration: InputDecoration(
+                        filled: true,
+                        fillColor: _kAuthField,
+                        hintText: '이메일을 입력하세요',
+                        errorText: errorText,
+                        prefixIcon: const Icon(
+                          Icons.email_outlined,
+                          color: Colors.white70,
+                        ),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(6),
+                          borderSide: const BorderSide(color: _kAuthBrown),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(6),
+                          borderSide: const BorderSide(color: _kAuthBrown),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(6),
+                          borderSide: const BorderSide(
+                            color: _kAuthGold,
+                            width: 2,
+                          ),
+                        ),
+                      ),
+                      onSubmitted: (_) {
+                        final email = controller.text.trim().toLowerCase();
+                        if (!email.contains('@')) {
+                          setDialogState(() {
+                            errorText = '이메일 형식을 확인해주세요.';
+                          });
+                          return;
+                        }
+                        Navigator.pop(dialogContext, email);
+                      },
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(dialogContext),
+                  child: const Text(
+                    '취소',
+                    style: TextStyle(color: Colors.white70),
+                  ),
+                ),
+                FilledButton.icon(
+                  onPressed: () {
+                    final email = controller.text.trim().toLowerCase();
+                    if (!email.contains('@')) {
+                      setDialogState(() {
+                        errorText = '이메일 형식을 확인해주세요.';
+                      });
+                      return;
+                    }
+                    Navigator.pop(dialogContext, email);
+                  },
+                  icon: const Icon(Icons.mail_outline, size: 18),
+                  label: const Text('재설정 메일 보내기'),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: _kAuthRed,
+                    foregroundColor: Colors.white,
+                  ),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+    controller.dispose();
+    return result;
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -210,6 +353,8 @@ class _LoginPageState extends State<LoginPage> {
                     const SizedBox(height: 22),
                     _LoginPanel(
                       isLoading: _isLoading,
+                      isBusy: _isBusy,
+                      isResettingPassword: _isResettingPassword,
                       emailController: _emailController,
                       passwordController: _pwController,
                       emailFocusNode: _emailFocusNode,
@@ -221,10 +366,11 @@ class _LoginPageState extends State<LoginPage> {
                         setState(() => _obscurePassword = !_obscurePassword);
                       },
                       onLogin: _login,
+                      onForgotPassword: _requestPasswordReset,
                     ),
                     const SizedBox(height: 14),
                     TextButton(
-                      onPressed: _isLoading ? null : _goToSignUp,
+                      onPressed: _isBusy ? null : _goToSignUp,
                       child: const Text(
                         '처음 오셨나요? 모험가 등록',
                         style: TextStyle(
@@ -247,6 +393,8 @@ class _LoginPageState extends State<LoginPage> {
 
 class _LoginPanel extends StatelessWidget {
   final bool isLoading;
+  final bool isBusy;
+  final bool isResettingPassword;
   final TextEditingController emailController;
   final TextEditingController passwordController;
   final FocusNode emailFocusNode;
@@ -256,9 +404,12 @@ class _LoginPanel extends StatelessWidget {
   final String? passwordNotice;
   final VoidCallback onTogglePassword;
   final VoidCallback onLogin;
+  final VoidCallback onForgotPassword;
 
   const _LoginPanel({
     required this.isLoading,
+    required this.isBusy,
+    required this.isResettingPassword,
     required this.emailController,
     required this.passwordController,
     required this.emailFocusNode,
@@ -268,6 +419,7 @@ class _LoginPanel extends StatelessWidget {
     required this.passwordNotice,
     required this.onTogglePassword,
     required this.onLogin,
+    required this.onForgotPassword,
   });
 
   @override
@@ -343,16 +495,30 @@ class _LoginPanel extends StatelessWidget {
             textInputAction: TextInputAction.done,
             noticeText: passwordNotice,
             onChanged: (_) {},
-            onFieldSubmitted: (_) => isLoading ? null : onLogin(),
+            onFieldSubmitted: (_) => isBusy ? null : onLogin(),
             suffixIcon: _VisibilityButton(
               visible: !obscurePassword,
-              onTap: isLoading ? null : onTogglePassword,
+              onTap: isBusy ? null : onTogglePassword,
             ),
           ),
-          const SizedBox(height: 22),
+          Align(
+            alignment: Alignment.centerRight,
+            child: TextButton(
+              onPressed: isBusy ? null : onForgotPassword,
+              child: Text(
+                isResettingPassword ? '메일 발송 중...' : '비밀번호를 잊으셨나요?',
+                style: const TextStyle(
+                  color: _kAuthGold,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 10),
           _PixelActionButton(
             label: isLoading ? '로그인 중...' : '로그인',
-            onTap: isLoading ? null : onLogin,
+            onTap: isBusy ? null : onLogin,
           ),
         ],
       ),

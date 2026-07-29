@@ -103,6 +103,58 @@ class AuthService {
     }
   }
 
+  static Future<String> requestPasswordReset({required String email}) async {
+    final normalizedEmail = email.trim().toLowerCase();
+    final response = await _sendWithTimeout(
+      http.post(
+        _apiUri('/password-reset/request'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'email': normalizedEmail}),
+      ),
+      timeoutMessage: '비밀번호 재설정 요청 시간이 초과되었습니다. 잠시 후 다시 시도해주세요.',
+    );
+    final body = await _decodeBody(
+      response,
+      fallbackMessage: '비밀번호 재설정 메일을 보내지 못했습니다.',
+    );
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw AuthException(
+        _extractErrorMessage(body, '비밀번호 재설정 메일을 보내지 못했습니다.'),
+      );
+    }
+    return (body['message'] as String?)?.trim().isNotEmpty == true
+        ? (body['message'] as String).trim()
+        : '가입된 이메일이라면 비밀번호 재설정 안내를 보냈습니다. 메일함과 스팸함을 확인해주세요.';
+  }
+
+  static Future<String> confirmPasswordReset({
+    required String token,
+    required String password,
+  }) async {
+    final response = await _sendWithTimeout(
+      http.post(
+        _apiUri('/password-reset/confirm'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'token': token.trim(),
+          'password': password,
+          'passwordConfirm': password,
+        }),
+      ),
+      timeoutMessage: '비밀번호 변경 시간이 초과되었습니다. 잠시 후 다시 시도해주세요.',
+    );
+    final body = await _decodeBody(
+      response,
+      fallbackMessage: '비밀번호를 변경하지 못했습니다.',
+    );
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw AuthException(_extractErrorMessage(body, '비밀번호를 변경하지 못했습니다.'));
+    }
+    return (body['message'] as String?)?.trim().isNotEmpty == true
+        ? (body['message'] as String).trim()
+        : '비밀번호가 변경되었습니다. 새 비밀번호로 로그인해주세요.';
+  }
+
   static Future<String?> getSavedToken() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getString(_tokenKey);
