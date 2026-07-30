@@ -31,22 +31,23 @@ class GameAudioService {
 
   static void setAppInForeground(bool isForeground) {
     initialize();
-    if (_appInForeground == isForeground) return;
-    _appInForeground = isForeground;
-    if (isForeground) {
-      unawaited(_applyBackgroundSettings());
-    } else {
+    if (!isForeground) {
+      _appInForeground = false;
       unawaited(_stopAudioForBackground());
+      return;
     }
+
+    if (_appInForeground) return;
+    _appInForeground = true;
+    unawaited(_applyBackgroundSettings());
   }
 
   static Future<void> _stopAudioForBackground() async {
+    _backgroundStarted = false;
     try {
-      if (_backgroundStarted) {
-        await _backgroundPlayer.pause();
-      }
+      await _backgroundPlayer.stop();
     } catch (error) {
-      debugPrint('Background music pause failed: $error');
+      debugPrint('Background music stop failed: $error');
     }
 
     final players = _effectPlayers.toList(growable: false);
@@ -79,10 +80,11 @@ class GameAudioService {
       await _backgroundPlayer.setReleaseMode(ReleaseMode.loop);
       await _backgroundPlayer.setVolume(_backgroundVolume);
       await _backgroundPlayer.play(AssetSource('audio/game_background.wav'));
-      _backgroundStarted = true;
       if (!_canPlayBackground) {
-        await _backgroundPlayer.pause();
+        await _backgroundPlayer.stop();
+        return;
       }
+      _backgroundStarted = true;
     } catch (error) {
       debugPrint('Background music playback failed: $error');
     } finally {
