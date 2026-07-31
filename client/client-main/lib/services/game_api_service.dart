@@ -1681,7 +1681,16 @@ class GameApiService {
   static void _applyStepSyncResult(StepSyncResult result) {
     GameState.instance.setAttackCountBalance(result.attackCountBalance);
     GameState.instance.setBossTicketFragments(result.bossTicketFragmentBalance);
-    OfflineAttackNotificationService.configure(
+    unawaited(_configureOfflineAttackNotification(result));
+  }
+
+  static Future<void> _configureOfflineAttackNotification(
+    StepSyncResult result,
+  ) async {
+    final userId = (await AuthService.getSavedUserId())?.trim() ?? '';
+    if (userId.isEmpty) return;
+    await OfflineAttackNotificationService.configure(
+      userId: userId,
       currentBalance: result.attackCountBalance,
       capacity: result.offlineAttackCountCap,
       offlineAttackDistanceM: result.offlineAttackDistanceM,

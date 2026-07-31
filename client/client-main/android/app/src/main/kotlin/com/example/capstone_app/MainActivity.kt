@@ -35,11 +35,16 @@ class MainActivity : FlutterActivity() {
                 "ensureNotificationPermission" -> ensureNotificationPermission(result)
                 "configure" -> {
                     configureOfflineNotification(
+                        userId = call.argument<String>("userId") ?: "",
                         currentBalance = (call.argument<Number>("currentBalance") ?: 0).toInt(),
                         capacity = (call.argument<Number>("capacity") ?: 0).toInt(),
                         attackDistanceM = (call.argument<Number>("offlineAttackDistanceM") ?: 0).toFloat(),
                         remainderM = (call.argument<Number>("attackDistanceRemainderM") ?: 0).toFloat(),
                     )
+                    result.success(null)
+                }
+                "clear" -> {
+                    clearOfflineNotification()
                     result.success(null)
                 }
                 "updateBalance" -> {
@@ -77,6 +82,7 @@ class MainActivity : FlutterActivity() {
     }
 
     private fun configureOfflineNotification(
+        userId: String,
         currentBalance: Int,
         capacity: Int,
         attackDistanceM: Float,
@@ -87,6 +93,7 @@ class MainActivity : FlutterActivity() {
             Context.MODE_PRIVATE,
         )
         prefs.edit()
+            .putString(OfflineAttackNotificationWorker.KEY_USER_ID, userId.trim())
             .putInt(OfflineAttackNotificationWorker.KEY_CURRENT_BALANCE, currentBalance)
             .putInt(OfflineAttackNotificationWorker.KEY_CAPACITY, capacity)
             .putFloat(OfflineAttackNotificationWorker.KEY_ATTACK_DISTANCE_M, attackDistanceM)
@@ -97,6 +104,14 @@ class MainActivity : FlutterActivity() {
         }
         OfflineAttackNotificationWorker.createNotificationChannel(this)
         OfflineAttackNotificationWorker.schedule(this)
+    }
+
+    private fun clearOfflineNotification() {
+        getSharedPreferences(
+            OfflineAttackNotificationWorker.PREFS_NAME,
+            Context.MODE_PRIVATE,
+        ).edit().clear().apply()
+        OfflineAttackNotificationWorker.cancel(this)
     }
 
     private fun updateOfflineNotificationBalance(currentBalance: Int) {

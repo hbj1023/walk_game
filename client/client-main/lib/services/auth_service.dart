@@ -7,6 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'api_config.dart';
 import 'game_state.dart';
+import 'offline_attack_notification_service.dart';
 
 class AuthException implements Exception {
   final String message;
@@ -286,7 +287,13 @@ class AuthService {
   }
 
   static Future<void> logout() async {
+    await OfflineAttackNotificationService.clear();
     final prefs = await SharedPreferences.getInstance();
+    final userId = prefs.getString(_userIdKey)?.trim() ?? '';
+    if (userId.isNotEmpty) {
+      await prefs.remove('offline_steps.baseline.$userId');
+    }
+    await prefs.remove('step_tracking.last_sensor_count');
     await prefs.remove(_tokenKey);
     await prefs.remove(_userIdKey);
     await prefs.remove(_characterIdKey);

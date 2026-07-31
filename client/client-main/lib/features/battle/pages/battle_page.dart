@@ -250,8 +250,19 @@ class _BattlePageState extends State<BattlePage>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.detached && !_battleEnded) {
+    if (state == AppLifecycleState.resumed) {
+      if (!_battleEnded) {
+        unawaited(_stepTracker.start());
+      }
+      return;
+    }
+    if (state == AppLifecycleState.inactive ||
+        state == AppLifecycleState.hidden ||
+        state == AppLifecycleState.paused ||
+        state == AppLifecycleState.detached) {
       unawaited(_stepTracker.stop(syncPending: true, updateState: false));
+    }
+    if (state == AppLifecycleState.detached && !_battleEnded) {
       unawaited(
         (_isBossBattle
                 ? BattleApiService.leaveBossBattle(battleId: _battleId)

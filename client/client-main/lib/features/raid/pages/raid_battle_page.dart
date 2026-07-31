@@ -174,12 +174,16 @@ class _RaidBattlePageState extends State<RaidBattlePage>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      if (!_raidFinished) {
+        unawaited(_startRaidTracking());
+      }
+      return;
+    }
     if (state == AppLifecycleState.inactive ||
+        state == AppLifecycleState.hidden ||
         state == AppLifecycleState.paused ||
         state == AppLifecycleState.detached) {
-      unawaited(_syncPendingDistance(force: true));
-    }
-    if (state == AppLifecycleState.detached) {
       unawaited(_stopRaidTracking());
     }
   }
@@ -392,6 +396,7 @@ class _RaidBattlePageState extends State<RaidBattlePage>
     await _syncPendingDistance(force: true);
     if (!mounted) return;
     setState(() {
+      _lastStepSensorCount = null;
       _isStepTracking = false;
       _isStepStarting = false;
       _activityLabel = '걸음 추적 중지';

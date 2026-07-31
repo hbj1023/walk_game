@@ -5,7 +5,6 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:pedometer/pedometer.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 import 'game_api_service.dart';
 
@@ -54,7 +53,6 @@ class StepTrackingController extends ChangeNotifier {
   static const _gpsMaxAcceptedSpeedMps = 8.0;
   static const _gpsAssistMismatchMinM = 80.0;
   static const _gpsAssistMismatchRatio = 0.6;
-  static const _lastStepSensorCountPrefsKey = 'step_tracking.last_sensor_count';
   static const _activityPermissionChannel = MethodChannel(
     'cap1/activity_permission',
   );
@@ -332,7 +330,6 @@ class StepTrackingController extends ChangeNotifier {
     final currentSteps = event.steps;
     final previousSteps = _lastStepSensorCount;
     if (previousSteps == null) {
-      unawaited(_syncOfflineStepsFromBaseline(currentSteps));
       _change(() {
         _lastStepSensorCount = currentSteps;
         statusLabel = _buildStatus(note: '기준값 설정 완료');
@@ -341,7 +338,6 @@ class StepTrackingController extends ChangeNotifier {
     }
 
     if (currentSteps < previousSteps) {
-      unawaited(_saveLastStepSensorCount(currentSteps));
       _change(() {
         _lastStepSensorCount = currentSteps;
         statusLabel = _buildStatus(note: '걸음 센서 재설정');
@@ -358,63 +354,10 @@ class StepTrackingController extends ChangeNotifier {
       pendingStepCount += deltaSteps;
       statusLabel = _buildStatus();
     });
-    unawaited(_saveLastStepSensorCount(currentSteps));
 
     if (pendingStepCount >= _stepSyncThreshold) {
       unawaited(syncPendingSteps());
     }
-  }
-
-  Future<void> _syncOfflineStepsFromBaseline(int currentSteps) async {
-    final prefs = await SharedPreferences.getInstance();
-    final savedSteps = prefs.getInt(_lastStepSensorCountPrefsKey);
-    if (savedSteps == null || currentSteps <= savedSteps) {
-      await prefs.setInt(_lastStepSensorCountPrefsKey, currentSteps);
-      return;
-    }
-
-    final offlineStepCount = currentSteps - savedSteps;
-    if (offlineStepCount < _stepSyncThreshold || isSyncing) return;
-
-    isSyncing = true;
-    _change(() => statusLabel = _buildStatus(note: '오프라인 걸음 정산 중'));
-    try {
-      final result = await onSyncSteps(
-        StepSyncRequest(
-          stepCount: offlineStepCount,
-          strideM: strideM,
-          gpsDistanceM: 0,
-          abnormalReason: '',
-          syncType: 'offline',
-        ),
-      );
-      await prefs.setInt(_lastStepSensorCountPrefsKey, currentSteps);
-      if (!_isDisposed) {
-        await onSyncSuccess?.call(
-          result,
-          const StepSyncContext(allowPostSyncActions: false, updateState: true),
-        );
-      }
-      _change(() {
-        final lost = result.offlineAttackCountLost;
-        statusLabel = _buildStatus(
-          note: lost > 0
-              ? '오프라인 공격 +${result.attackCountEarned}, 초과 $lost'
-              : '오프라인 공격 +${result.attackCountEarned}',
-        );
-      });
-    } catch (error) {
-      if (!_isDisposed) {
-        onSyncError?.call(error);
-      }
-    } finally {
-      isSyncing = false;
-    }
-  }
-
-  Future<void> _saveLastStepSensorCount(int currentSteps) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setInt(_lastStepSensorCountPrefsKey, currentSteps);
   }
 
   void _handleStepCountError(Object error) {

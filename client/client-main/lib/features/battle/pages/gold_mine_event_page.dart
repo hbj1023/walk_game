@@ -83,6 +83,7 @@ class _GoldMineEventPageState extends State<GoldMineEventPage>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if ((state == AppLifecycleState.inactive ||
+            state == AppLifecycleState.hidden ||
             state == AppLifecycleState.paused ||
             state == AppLifecycleState.detached) &&
         _running) {

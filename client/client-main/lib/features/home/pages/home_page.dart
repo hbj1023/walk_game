@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import 'package:capstone_app/services/app_settings_service.dart';
@@ -6,6 +8,7 @@ import 'package:capstone_app/services/auth_service.dart';
 import 'package:capstone_app/services/battle_api_service.dart';
 import 'package:capstone_app/services/game_api_service.dart';
 import 'package:capstone_app/services/game_state.dart';
+import 'package:capstone_app/services/offline_step_reconciliation_service.dart';
 import 'package:capstone_app/services/step_tracking_controller.dart';
 import 'package:capstone_app/features/auth/pages/login_page.dart';
 import 'package:capstone_app/features/battle/pages/battle_stage_page.dart';
@@ -27,7 +30,10 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage>
-    with SingleTickerProviderStateMixin, CustomPowerSavingRouteAware<HomePage> {
+    with
+        SingleTickerProviderStateMixin,
+        WidgetsBindingObserver,
+        CustomPowerSavingRouteAware<HomePage> {
   static const _chapter1HomeBg = 'assets/images/bg/home_bg.png';
   static const _chapter2HomeBg =
       'assets/images/bg/home_bg_chapter2_shadow_forest.png';
@@ -54,6 +60,7 @@ class _HomePageState extends State<HomePage>
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _gs.addListener(_onGameStateChanged);
     AppSettingsService.notifier.addListener(_onAppSettingsChanged);
     _stepTracker = StepTrackingController.home(
@@ -88,6 +95,11 @@ class _HomePageState extends State<HomePage>
     )..repeat();
     _loadBgAspectRatio();
     _loadHomeBackgroundState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      unawaited(OfflineStepReconciliationService.instance.refreshAccount());
+      unawaited(_stepTracker.start());
+    });
   }
 
   String get _homeBgAsset {
@@ -191,12 +203,41 @@ class _HomePageState extends State<HomePage>
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    unawaited(_stepTracker.stop(syncPending: true, updateState: false));
     _stepTracker.removeListener(_onStepTrackerChanged);
     _stepTracker.dispose();
     _bgController.dispose();
     AppSettingsService.notifier.removeListener(_onAppSettingsChanged);
     _gs.removeListener(_onGameStateChanged);
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      unawaited(OfflineStepReconciliationService.instance.refreshAccount());
+      unawaited(_stepTracker.start());
+      return;
+    }
+    if (state == AppLifecycleState.inactive ||
+        state == AppLifecycleState.hidden ||
+        state == AppLifecycleState.paused ||
+        state == AppLifecycleState.detached) {
+      unawaited(_stepTracker.stop(syncPending: true, updateState: false));
+    }
+  }
+
+  @override
+  void didPushNext() {
+    super.didPushNext();
+    unawaited(_stepTracker.stop(syncPending: true, updateState: false));
+  }
+
+  @override
+  void didPopNext() {
+    super.didPopNext();
+    unawaited(_stepTracker.start());
   }
 
   void _onGameStateChanged() {

@@ -36,11 +36,16 @@ class OfflineAttackNotificationWorker(
         }
 
         val prefs = applicationContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        val userId = prefs.getString(KEY_USER_ID, "")?.trim().orEmpty()
         val capacity = prefs.getInt(KEY_CAPACITY, 0)
         val currentBalance = prefs.getInt(KEY_CURRENT_BALANCE, 0)
         val attackDistanceM = prefs.getFloat(KEY_ATTACK_DISTANCE_M, 0f).toDouble()
         val remainderM = prefs.getFloat(KEY_REMAINDER_M, 0f).toDouble()
-        if (capacity <= 0 || currentBalance >= capacity || attackDistanceM <= 0) {
+        if (userId.isEmpty() ||
+            capacity <= 0 ||
+            currentBalance >= capacity ||
+            attackDistanceM <= 0
+        ) {
             return Result.success()
         }
 
@@ -48,8 +53,9 @@ class OfflineAttackNotificationWorker(
             "FlutterSharedPreferences",
             Context.MODE_PRIVATE,
         )
-        if (!flutterPrefs.contains(FLUTTER_LAST_SENSOR_STEPS)) return Result.success()
-        val baselineSteps = flutterPrefs.getLong(FLUTTER_LAST_SENSOR_STEPS, -1L)
+        val accountBaselineKey = "$FLUTTER_ACCOUNT_BASELINE_PREFIX$userId"
+        if (!flutterPrefs.contains(accountBaselineKey)) return Result.success()
+        val baselineSteps = flutterPrefs.getLong(accountBaselineKey, -1L)
         val currentSteps = readCurrentStepCounter() ?: return Result.retry()
         if (baselineSteps < 0 || currentSteps <= baselineSteps) return Result.success()
 
@@ -110,12 +116,14 @@ class OfflineAttackNotificationWorker(
 
     companion object {
         const val PREFS_NAME = "offline_attack_notification"
+        const val KEY_USER_ID = "user_id"
         const val KEY_CURRENT_BALANCE = "current_balance"
         const val KEY_CAPACITY = "capacity"
         const val KEY_ATTACK_DISTANCE_M = "offline_attack_distance_m"
         const val KEY_REMAINDER_M = "attack_distance_remainder_m"
         const val KEY_NOTIFIED_FULL = "notified_full"
-        private const val FLUTTER_LAST_SENSOR_STEPS = "flutter.step_tracking.last_sensor_count"
+        private const val FLUTTER_ACCOUNT_BASELINE_PREFIX =
+            "flutter.offline_steps.baseline."
         private const val STRIDE_M = 0.75
         private const val CHANNEL_ID = "offline_attack_full"
         private const val NOTIFICATION_ID = 1010
@@ -131,6 +139,11 @@ class OfflineAttackNotificationWorker(
                 ExistingPeriodicWorkPolicy.UPDATE,
                 request,
             )
+        }
+
+        fun cancel(context: Context) {
+            WorkManager.getInstance(context).cancelUniqueWork(WORK_NAME)
+            NotificationManagerCompat.from(context).cancel(NOTIFICATION_ID)
         }
 
         fun createNotificationChannel(context: Context) {

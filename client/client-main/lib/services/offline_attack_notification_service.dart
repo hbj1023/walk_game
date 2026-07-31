@@ -20,6 +20,7 @@ class OfflineAttackNotificationService {
   }
 
   static Future<void> configure({
+    required String userId,
     required int currentBalance,
     required int capacity,
     required double offlineAttackDistanceM,
@@ -28,6 +29,7 @@ class OfflineAttackNotificationService {
     if (!_isAndroid) return;
     try {
       await _channel.invokeMethod<void>('configure', {
+        'userId': userId,
         'currentBalance': currentBalance,
         'capacity': capacity,
         'offlineAttackDistanceM': offlineAttackDistanceM,
@@ -35,6 +37,15 @@ class OfflineAttackNotificationService {
       });
     } on PlatformException {
       // Notification support must never block step synchronization.
+    }
+  }
+
+  static Future<void> clear() async {
+    if (!_isAndroid) return;
+    try {
+      await _channel.invokeMethod<void>('clear');
+    } on PlatformException {
+      // Logout must still finish when the native bridge is unavailable.
     }
   }
 

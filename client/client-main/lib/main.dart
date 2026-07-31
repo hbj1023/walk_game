@@ -7,6 +7,7 @@ import 'package:capstone_app/features/auth/pages/password_reset_page.dart';
 import 'package:capstone_app/features/auth/pages/splash_page.dart';
 import 'package:capstone_app/services/app_settings_service.dart';
 import 'package:capstone_app/services/game_audio_service.dart';
+import 'package:capstone_app/services/offline_step_reconciliation_service.dart';
 import 'package:capstone_app/services/power_saving_route_observer.dart';
 
 Timer? _systemUiRestoreTimer;
@@ -91,11 +92,17 @@ class _AutoPowerSavingGateState extends State<_AutoPowerSavingGate>
     WidgetsBinding.instance.addObserver(this);
     AppSettingsService.notifier.addListener(_resetIdleTimer);
     AppSettingsService.load().then((_) => _resetIdleTimer());
+    unawaited(
+      OfflineStepReconciliationService.instance.setAppInForeground(true),
+    );
   }
 
   @override
   void dispose() {
     _idleTimer?.cancel();
+    unawaited(
+      OfflineStepReconciliationService.instance.setAppInForeground(false),
+    );
     AppSettingsService.notifier.removeListener(_resetIdleTimer);
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
@@ -105,6 +112,9 @@ class _AutoPowerSavingGateState extends State<_AutoPowerSavingGate>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
       GameAudioService.setAppInForeground(true);
+      unawaited(
+        OfflineStepReconciliationService.instance.setAppInForeground(true),
+      );
       if (mounted) {
         setState(() => _appInForeground = true);
       }
@@ -112,6 +122,9 @@ class _AutoPowerSavingGateState extends State<_AutoPowerSavingGate>
       _resetIdleTimer();
     } else {
       GameAudioService.setAppInForeground(false);
+      unawaited(
+        OfflineStepReconciliationService.instance.setAppInForeground(false),
+      );
       if (mounted) {
         setState(() => _appInForeground = false);
       }
