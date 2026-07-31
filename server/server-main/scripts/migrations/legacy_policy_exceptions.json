@@ -1,0 +1,12 @@
+{
+  "20260716100000_add_gold_mine_event_runs.js": [
+    "empty-catch",
+    "destructive"
+  ],
+  "20260726020000_reapply_chapter_balance_and_gold_mine_resume.js": [
+    "schema-data-combined"
+  ],
+  "20260727020000_repair_riftbreaker_set_links.js": [
+    "destructive"
+  ]
+}

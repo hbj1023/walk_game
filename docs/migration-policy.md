@@ -5,6 +5,8 @@
 - Every migration through `20260715240000` is immutable production history.
 - Do not rename, delete, reorder, or edit a frozen migration.
 - Known duplicate ids are documented in `scripts/migrations/legacy_duplicate_ids.json` only so validation can report them without blocking future work.
+- Policy violations discovered in later migrations that are already applied to production are frozen by exact filename and rule in `scripts/migrations/legacy_policy_exceptions.json`. Do not edit an applied migration merely to satisfy validation.
+- A policy exception must still match a real violation. Missing files, unknown rules, and stale exceptions fail validation.
 - Repair a missed operation with a new unique migration. Never expand the legacy duplicate allowlist.
 
 ## Creating migrations
@@ -30,3 +32,5 @@ node server/server-main/scripts/migrations/validate.js
 ```
 
 The validator checks ids, JavaScript syntax, forbidden patterns, and new image references. Before deployment, back up `data.db`, rebuild the PocketBase image, apply migrations, and run content assertions. `No new migrations to apply` alone is not proof that content is correct. Rebuild the Flutter client separately when asset resolution changes.
+
+Do not add a legacy policy exception for a new migration. Split or rewrite the new migration to satisfy the policy before it is deployed. Exceptions are only for reviewed production history that cannot be safely renamed, split, or edited after application.
