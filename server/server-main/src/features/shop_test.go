@@ -13,6 +13,30 @@ func TestIsShopItemWindowActiveKeepsItemWhenDateIsBlank(t *testing.T) {
 	}
 }
 
+func TestLockShopPurchaseSerializesSameCharacter(t *testing.T) {
+	unlockFirst := lockShopPurchase("shop-lock-test-character")
+	acquiredSecond := make(chan struct{})
+
+	go func() {
+		unlockSecond := lockShopPurchase("shop-lock-test-character")
+		close(acquiredSecond)
+		unlockSecond()
+	}()
+
+	select {
+	case <-acquiredSecond:
+		t.Fatal("second purchase lock must wait for the first purchase")
+	case <-time.After(30 * time.Millisecond):
+	}
+
+	unlockFirst()
+	select {
+	case <-acquiredSecond:
+	case <-time.After(time.Second):
+		t.Fatal("second purchase lock was not released")
+	}
+}
+
 func TestIsShopItemWindowActiveAcceptsPocketBaseDateWithoutZone(t *testing.T) {
 	now := time.Date(2026, 5, 27, 12, 0, 0, 0, time.UTC)
 

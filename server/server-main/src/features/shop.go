@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -26,6 +27,7 @@ const (
 )
 
 var equipmentRarityOrder = []string{"common", "rare", "epic", "legendary", "mythic"}
+var shopPurchaseLocks sync.Map
 
 func shopsHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
@@ -930,6 +932,9 @@ func handleShopPurchase(w http.ResponseWriter, r *http.Request, token string, us
 		return
 	}
 
+	unlockPurchase := lockShopPurchase(req.CharacterID)
+	defer unlockPurchase()
+
 	var data map[string]any
 	var err error
 	if req.OfferID != "" {
@@ -943,6 +948,13 @@ func handleShopPurchase(w http.ResponseWriter, r *http.Request, token string, us
 	}
 
 	writeInventoryResponse(w, http.StatusOK, "shop item purchased", data)
+}
+
+func lockShopPurchase(characterID string) func() {
+	lockValue, _ := shopPurchaseLocks.LoadOrStore(characterID, &sync.Mutex{})
+	lock := lockValue.(*sync.Mutex)
+	lock.Lock()
+	return lock.Unlock
 }
 
 func handleShopRecommendations(w http.ResponseWriter, r *http.Request, token string, userID string, shopID string) {
