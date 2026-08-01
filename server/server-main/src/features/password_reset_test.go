@@ -63,6 +63,9 @@ func TestPasswordResetRequestHandlerUsesGenericSuccessMessage(t *testing.T) {
 	if response.Code != http.StatusOK {
 		t.Fatalf("expected status 200, got %d: %s", response.Code, response.Body.String())
 	}
+	if contentType := response.Header().Get("Content-Type"); contentType != "application/json; charset=utf-8" {
+		t.Fatalf("expected UTF-8 JSON content type, got %q", contentType)
+	}
 	if !strings.Contains(response.Body.String(), passwordResetRequestMessage) {
 		t.Fatalf("expected generic message, got %s", response.Body.String())
 	}

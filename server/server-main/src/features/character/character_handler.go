@@ -212,7 +212,7 @@ func (h *Handler) GetFinalStats(w http.ResponseWriter, r *http.Request) {
 
 // JSON 응답을 보내는 공통 함수다.
 func writeJSON(w http.ResponseWriter, statusCode int, data any) {
-	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	w.WriteHeader(statusCode)
 	json.NewEncoder(w).Encode(data)
 }
