@@ -29,6 +29,28 @@ class GameState extends ChangeNotifier {
   String get profileIconKey => _profileIconKey;
   String? get profileImageDataUrl => _profileImageDataUrl;
 
+  void setCharacterProgress({
+    required int coins,
+    required int level,
+    required int exp,
+    required int statExp,
+  }) {
+    final nextLevel = level < 1 ? 1 : level;
+    final nextExp = exp < 0 ? 0 : exp;
+    final nextStatExp = statExp < 0 ? 0 : statExp;
+    if (_coins == coins &&
+        _level == nextLevel &&
+        _exp == nextExp &&
+        _statExp == nextStatExp) {
+      return;
+    }
+    _coins = coins;
+    _level = nextLevel;
+    _exp = nextExp;
+    _statExp = nextStatExp;
+    notifyListeners();
+  }
+
   void setCoins(int value) {
     if (_coins == value) return;
     _coins = value;

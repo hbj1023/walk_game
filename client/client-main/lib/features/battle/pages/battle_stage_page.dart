@@ -550,14 +550,16 @@ class _BattleStagePageState extends State<BattleStagePage>
           : await BattleApiService.startNormalBattle(
               stageNo: selectedStage.stageNo,
             );
-      _gs.setCoins(result.character.coinBalance);
-      _gs.setLevel(result.character.level);
-      _gs.setExp(result.character.exp);
-      _gs.setStatExp(result.character.statExp);
+      _gs.setCharacterProgress(
+        coins: result.character.coinBalance,
+        level: result.character.level,
+        exp: result.character.exp,
+        statExp: result.character.statExp,
+      );
 
       if (!mounted) return;
       GameAudioService.playStageEnter();
-      Navigator.push(
+      Navigator.push<bool>(
         context,
         PageRouteBuilder(
           pageBuilder: (context, _, _) => BattlePage(
@@ -576,7 +578,10 @@ class _BattleStagePageState extends State<BattleStagePage>
           },
           transitionDuration: const Duration(milliseconds: 280),
         ),
-      );
+      ).then((returnHome) {
+        if (!mounted || returnHome != true) return;
+        Navigator.pop(context, true);
+      });
     } on BattleApiException catch (e) {
       errorMessage = e.message;
     } catch (_) {

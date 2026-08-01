@@ -17,7 +17,6 @@ import 'package:capstone_app/features/raid/pages/raid_list_page.dart';
 import 'package:capstone_app/features/shop/pages/shop_page.dart';
 import 'package:capstone_app/widgets/character_stats_panel.dart';
 import 'package:capstone_app/widgets/game_feedback.dart';
-import 'package:capstone_app/widgets/game_loading_screen.dart';
 import 'package:capstone_app/widgets/game_top_actions.dart';
 import 'package:capstone_app/widgets/player_level_badge.dart';
 import 'package:capstone_app/widgets/pixel_bottom_nav.dart';
@@ -40,7 +39,7 @@ class _HomePageState extends State<HomePage>
   static const _chapter3HomeBg =
       'assets/images/bg/home_bg_chapter3_ancient_quarry.png';
 
-  String _userName = '...';
+  String _userName = '모험가';
   int _currentNavIndex = 2;
   final _gs = GameState.instance;
   late final StepTrackingController _stepTracker;
@@ -51,7 +50,6 @@ class _HomePageState extends State<HomePage>
   bool _chapter2HomeBgUnlocked = false;
   bool _chapter3HomeBgUnlocked = false;
   AppSettingsData _appSettings = const AppSettingsData.defaults();
-  bool _profileLoading = true;
   String? _profileError;
   bool _missionLoading = true;
   String? _missionError;
@@ -198,7 +196,8 @@ class _HomePageState extends State<HomePage>
   void _returnHomeFromRoute() {
     if (!mounted) return;
     setState(() => _currentNavIndex = 2);
-    _loadHomeBackgroundState();
+    unawaited(_loadHomeBackgroundState());
+    unawaited(_loadMissions());
   }
 
   @override
@@ -253,20 +252,19 @@ class _HomePageState extends State<HomePage>
   }
 
   Future<void> _loadUserName() async {
-    if (mounted) {
-      setState(() {
-        _profileLoading = true;
-        _profileError = null;
-      });
-    }
+    final cachedName = await AuthService.getSavedName();
+    if (!mounted) return;
+    setState(() {
+      _userName = cachedName ?? '모험가';
+      _profileError = null;
+    });
+
     try {
-      await AuthService.fetchMainMessage(); // 토큰 갱신 + name sync
-      final name = await AuthService.getSavedName();
-      if (mounted) {
-        setState(() {
-          _userName = name ?? '모험가';
-          _profileLoading = false;
-        });
+      await AuthService.fetchMainMessage();
+      final refreshedName = await AuthService.getSavedName();
+      if (!mounted) return;
+      if (refreshedName != null && refreshedName != _userName) {
+        setState(() => _userName = refreshedName);
       }
     } catch (e) {
       final token = await AuthService.getSavedToken();
@@ -279,13 +277,8 @@ class _HomePageState extends State<HomePage>
         );
         return;
       }
-      final name = await AuthService.getSavedName();
       if (mounted) {
-        setState(() {
-          _userName = name ?? '모험가';
-          _profileError = e.toString();
-          _profileLoading = false;
-        });
+        setState(() => _profileError = e.toString());
       }
     }
   }
@@ -338,10 +331,7 @@ class _HomePageState extends State<HomePage>
     final powerSaving = _appSettings.powerSavingMode;
     return Scaffold(
       extendBody: true,
-      backgroundColor: _profileLoading ? Colors.black : null,
-      bottomNavigationBar: (powerSaving || _profileLoading)
-          ? null
-          : _buildBottomNav(),
+      bottomNavigationBar: powerSaving ? null : _buildBottomNav(),
       body: Stack(
         children: [
           if (powerSaving)
@@ -407,7 +397,6 @@ class _HomePageState extends State<HomePage>
                 child: WalkingCharacter(spritePath: _homeRunSprite),
               ),
             ),
-          GameLoadingOverlay(visible: _profileLoading),
         ],
       ),
     );
@@ -788,7 +777,7 @@ class _HomePageState extends State<HomePage>
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              if (_profileLoading || _profileError != null) ...[
+              if (_profileError != null) ...[
                 _buildConnectionBanner(),
                 const SizedBox(height: 8),
               ],
@@ -914,51 +903,33 @@ class _HomePageState extends State<HomePage>
   }
 
   Widget _buildConnectionBanner() {
-    final isError = _profileError != null;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
       decoration: BoxDecoration(
-        color: isError
-            ? const Color(0xFF7A1A1A).withValues(alpha: 0.82)
-            : Colors.black.withValues(alpha: 0.45),
+        color: const Color(0xFF7A1A1A).withValues(alpha: 0.82),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(
-          color: isError ? const Color(0xFFFF9A9A) : Colors.white24,
-        ),
+        border: Border.all(color: const Color(0xFFFF9A9A)),
       ),
       child: Row(
         children: [
-          if (_profileLoading)
-            const SizedBox(
-              width: 16,
-              height: 16,
-              child: CircularProgressIndicator(
-                strokeWidth: 2,
-                color: Colors.white,
-              ),
-            )
-          else
-            const Icon(Icons.wifi_off_rounded, color: Colors.white, size: 16),
+          const Icon(Icons.wifi_off_rounded, color: Colors.white, size: 16),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
-              _profileLoading
-                  ? '서버에서 캐릭터 정보를 불러오는 중입니다.'
-                  : '서버 정보를 새로 불러오지 못했습니다. 저장된 정보로 표시 중입니다.',
+              '서버 정보를 새로 불러오지 못했습니다. 저장된 정보로 표시 중입니다.',
               style: const TextStyle(color: Colors.white, fontSize: 11),
             ),
           ),
-          if (isError)
-            TextButton(
-              onPressed: _loadUserName,
-              style: TextButton.styleFrom(
-                foregroundColor: Colors.white,
-                visualDensity: VisualDensity.compact,
-                padding: const EdgeInsets.symmetric(horizontal: 8),
-              ),
-              child: const Text('다시 시도'),
+          TextButton(
+            onPressed: _loadUserName,
+            style: TextButton.styleFrom(
+              foregroundColor: Colors.white,
+              visualDensity: VisualDensity.compact,
+              padding: const EdgeInsets.symmetric(horizontal: 8),
             ),
+            child: const Text('다시 시도'),
+          ),
         ],
       ),
     );
@@ -975,9 +946,7 @@ class _HomePageState extends State<HomePage>
     final completedCount = dailyMissions
         .where((mission) => mission.isClaimed || mission.progress >= 1.0)
         .length;
-    return (completedCount / dailyMissions.length)
-        .clamp(0.0, 1.0)
-        .toDouble();
+    return (completedCount / dailyMissions.length).clamp(0.0, 1.0).toDouble();
   }
 
   UserMission? _nextDailyMission(List<UserMission> dailyMissions) {

@@ -337,10 +337,12 @@ class _BattlePageState extends State<BattlePage>
     _totalDamageTaken = result.battle.totalDamageTaken;
     _lastPlayerDamage = clearDamageText ? 0 : result.playerDamage;
     _lastMonsterDamage = clearDamageText ? 0 : result.monsterDamage;
-    _gs.setCoins(result.character.coinBalance);
-    _gs.setLevel(result.character.level);
-    _gs.setExp(result.character.exp);
-    _gs.setStatExp(result.character.statExp);
+    _gs.setCharacterProgress(
+      coins: result.character.coinBalance,
+      level: result.character.level,
+      exp: result.character.exp,
+      statExp: result.character.statExp,
+    );
   }
 
   void _syncActiveBattleMarker() {
@@ -842,10 +844,7 @@ class _BattlePageState extends State<BattlePage>
                         borderRadius: BorderRadius.circular(10),
                       ),
                     ),
-                    onPressed: () {
-                      Navigator.pop(context);
-                      _pushReplacement(const HomePage());
-                    },
+                    onPressed: _finishBattleAndReturnHome,
                     child: const Text(
                       '확인',
                       style: TextStyle(
@@ -861,6 +860,15 @@ class _BattlePageState extends State<BattlePage>
         ),
       ),
     );
+  }
+
+  void _finishBattleAndReturnHome() {
+    _routeExitAllowed = true;
+    Navigator.pop(context);
+    Future<void>.microtask(() {
+      if (!mounted) return;
+      Navigator.pop(context, true);
+    });
   }
 
   Widget _buildResultRewardPanel({
