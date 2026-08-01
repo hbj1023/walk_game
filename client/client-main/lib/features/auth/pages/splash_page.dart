@@ -21,65 +21,90 @@ class SplashPage extends StatefulWidget {
 }
 
 class _SplashPageState extends State<SplashPage> {
-  Timer? _timer;
+  final Completer<void> _minimumSplashCompleter = Completer<void>();
+  Timer? _minimumSplashTimer;
 
   @override
   void initState() {
     super.initState();
-    _timer = Timer(const Duration(milliseconds: 1600), () async {
-      final prefs = await SharedPreferences.getInstance();
-      await ProfileIconService.loadIntoGameState();
-      final hasSeenIntro = prefs.getBool('hasSeenIntro') ?? false;
-      var token = await AuthService.getSavedToken();
-      if (token != null && token.isNotEmpty) {
-        try {
-          await AuthService.fetchMainMessage().timeout(
-            const Duration(seconds: 3),
-          );
-          await ProfileIconService.loadIntoGameState();
-          await BattleApiService.leaveStoredUnfinishedNormalBattle().timeout(
-            const Duration(seconds: 3),
-          );
-        } catch (_) {
-          await AuthService.logout();
-          token = null;
-          // 강제 종료된 전투 정리는 다음 실행 때 다시 시도합니다.
-        }
+    _minimumSplashTimer = Timer(const Duration(milliseconds: 650), () {
+      if (!_minimumSplashCompleter.isCompleted) {
+        _minimumSplashCompleter.complete();
       }
-
-      if (!mounted) {
-        return;
-      }
-
-      final destination = !hasSeenIntro
-          ? const IntroPage()
-          : (token == null || token.isEmpty)
-          ? const LoginPage()
-          : const HomePage();
-      final page = await InitialPermissionService.shouldShow()
-          ? InitialPermissionPage(nextPage: destination)
-          : destination;
-      if (!mounted) return;
-      Navigator.pushReplacement(
-        context,
-        PageRouteBuilder(
-          pageBuilder: (context, _, _) => page,
-          transitionsBuilder: (context, animation, _, child) {
-            final curved = CurvedAnimation(
-              parent: animation,
-              curve: Curves.easeInOut,
-            );
-            return FadeTransition(opacity: curved, child: child);
-          },
-          transitionDuration: const Duration(milliseconds: 300),
-        ),
-      );
     });
+    unawaited(_initialize());
+  }
+
+  Future<void> _initialize() async {
+    final prefsFuture = SharedPreferences.getInstance();
+    final permissionFuture = InitialPermissionService.shouldShow();
+
+    final prefs = await prefsFuture;
+    final hasSeenIntro = prefs.getBool('hasSeenIntro') ?? false;
+    var token = await AuthService.getSavedToken();
+    if (token != null && token.isNotEmpty) {
+      try {
+        await AuthService.fetchMainMessage().timeout(
+          const Duration(seconds: 3),
+        );
+      } catch (_) {
+        await AuthService.logout();
+        token = null;
+      }
+    }
+
+    if (token != null && token.isNotEmpty) {
+      await Future.wait<void>([
+        ProfileIconService.loadIntoGameState(),
+        _cleanupUnfinishedBattle(),
+      ]);
+    } else {
+      ProfileIconService.resetGameStateToDefault();
+    }
+
+    final destination = !hasSeenIntro
+        ? const IntroPage()
+        : (token == null || token.isEmpty)
+        ? const LoginPage()
+        : const HomePage();
+    final page = await permissionFuture
+        ? InitialPermissionPage(nextPage: destination)
+        : destination;
+    await _minimumSplashCompleter.future;
+    if (!mounted) return;
+
+    Navigator.pushReplacement(
+      context,
+      PageRouteBuilder(
+        pageBuilder: (context, _, _) => page,
+        transitionsBuilder: (context, animation, _, child) {
+          final curved = CurvedAnimation(
+            parent: animation,
+            curve: Curves.easeInOut,
+          );
+          return FadeTransition(opacity: curved, child: child);
+        },
+        transitionDuration: const Duration(milliseconds: 300),
+      ),
+    );
+  }
+
+  Future<void> _cleanupUnfinishedBattle() async {
+    try {
+      await BattleApiService.leaveStoredUnfinishedNormalBattle().timeout(
+        const Duration(seconds: 3),
+      );
+    } catch (_) {
+      // 전투 정리 실패는 로그인 세션을 만료시키지 않고 다음 실행에 재시도합니다.
+    }
   }
 
   @override
   void dispose() {
-    _timer?.cancel();
+    _minimumSplashTimer?.cancel();
+    if (!_minimumSplashCompleter.isCompleted) {
+      _minimumSplashCompleter.complete();
+    }
     super.dispose();
   }
 

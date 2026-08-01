@@ -376,6 +376,7 @@ class NormalStageInfo {
 }
 
 class BattleApiService {
+  static final http.Client _client = http.Client();
   static const _requestTimeout = Duration(seconds: 12);
   static const _activeNormalBattleIdKey = 'active_normal_battle_id';
 
@@ -472,7 +473,7 @@ class BattleApiService {
 
     late final http.Response response;
     try {
-      response = await http
+      response = await _client
           .get(
             _uri(path),
             headers: {
@@ -510,7 +511,7 @@ class BattleApiService {
 
     late final http.Response response;
     try {
-      response = await http
+      response = await _client
           .post(
             _uri(path),
             headers: {

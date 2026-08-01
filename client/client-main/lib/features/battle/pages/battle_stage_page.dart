@@ -153,37 +153,12 @@ const _kRecommendedCombatPowerByStage = <int, int>{
   15: 1350,
 };
 
-const _kBattlePreloadAssets = <String>[
-  'assets/images/bg/stage1_battle_BG.png',
-  'assets/images/bg/stage2_battle_shadow_mushroom_forest.png',
-  'assets/images/bg/stage3_battle_ancient_quarry_entrance_941x1672.png',
-  'assets/images/bg/stage3_ancient_quarry_entrance_map_1672x941.png',
-  _kChapter3StageWaitBg,
-  'assets/images/profile_frame.png',
-  'assets/images/icon/coin_icon.png',
-  'assets/images/icon/friend_icon.png',
-  MonsterAssetService.basicGoblin,
-  MonsterAssetService.spearGoblin,
-  MonsterAssetService.archerGoblin,
-  MonsterAssetService.bomberGoblin,
-  MonsterAssetService.fierceGoblin,
-  MonsterAssetService.sporeShroom,
-  MonsterAssetService.thornShroom,
-  MonsterAssetService.toxicShroom,
-  MonsterAssetService.frostShroom,
-  MonsterAssetService.elderSporeKing,
-  MonsterAssetService.pebbleGolem,
-  MonsterAssetService.crackedGolem,
-  MonsterAssetService.mossyGolem,
-  MonsterAssetService.oreGolem,
-  MonsterAssetService.quarryGuardianGolem,
-  'assets/images/character/battle_back.png',
-  'assets/images/nav/nav_shop.png',
-  'assets/images/nav/nav_character.png',
-  'assets/images/nav/nav_home.png',
-  'assets/images/nav/nav_battle.png',
-  'assets/images/nav/nav_raid.png',
-];
+const _kChapter1BattleBg = 'assets/images/bg/stage1_battle_BG.png';
+const _kChapter2BattleBg =
+    'assets/images/bg/stage2_battle_shadow_mushroom_forest.png';
+const _kChapter3BattleBg =
+    'assets/images/bg/stage3_battle_ancient_quarry_entrance_941x1672.png';
+const _kPlayerIdleSprite = 'assets/images/character/idle_up_weaponless.png';
 
 double _stageNodeVisualOffsetY(int stageNo) {
   final chapterStageNo = stageNo <= 0 ? 1 : ((stageNo - 1) % 5) + 1;
@@ -540,16 +515,15 @@ class _BattleStagePageState extends State<BattleStagePage>
     try {
       await AuthService.fetchMainMessage();
       if (!mounted) return;
-      await _precacheBattleAssets();
-      if (!mounted) return;
 
-      final result = selectedStage.isBoss
-          ? await BattleApiService.startBossBattle(
-              stageNo: selectedStage.stageNo,
-            )
-          : await BattleApiService.startNormalBattle(
-              stageNo: selectedStage.stageNo,
-            );
+      final battleRequest = selectedStage.isBoss
+          ? BattleApiService.startBossBattle(stageNo: selectedStage.stageNo)
+          : BattleApiService.startNormalBattle(stageNo: selectedStage.stageNo);
+      final results = await Future.wait<dynamic>([
+        battleRequest,
+        _precacheBattleAssets(selectedStage),
+      ]);
+      final result = results.first as NormalBattleResult;
       _gs.setCharacterProgress(
         coins: result.character.coinBalance,
         level: result.character.level,
@@ -598,20 +572,29 @@ class _BattleStagePageState extends State<BattleStagePage>
     showGameToast(context, errorMessage, type: GameToastType.error);
   }
 
-  Future<void> _precacheBattleAssets() async {
-    final total = _kBattlePreloadAssets.length;
-    if (total == 0) {
-      return;
-    }
+  Future<void> _precacheBattleAssets(_StageData stage) async {
+    final chapter = _chapterForStage(stage.stageNo);
+    final backgroundAsset = switch (chapter) {
+      3 => _kChapter3BattleBg,
+      2 => _kChapter2BattleBg,
+      _ => _kChapter1BattleBg,
+    };
+    final monsterAsset = MonsterAssetService.imageForMonster(
+      name: stage.monsterName,
+      stageNo: stage.stageNo,
+    );
+    final assets = <String>{backgroundAsset, monsterAsset, _kPlayerIdleSprite};
 
-    for (int i = 0; i < total; i++) {
-      if (!mounted) return;
-      try {
-        await precacheImage(AssetImage(_kBattlePreloadAssets[i]), context);
-      } catch (_) {
-        // 프리캐시 실패는 무시하고 진행
-      }
-    }
+    await Future.wait<void>(
+      assets.map((asset) async {
+        if (!mounted) return;
+        try {
+          await precacheImage(AssetImage(asset), context);
+        } catch (_) {
+          // 프리캐시 실패는 실제 화면 로딩으로 대체합니다.
+        }
+      }),
+    );
   }
 
   @override

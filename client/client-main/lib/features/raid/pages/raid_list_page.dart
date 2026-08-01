@@ -874,6 +874,7 @@ class _RaidListPageState extends State<RaidListPage> {
             ? Image.asset(
                 boss.iconPath!,
                 fit: BoxFit.contain,
+                cacheWidth: 384,
                 errorBuilder: (ctx, err, st) => Container(
                   color: const Color(0xFF2A2A3A),
                   child: const Icon(

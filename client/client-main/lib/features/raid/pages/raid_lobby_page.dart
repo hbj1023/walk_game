@@ -624,6 +624,7 @@ class _RaidLobbyPageState extends State<RaidLobbyPage> {
                 : Image.asset(
                     widget.boss.iconPath!,
                     fit: BoxFit.contain,
+                    cacheWidth: 320,
                     filterQuality: FilterQuality.none,
                   ),
           ),

@@ -322,7 +322,7 @@ class _HomePageState extends State<HomePage>
   Future<MissionClaimResult> _claimMission(String userMissionId) async {
     final result = await GameApiService.claimMission(userMissionId);
     try {
-      await AuthService.fetchMainMessage();
+      await AuthService.fetchMainMessage(forceRefresh: true);
     } catch (_) {
       // 보상 수령은 이미 성공했으므로 홈 메시지 갱신 실패는 수령 실패로 취급하지 않는다.
     }

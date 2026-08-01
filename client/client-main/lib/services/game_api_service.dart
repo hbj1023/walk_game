@@ -1373,6 +1373,7 @@ class GoldMineEventResult {
 }
 
 class GameApiService {
+  static final http.Client _client = http.Client();
   static const _requestTimeout = Duration(seconds: 12);
 
   static Future<String> requireCharacterId() async {
@@ -1953,7 +1954,7 @@ class GameApiService {
   static Future<Map<String, dynamic>> _get(String path) async {
     late final http.Response response;
     try {
-      response = await http
+      response = await _client
           .get(ApiConfig.uri(path), headers: await _headers())
           .timeout(_requestTimeout);
     } on SocketException {
@@ -1972,7 +1973,7 @@ class GameApiService {
   ) async {
     late final http.Response response;
     try {
-      response = await http
+      response = await _client
           .post(
             ApiConfig.uri(path),
             headers: await _headers(),

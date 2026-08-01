@@ -62,6 +62,7 @@ class AppSettingsService {
     const AppSettingsData.defaults(),
   );
   static bool _sessionInitialized = false;
+  static Future<AppSettingsData>? _loadRequest;
   static final customPowerSavingUiVisible = ValueNotifier<bool>(false);
 
   static const _soundEnabledKey = 'settings:sound_enabled';
@@ -74,21 +75,33 @@ class AppSettingsService {
   static const _homeBackgroundChapterKey = 'settings:home_background_chapter';
 
   static Future<AppSettingsData> load() async {
+    if (_sessionInitialized) return notifier.value;
+
+    final inFlight = _loadRequest;
+    if (inFlight != null) return inFlight;
+
+    final request = _loadFromPreferences();
+    _loadRequest = request;
+    try {
+      return await request;
+    } finally {
+      if (identical(_loadRequest, request)) {
+        _loadRequest = null;
+      }
+    }
+  }
+
+  static Future<AppSettingsData> _loadFromPreferences() async {
     final prefs = await SharedPreferences.getInstance();
     const defaults = AppSettingsData.defaults();
-    final isFirstLoadOfSession = !_sessionInitialized;
     _sessionInitialized = true;
-    if (isFirstLoadOfSession) {
-      await prefs.remove(_powerSavingModeKey);
-    }
+    await prefs.remove(_powerSavingModeKey);
     final settings = AppSettingsData(
       soundEnabled: prefs.getBool(_soundEnabledKey) ?? defaults.soundEnabled,
       bgmEnabled: prefs.getBool(_bgmEnabledKey) ?? defaults.bgmEnabled,
       sfxEnabled: prefs.getBool(_sfxEnabledKey) ?? defaults.sfxEnabled,
       masterVolume: prefs.getDouble(_masterVolumeKey) ?? defaults.masterVolume,
-      powerSavingMode: isFirstLoadOfSession
-          ? false
-          : notifier.value.powerSavingMode,
+      powerSavingMode: false,
       autoPowerSavingMinutes: _normalizeAutoPowerSavingMinutes(
         prefs.getInt(_autoPowerSavingMinutesKey) ??
             defaults.autoPowerSavingMinutes,

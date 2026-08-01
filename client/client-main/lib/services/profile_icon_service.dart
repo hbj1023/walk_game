@@ -68,8 +68,27 @@ class ProfileIconService {
   }
 
   static Future<void> loadIntoGameState() async {
-    final customImageDataUrl = await loadCustomImageDataUrl();
-    final key = await loadSavedIconKey();
+    final prefs = await _prefsWithoutLegacySharedProfile();
+    final accountKey = await _accountScopeKey();
+    if (accountKey == null) {
+      resetGameStateToDefault();
+      return;
+    }
+
+    final iconPrefsKey = '$_profileIconKeyPrefix$accountKey';
+    final imagePrefsKey = '$_profileImageDataUrlKeyPrefix$accountKey';
+    final savedImageDataUrl = prefs.getString(imagePrefsKey)?.trim();
+    final customImageDataUrl =
+        savedImageDataUrl == null || savedImageDataUrl.isEmpty
+        ? null
+        : savedImageDataUrl;
+    final savedKey = prefs.getString(iconPrefsKey);
+    final key =
+        savedKey == customProfileIconKey &&
+            customImageDataUrl != null &&
+            customImageDataUrl.isNotEmpty
+        ? customProfileIconKey
+        : profileIconOptionFor(savedKey ?? '').key;
     GameState.instance.setProfileImageDataUrl(customImageDataUrl);
     GameState.instance.setProfileIconKey(key);
   }

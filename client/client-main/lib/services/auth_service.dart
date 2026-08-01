@@ -19,6 +19,7 @@ class AuthException implements Exception {
 }
 
 class AuthService {
+  static final http.Client _client = http.Client();
   static const _tokenKey = 'auth_token';
   static const _userIdKey = 'auth_user_id';
   static const _characterIdKey = 'auth_character_id';
@@ -27,6 +28,10 @@ class AuthService {
   static const _legacyProfileIconKey = 'profile_icon_key';
   static const _legacyProfileImageDataUrlKey = 'profile_image_data_url';
   static const _requestTimeout = Duration(seconds: 10);
+  static const _mainCacheDuration = Duration(seconds: 10);
+  static Future<String>? _mainMessageRequest;
+  static String? _cachedMainMessage;
+  static DateTime? _mainMessageFetchedAt;
 
   static Uri _apiUri(String path) => ApiConfig.uri(path);
 
@@ -38,7 +43,7 @@ class AuthService {
     final normalizedEmail = email.trim();
     final normalizedName = name.trim();
     final response = await _sendWithTimeout(
-      http.post(
+      _client.post(
         _apiUri('/register'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
@@ -61,7 +66,7 @@ class AuthService {
   }) async {
     final normalizedEmail = email.trim();
     final response = await _sendWithTimeout(
-      http.post(
+      _client.post(
         _apiUri('/login'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({'email': normalizedEmail, 'password': password}),
@@ -107,7 +112,7 @@ class AuthService {
   static Future<String> requestPasswordReset({required String email}) async {
     final normalizedEmail = email.trim().toLowerCase();
     final response = await _sendWithTimeout(
-      http.post(
+      _client.post(
         _apiUri('/api/password-reset/request'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({'email': normalizedEmail}),
@@ -133,7 +138,7 @@ class AuthService {
     required String password,
   }) async {
     final response = await _sendWithTimeout(
-      http.post(
+      _client.post(
         _apiUri('/api/password-reset/confirm'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
@@ -181,14 +186,40 @@ class AuthService {
     return prefs.getString(_nameKey);
   }
 
-  static Future<String> fetchMainMessage() async {
+  static Future<String> fetchMainMessage({bool forceRefresh = false}) async {
+    final inFlight = _mainMessageRequest;
+    if (inFlight != null) return inFlight;
+
+    final fetchedAt = _mainMessageFetchedAt;
+    if (!forceRefresh &&
+        _cachedMainMessage != null &&
+        fetchedAt != null &&
+        DateTime.now().difference(fetchedAt) < _mainCacheDuration) {
+      return _cachedMainMessage!;
+    }
+
+    final request = _fetchMainMessageFromServer();
+    _mainMessageRequest = request;
+    try {
+      final message = await request;
+      _cachedMainMessage = message;
+      _mainMessageFetchedAt = DateTime.now();
+      return message;
+    } finally {
+      if (identical(_mainMessageRequest, request)) {
+        _mainMessageRequest = null;
+      }
+    }
+  }
+
+  static Future<String> _fetchMainMessageFromServer() async {
     final token = await getSavedToken();
     if (token == null || token.isEmpty) {
       throw const AuthException('로그인 정보가 없습니다.');
     }
 
     final response = await _sendWithTimeout(
-      http.get(
+      _client.get(
         _apiUri('/main'),
         headers: {
           'Content-Type': 'application/json',
@@ -265,7 +296,7 @@ class AuthService {
     }
 
     final response = await _sendWithTimeout(
-      http.post(
+      _client.post(
         _apiUri('/api/users/delete-account'),
         headers: {
           'Content-Type': 'application/json',
@@ -287,6 +318,7 @@ class AuthService {
   }
 
   static Future<void> logout() async {
+    _clearMainMessageCache();
     await OfflineAttackNotificationService.clear();
     final prefs = await SharedPreferences.getInstance();
     final userId = prefs.getString(_userIdKey)?.trim() ?? '';
@@ -414,6 +446,7 @@ class AuthService {
     required String fallbackEmail,
     required String? fallbackName,
   }) async {
+    _clearMainMessageCache();
     if (token == null || token.isEmpty) {
       throw const AuthException('로그인 토큰이 올바르지 않습니다.');
     }
@@ -442,5 +475,11 @@ class AuthService {
     } else {
       await prefs.remove(_nameKey);
     }
+  }
+
+  static void _clearMainMessageCache() {
+    _mainMessageRequest = null;
+    _cachedMainMessage = null;
+    _mainMessageFetchedAt = null;
   }
 }
