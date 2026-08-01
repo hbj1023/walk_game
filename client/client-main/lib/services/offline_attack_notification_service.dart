@@ -59,4 +59,17 @@ class OfflineAttackNotificationService {
       // Battle state remains authoritative when the native bridge is absent.
     }
   }
+
+  static Future<void> updatePreferences({
+    required bool allowNightNotifications,
+  }) async {
+    if (!_isAndroid) return;
+    try {
+      await _channel.invokeMethod<void>('updatePreferences', {
+        'allowNightNotifications': allowNightNotifications,
+      });
+    } on PlatformException {
+      // Notification preferences must not block the settings screen.
+    }
+  }
 }

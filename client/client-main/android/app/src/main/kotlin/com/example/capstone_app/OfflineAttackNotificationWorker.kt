@@ -41,28 +41,27 @@ class OfflineAttackNotificationWorker(
         val currentBalance = prefs.getInt(KEY_CURRENT_BALANCE, 0)
         val attackDistanceM = prefs.getFloat(KEY_ATTACK_DISTANCE_M, 0f).toDouble()
         val remainderM = prefs.getFloat(KEY_REMAINDER_M, 0f).toDouble()
-        if (userId.isEmpty() ||
-            capacity <= 0 ||
-            currentBalance >= capacity ||
-            attackDistanceM <= 0
-        ) {
+        if (userId.isEmpty() || capacity <= 0) {
             return Result.success()
         }
 
-        val flutterPrefs = applicationContext.getSharedPreferences(
-            "FlutterSharedPreferences",
-            Context.MODE_PRIVATE,
+        val isFull = currentBalance >= capacity || projectedBalanceIsFull(
+            userId = userId,
+            currentBalance = currentBalance,
+            capacity = capacity,
+            attackDistanceM = attackDistanceM,
+            remainderM = remainderM,
         )
-        val accountBaselineKey = "$FLUTTER_ACCOUNT_BASELINE_PREFIX$userId"
-        if (!flutterPrefs.contains(accountBaselineKey)) return Result.success()
-        val baselineSteps = flutterPrefs.getLong(accountBaselineKey, -1L)
-        val currentSteps = readCurrentStepCounter() ?: return Result.retry()
-        if (baselineSteps < 0 || currentSteps <= baselineSteps) return Result.success()
+        if (!isFull) return Result.success()
 
-        val offlineDistanceM = (currentSteps - baselineSteps) * STRIDE_M + remainderM
-        val earned = floor(offlineDistanceM / attackDistanceM).toInt()
-        if (currentBalance + earned < capacity) return Result.success()
-        if (prefs.getBoolean(KEY_NOTIFIED_FULL, false)) return Result.success()
+        val now = System.currentTimeMillis()
+        val lastNotifiedAt = prefs.getLong(KEY_LAST_NOTIFIED_AT, 0L)
+        if (lastNotifiedAt > 0L && now - lastNotifiedAt < REMINDER_INTERVAL_MS) {
+            return Result.success()
+        }
+        if (!prefs.getBoolean(KEY_ALLOW_NIGHT_NOTIFICATIONS, false) && isQuietHours()) {
+            return Result.success()
+        }
 
         createNotificationChannel(applicationContext)
         val intent = Intent(applicationContext, MainActivity::class.java).apply {
@@ -74,10 +73,17 @@ class OfflineAttackNotificationWorker(
             intent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
+        val isReminder = lastNotifiedAt > 0L
         val notification = NotificationCompat.Builder(applicationContext, CHANNEL_ID)
             .setSmallIcon(R.mipmap.ic_launcher)
-            .setContentTitle("\uacf5\uaca9 \uae30\ud68c \ucda9\uc804 \uc644\ub8cc")
-            .setContentText("\uc624\ud504\ub77c\uc778 \uacf5\uaca9 \uae30\ud68c\uac00 ${capacity}\ud68c \uac00\ub4dd \ucc3c\uc2b5\ub2c8\ub2e4.")
+            .setContentTitle(
+                if (isReminder) "\uacf5\uaca9 \uae30\ud68c\uac00 \uac00\ub4dd \ucc28 \uc788\uc2b5\ub2c8\ub2e4"
+                else "\uacf5\uaca9 \uae30\ud68c \ucda9\uc804 \uc644\ub8cc",
+            )
+            .setContentText(
+                if (isReminder) "\uc804\ud22c\uc5d0\uc11c ${capacity}\ud68c\uc758 \uacf5\uaca9 \uae30\ud68c\ub97c \uc0ac\uc6a9\ud574 \uc8fc\uc138\uc694."
+                else "\uc624\ud504\ub77c\uc778 \uacf5\uaca9 \uae30\ud68c\uac00 ${capacity}\ud68c \uac00\ub4dd \ucc3c\uc2b5\ub2c8\ub2e4.",
+            )
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
             .setAutoCancel(true)
             .setContentIntent(pendingIntent)
@@ -88,9 +94,37 @@ class OfflineAttackNotificationWorker(
             PackageManager.PERMISSION_GRANTED
         ) {
             NotificationManagerCompat.from(applicationContext).notify(NOTIFICATION_ID, notification)
-            prefs.edit().putBoolean(KEY_NOTIFIED_FULL, true).apply()
+            prefs.edit().putLong(KEY_LAST_NOTIFIED_AT, now).apply()
         }
         return Result.success()
+    }
+
+    private fun projectedBalanceIsFull(
+        userId: String,
+        currentBalance: Int,
+        capacity: Int,
+        attackDistanceM: Double,
+        remainderM: Double,
+    ): Boolean {
+        if (attackDistanceM <= 0) return false
+        val flutterPrefs = applicationContext.getSharedPreferences(
+            "FlutterSharedPreferences",
+            Context.MODE_PRIVATE,
+        )
+        val accountBaselineKey = "$FLUTTER_ACCOUNT_BASELINE_PREFIX$userId"
+        if (!flutterPrefs.contains(accountBaselineKey)) return false
+        val baselineSteps = flutterPrefs.getLong(accountBaselineKey, -1L)
+        val currentSteps = readCurrentStepCounter() ?: return false
+        if (baselineSteps < 0 || currentSteps <= baselineSteps) return false
+
+        val offlineDistanceM = (currentSteps - baselineSteps) * STRIDE_M + remainderM
+        val earned = floor(offlineDistanceM / attackDistanceM).toInt()
+        return currentBalance + earned >= capacity
+    }
+
+    private fun isQuietHours(): Boolean {
+        val hour = java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY)
+        return hour >= QUIET_HOURS_START || hour < QUIET_HOURS_END
     }
 
     private fun readCurrentStepCounter(): Long? {
@@ -121,13 +155,17 @@ class OfflineAttackNotificationWorker(
         const val KEY_CAPACITY = "capacity"
         const val KEY_ATTACK_DISTANCE_M = "offline_attack_distance_m"
         const val KEY_REMAINDER_M = "attack_distance_remainder_m"
-        const val KEY_NOTIFIED_FULL = "notified_full"
+        const val KEY_LAST_NOTIFIED_AT = "last_notified_at"
+        const val KEY_ALLOW_NIGHT_NOTIFICATIONS = "allow_night_notifications"
         private const val FLUTTER_ACCOUNT_BASELINE_PREFIX =
             "flutter.offline_steps.baseline."
         private const val STRIDE_M = 0.75
         private const val CHANNEL_ID = "offline_attack_full"
         private const val NOTIFICATION_ID = 1010
         private const val WORK_NAME = "offline_attack_capacity_check"
+        private const val REMINDER_INTERVAL_MS = 5L * 60L * 60L * 1000L
+        private const val QUIET_HOURS_START = 22
+        private const val QUIET_HOURS_END = 8
 
         fun schedule(context: Context) {
             val request = PeriodicWorkRequestBuilder<OfflineAttackNotificationWorker>(

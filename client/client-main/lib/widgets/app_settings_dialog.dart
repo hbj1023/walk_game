@@ -107,6 +107,15 @@ class _AppSettingsDialogState extends State<AppSettingsDialog> {
     );
   }
 
+  Future<void> _openNotificationSettings() async {
+    await showDialog<void>(
+      context: context,
+      barrierColor: Colors.black.withValues(alpha: 0.72),
+      builder: (_) =>
+          _NotificationSettingsDialog(settings: _settings, onChanged: _save),
+    );
+  }
+
   Future<void> _openBackgroundSettings() async {
     await showDialog<void>(
       context: context,
@@ -170,6 +179,15 @@ class _AppSettingsDialogState extends State<AppSettingsDialog> {
                       ? '볼륨 ${(_settings.masterVolume * 100).round()}%'
                       : '전체 사운드 꺼짐',
                   onTap: _openSoundSettings,
+                ),
+                const SizedBox(height: 8),
+                _menuTile(
+                  icon: Icons.notifications_active,
+                  title: '알림 설정',
+                  subtitle: _settings.allowNightNotifications
+                      ? '5시간마다 · 야간 알림 허용'
+                      : '5시간마다 · 야간 알림 제외',
+                  onTap: _openNotificationSettings,
                 ),
                 const SizedBox(height: 8),
                 _menuTile(
@@ -358,6 +376,86 @@ class _SoundSettingsDialogState extends State<_SoundSettingsDialog> {
               ),
             ],
           ),
+        ],
+      ),
+    );
+  }
+}
+
+class _NotificationSettingsDialog extends StatefulWidget {
+  final AppSettingsData settings;
+  final Future<void> Function(AppSettingsData settings) onChanged;
+
+  const _NotificationSettingsDialog({
+    required this.settings,
+    required this.onChanged,
+  });
+
+  @override
+  State<_NotificationSettingsDialog> createState() =>
+      _NotificationSettingsDialogState();
+}
+
+class _NotificationSettingsDialogState
+    extends State<_NotificationSettingsDialog> {
+  late AppSettingsData _settings;
+
+  @override
+  void initState() {
+    super.initState();
+    _settings = widget.settings;
+  }
+
+  Future<void> _save(AppSettingsData settings) async {
+    setState(() => _settings = settings);
+    await widget.onChanged(settings);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return _SettingsShell(
+      title: '알림 설정',
+      icon: Icons.notifications_active,
+      maxWidth: 420,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+            decoration: _panelDecoration(),
+            child: const Row(
+              children: [
+                Icon(Icons.hourglass_full, color: _kGold, size: 20),
+                SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    '공격 기회 가득 참 알림',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ),
+                Text('5시간마다', style: TextStyle(color: _kGold, fontSize: 12)),
+              ],
+            ),
+          ),
+          const SizedBox(height: 8),
+          _switchRow(
+            label: '야간 알림 허용',
+            value: _settings.allowNightNotifications,
+            onChanged: (value) =>
+                _save(_settings.copyWith(allowNightNotifications: value)),
+          ),
+          if (!_settings.allowNightNotifications) ...[
+            const SizedBox(height: 8),
+            const Text(
+              '밤 10시부터 오전 8시까지 알림을 보내지 않습니다.',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: Colors.white54, fontSize: 11),
+            ),
+          ],
         ],
       ),
     );

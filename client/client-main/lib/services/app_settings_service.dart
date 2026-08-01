@@ -1,6 +1,8 @@
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'offline_attack_notification_service.dart';
+
 class AppSettingsData {
   static const homeBackgroundAuto = 0;
   static const homeBackgroundChapter1 = 1;
@@ -14,6 +16,7 @@ class AppSettingsData {
   final bool powerSavingMode;
   final int autoPowerSavingMinutes;
   final int homeBackgroundChapter;
+  final bool allowNightNotifications;
 
   const AppSettingsData({
     required this.soundEnabled,
@@ -23,6 +26,7 @@ class AppSettingsData {
     required this.powerSavingMode,
     required this.autoPowerSavingMinutes,
     required this.homeBackgroundChapter,
+    required this.allowNightNotifications,
   });
 
   const AppSettingsData.defaults()
@@ -32,7 +36,8 @@ class AppSettingsData {
       masterVolume = 0.8,
       powerSavingMode = false,
       autoPowerSavingMinutes = 5,
-      homeBackgroundChapter = homeBackgroundAuto;
+      homeBackgroundChapter = homeBackgroundAuto,
+      allowNightNotifications = false;
 
   AppSettingsData copyWith({
     bool? soundEnabled,
@@ -42,6 +47,7 @@ class AppSettingsData {
     bool? powerSavingMode,
     int? autoPowerSavingMinutes,
     int? homeBackgroundChapter,
+    bool? allowNightNotifications,
   }) {
     return AppSettingsData(
       soundEnabled: soundEnabled ?? this.soundEnabled,
@@ -53,6 +59,8 @@ class AppSettingsData {
           autoPowerSavingMinutes ?? this.autoPowerSavingMinutes,
       homeBackgroundChapter:
           homeBackgroundChapter ?? this.homeBackgroundChapter,
+      allowNightNotifications:
+          allowNightNotifications ?? this.allowNightNotifications,
     );
   }
 }
@@ -73,6 +81,8 @@ class AppSettingsService {
   static const _autoPowerSavingMinutesKey =
       'settings:auto_power_saving_minutes';
   static const _homeBackgroundChapterKey = 'settings:home_background_chapter';
+  static const _allowNightNotificationsKey =
+      'settings:allow_night_notifications';
 
   static Future<AppSettingsData> load() async {
     if (_sessionInitialized) return notifier.value;
@@ -110,6 +120,12 @@ class AppSettingsService {
         prefs.getInt(_homeBackgroundChapterKey) ??
             defaults.homeBackgroundChapter,
       ),
+      allowNightNotifications:
+          prefs.getBool(_allowNightNotificationsKey) ??
+          defaults.allowNightNotifications,
+    );
+    await OfflineAttackNotificationService.updatePreferences(
+      allowNightNotifications: settings.allowNightNotifications,
     );
     notifier.value = settings;
     return settings;
@@ -133,6 +149,13 @@ class AppSettingsService {
     await prefs.setInt(
       _homeBackgroundChapterKey,
       normalized.homeBackgroundChapter,
+    );
+    await prefs.setBool(
+      _allowNightNotificationsKey,
+      normalized.allowNightNotifications,
+    );
+    await OfflineAttackNotificationService.updatePreferences(
+      allowNightNotifications: normalized.allowNightNotifications,
     );
     notifier.value = normalized;
   }

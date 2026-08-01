@@ -56,6 +56,12 @@ class MainActivity : FlutterActivity() {
                     )
                     result.success(null)
                 }
+                "updatePreferences" -> {
+                    updateOfflineNotificationPreferences(
+                        call.argument<Boolean>("allowNightNotifications") ?: false,
+                    )
+                    result.success(null)
+                }
                 else -> result.notImplemented()
             }
         }
@@ -103,7 +109,9 @@ class MainActivity : FlutterActivity() {
             .putFloat(OfflineAttackNotificationWorker.KEY_REMAINDER_M, remainderM)
             .apply()
         if (currentBalance < capacity) {
-            prefs.edit().putBoolean(OfflineAttackNotificationWorker.KEY_NOTIFIED_FULL, false).apply()
+            prefs.edit()
+                .remove(OfflineAttackNotificationWorker.KEY_LAST_NOTIFIED_AT)
+                .apply()
         }
         OfflineAttackNotificationWorker.createNotificationChannel(this)
         OfflineAttackNotificationWorker.schedule(this)
@@ -128,9 +136,21 @@ class MainActivity : FlutterActivity() {
             currentBalance,
         )
         if (capacity > 0 && currentBalance < capacity) {
-            editor.putBoolean(OfflineAttackNotificationWorker.KEY_NOTIFIED_FULL, false)
+            editor.remove(OfflineAttackNotificationWorker.KEY_LAST_NOTIFIED_AT)
         }
         editor.apply()
+    }
+
+    private fun updateOfflineNotificationPreferences(allowNightNotifications: Boolean) {
+        getSharedPreferences(
+            OfflineAttackNotificationWorker.PREFS_NAME,
+            Context.MODE_PRIVATE,
+        ).edit()
+            .putBoolean(
+                OfflineAttackNotificationWorker.KEY_ALLOW_NIGHT_NOTIFICATIONS,
+                allowNightNotifications,
+            )
+            .apply()
     }
 
     private fun ensureActivityRecognitionPermission(result: MethodChannel.Result) {
