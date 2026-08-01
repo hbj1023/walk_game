@@ -65,6 +65,7 @@ class _InventoryPageState extends State<InventoryPage> {
   String _userName = '...';
   bool _isLoading = true;
   bool _isActionLoading = false;
+  String? _upgradingStatKey;
   String? _error;
   List<OwnedInventoryItem> _items = const [];
   StatUpgradeSummary? _statSummary;
@@ -546,14 +547,14 @@ class _InventoryPageState extends State<InventoryPage> {
   }
 
   Future<void> _upgradeStat(String key) async {
-    if (_isActionLoading) return;
+    if (_isActionLoading || _upgradingStatKey != null) return;
     final cost = _statSummary?.costs[key] ?? 0;
     if (_statPointBalance < cost) {
       _showMessage('SP가 부족합니다. 레벨업으로 SP를 모아주세요.');
       return;
     }
 
-    setState(() => _isActionLoading = true);
+    setState(() => _upgradingStatKey = key);
     try {
       final summary = await GameApiService.upgradeStat(key);
       if (!mounted) return;
@@ -564,7 +565,7 @@ class _InventoryPageState extends State<InventoryPage> {
     } catch (e) {
       if (mounted) _showMessage(e.toString());
     } finally {
-      if (mounted) setState(() => _isActionLoading = false);
+      if (mounted) setState(() => _upgradingStatKey = null);
     }
   }
 
@@ -600,7 +601,9 @@ class _InventoryPageState extends State<InventoryPage> {
 
     return Scaffold(
       extendBody: true,
-      backgroundColor: (_isLoading || _isActionLoading) ? Colors.black : kBgColor,
+      backgroundColor: (_isLoading || _isActionLoading)
+          ? Colors.black
+          : kBgColor,
       bottomNavigationBar: (_isLoading || _isActionLoading)
           ? null
           : _buildBottomNav(),
@@ -1765,7 +1768,12 @@ class _InventoryPageState extends State<InventoryPage> {
     final cur = summary?.currentStats[key] ?? 0;
     final next = cur + (key == 'hp' ? 10 : 1);
     final cost = summary?.costs[key] ?? 0;
-    final canUp = !_isActionLoading && cost > 0 && _statPointBalance >= cost;
+    final isUpgrading = _upgradingStatKey == key;
+    final canUp =
+        !_isActionLoading &&
+        _upgradingStatKey == null &&
+        cost > 0 &&
+        _statPointBalance >= cost;
 
     return GestureDetector(
       onTap: () => setState(() => _selectedStatKey = key),
@@ -1840,7 +1848,12 @@ class _InventoryPageState extends State<InventoryPage> {
               ),
             ),
             const SizedBox(width: 6),
-            _buildStatAdjButton('+', canUp, () => _upgradeStat(key)),
+            _buildStatAdjButton(
+              '+',
+              canUp,
+              () => _upgradeStat(key),
+              loading: isUpgrading,
+            ),
           ],
         ),
       ),
@@ -1856,7 +1869,12 @@ class _InventoryPageState extends State<InventoryPage> {
     };
   }
 
-  Widget _buildStatAdjButton(String label, bool enabled, VoidCallback onTap) {
+  Widget _buildStatAdjButton(
+    String label,
+    bool enabled,
+    VoidCallback onTap, {
+    bool loading = false,
+  }) {
     return GestureDetector(
       onTap: enabled ? onTap : null,
       child: Container(
@@ -1867,14 +1885,23 @@ class _InventoryPageState extends State<InventoryPage> {
           border: Border.all(color: kBorderColor, width: 1.5),
         ),
         child: Center(
-          child: Text(
-            label,
-            style: TextStyle(
-              color: enabled ? kTextLight : kTextGray,
-              fontWeight: FontWeight.bold,
-              fontSize: 16,
-            ),
-          ),
+          child: loading
+              ? const SizedBox(
+                  width: 14,
+                  height: 14,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: Color(0xFFBFF4FF),
+                  ),
+                )
+              : Text(
+                  label,
+                  style: TextStyle(
+                    color: enabled ? kTextLight : kTextGray,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                  ),
+                ),
         ),
       ),
     );
