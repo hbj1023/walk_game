@@ -105,6 +105,11 @@ func requestPocketBasePasswordReset(ctx context.Context, email string) error {
 	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
 		return nil
 	}
+	if resp.StatusCode == http.StatusBadRequest {
+		// PocketBase intentionally uses a generic 400 for unknown accounts.
+		// Keep the public response identical so account existence is not exposed.
+		return nil
+	}
 
 	return statusError{
 		status:  http.StatusBadGateway,

@@ -1,3 +1,13 @@
 walk-master.com, www.walk-master.com {
-	reverse_proxy web:80
+	handle /password-reset/* {
+		reverse_proxy api:8080
+	}
+
+	handle /api/password-reset/* {
+		reverse_proxy api:8080
+	}
+
+	handle {
+		reverse_proxy web:80
+	}
 }

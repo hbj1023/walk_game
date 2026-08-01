@@ -11,6 +11,8 @@ func RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("/login", loginHandler)
 	mux.HandleFunc("/password-reset/request", passwordResetRequestHandler)
 	mux.HandleFunc("/password-reset/confirm", passwordResetConfirmHandler)
+	mux.HandleFunc("/api/password-reset/request", passwordResetRequestHandler)
+	mux.HandleFunc("/api/password-reset/confirm", passwordResetConfirmHandler)
 	mux.HandleFunc("/main", mainHandler)
 	mux.HandleFunc("/steps/sync", stepSyncHandler)
 	mux.HandleFunc("/api/events/gold-mine/status", goldMineEventStatusHandler)

@@ -108,7 +108,7 @@ class AuthService {
     final normalizedEmail = email.trim().toLowerCase();
     final response = await _sendWithTimeout(
       http.post(
-        _apiUri('/password-reset/request'),
+        _apiUri('/api/password-reset/request'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({'email': normalizedEmail}),
       ),
@@ -134,7 +134,7 @@ class AuthService {
   }) async {
     final response = await _sendWithTimeout(
       http.post(
-        _apiUri('/password-reset/confirm'),
+        _apiUri('/api/password-reset/confirm'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
           'token': token.trim(),

@@ -68,6 +68,54 @@ func TestPasswordResetRequestHandlerUsesGenericSuccessMessage(t *testing.T) {
 	}
 }
 
+func TestPasswordResetRequestHandlerHidesUnknownEmail(t *testing.T) {
+	pocketBase := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusBadRequest)
+		_, _ = w.Write([]byte(`{"data":{},"message":"An error occurred while loading the submitted data.","status":400}`))
+	}))
+	defer pocketBase.Close()
+	t.Setenv("POCKETBASE_URL", pocketBase.URL)
+
+	request := httptest.NewRequest(
+		http.MethodPost,
+		"/api/password-reset/request",
+		strings.NewReader(`{"email":"unknown@example.com"}`),
+	)
+	response := httptest.NewRecorder()
+	mux := http.NewServeMux()
+	RegisterRoutes(mux)
+
+	mux.ServeHTTP(response, request)
+
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d: %s", response.Code, response.Body.String())
+	}
+	if !strings.Contains(response.Body.String(), passwordResetRequestMessage) {
+		t.Fatalf("expected generic message, got %s", response.Body.String())
+	}
+}
+
+func TestPasswordResetRequestHandlerKeepsUpstreamFailure(t *testing.T) {
+	pocketBase := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	defer pocketBase.Close()
+	t.Setenv("POCKETBASE_URL", pocketBase.URL)
+
+	request := httptest.NewRequest(
+		http.MethodPost,
+		"/api/password-reset/request",
+		strings.NewReader(`{"email":"player@example.com"}`),
+	)
+	response := httptest.NewRecorder()
+
+	passwordResetRequestHandler(response, request)
+
+	if response.Code != http.StatusBadGateway {
+		t.Fatalf("expected status 502, got %d: %s", response.Code, response.Body.String())
+	}
+}
+
 func TestPasswordResetConfirmHandlerRejectsInvalidRequests(t *testing.T) {
 	tests := []struct {
 		name       string
