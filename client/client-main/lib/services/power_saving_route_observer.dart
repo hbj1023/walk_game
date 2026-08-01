@@ -19,6 +19,7 @@ mixin CustomPowerSavingRouteAware<T extends StatefulWidget> on State<T>
     }
     _powerSavingRoute = route;
     powerSavingRouteObserver.subscribe(this, route);
+    _setCustomPowerSavingUiVisible(route.isCurrent);
   }
 
   void _setCustomPowerSavingUiVisible(bool visible) {
