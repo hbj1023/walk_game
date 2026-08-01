@@ -106,9 +106,13 @@ class _BattlePageState extends State<BattlePage>
   bool _isConsumableSelectorExpanded = false;
   String _currentPlayerSpritePath = _kPlayerIdleSprite;
   int _currentPlayerSpriteFrameCount = _kPlayerAttackFrameCount;
-  int _playerAnimationFrame = 0;
+  final ValueNotifier<int> _playerAnimationFrameNotifier = ValueNotifier(0);
+  int get _playerAnimationFrame => _playerAnimationFrameNotifier.value;
+  set _playerAnimationFrame(int value) =>
+      _playerAnimationFrameNotifier.value = value;
   double _playerSpriteOffsetY = 0;
   Timer? _playerIdleAnimationTimer;
+  bool _isAppForeground = true;
   bool _isAttacking = false;
   bool _isLeavingBattle = false;
   bool _isUsingConsumable = false;
@@ -220,6 +224,7 @@ class _BattlePageState extends State<BattlePage>
   @override
   void dispose() {
     _playerIdleAnimationTimer?.cancel();
+    _playerAnimationFrameNotifier.dispose();
     unawaited(_stepTracker.stop(syncPending: true, updateState: false));
     _stepTracker.removeListener(_onStepTrackerChanged);
     _stepTracker.dispose();
@@ -234,16 +239,16 @@ class _BattlePageState extends State<BattlePage>
       const Duration(milliseconds: 100),
       (_) {
         if (!mounted ||
+            !_isAppForeground ||
+            !(ModalRoute.of(context)?.isCurrent ?? false) ||
             _isAttacking ||
             _battleEnded ||
             _appSettings.powerSavingMode ||
             _currentPlayerSpritePath != _kPlayerIdleSprite) {
           return;
         }
-        setState(() {
-          _playerAnimationFrame =
-              (_playerAnimationFrame + 1) % _kPlayerAttackFrameCount;
-        });
+        _playerAnimationFrame =
+            (_playerAnimationFrame + 1) % _kPlayerAttackFrameCount;
       },
     );
   }
@@ -251,6 +256,7 @@ class _BattlePageState extends State<BattlePage>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
+      _isAppForeground = true;
       if (!_battleEnded) {
         unawaited(_stepTracker.start());
       }
@@ -260,6 +266,7 @@ class _BattlePageState extends State<BattlePage>
         state == AppLifecycleState.hidden ||
         state == AppLifecycleState.paused ||
         state == AppLifecycleState.detached) {
+      _isAppForeground = false;
       unawaited(_stepTracker.stop(syncPending: true, updateState: false));
     }
     if (state == AppLifecycleState.detached && !_battleEnded) {
@@ -1901,8 +1908,12 @@ class _BattlePageState extends State<BattlePage>
             maxWidth: double.infinity,
             maxHeight: double.infinity,
             alignment: Alignment.topLeft,
-            child: Transform.translate(
-              offset: Offset(-_playerAnimationFrame * displayWidth, 0),
+            child: ValueListenableBuilder<int>(
+              valueListenable: _playerAnimationFrameNotifier,
+              builder: (context, frame, child) => Transform.translate(
+                offset: Offset(-frame * displayWidth, 0),
+                child: child,
+              ),
               child: Image.asset(
                 _currentPlayerSpritePath,
                 width: displayWidth * _currentPlayerSpriteFrameCount,

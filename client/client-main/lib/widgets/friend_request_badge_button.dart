@@ -19,25 +19,45 @@ class FriendRequestBadgeButton extends StatefulWidget {
       _FriendRequestBadgeButtonState();
 }
 
-class _FriendRequestBadgeButtonState extends State<FriendRequestBadgeButton> {
+class _FriendRequestBadgeButtonState extends State<FriendRequestBadgeButton>
+    with WidgetsBindingObserver {
   static const _refreshInterval = Duration(seconds: 30);
 
   int _requestCount = 0;
   bool _isRefreshing = false;
   Timer? _refreshTimer;
+  bool _isAppForeground = true;
 
   @override
   void initState() {
     super.initState();
-    _refreshRequestCount();
-    _refreshTimer = Timer.periodic(
-      _refreshInterval,
-      (_) => _refreshRequestCount(),
-    );
+    WidgetsBinding.instance.addObserver(this);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        unawaited(_refreshRequestCount());
+      }
+    });
+    _refreshTimer = Timer.periodic(_refreshInterval, (_) {
+      if (_shouldRefresh) {
+        unawaited(_refreshRequestCount());
+      }
+    });
+  }
+
+  bool get _shouldRefresh =>
+      _isAppForeground && (ModalRoute.of(context)?.isCurrent ?? false);
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    _isAppForeground = state == AppLifecycleState.resumed;
+    if (_isAppForeground && _shouldRefresh) {
+      unawaited(_refreshRequestCount());
+    }
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _refreshTimer?.cancel();
     super.dispose();
   }
@@ -53,7 +73,10 @@ class _FriendRequestBadgeButtonState extends State<FriendRequestBadgeButton> {
     try {
       final requests = await FriendshipService.fetchReceivedRequests();
       if (!mounted) return;
-      setState(() => _requestCount = requests.length);
+      final nextCount = requests.length;
+      if (nextCount != _requestCount) {
+        setState(() => _requestCount = nextCount);
+      }
     } catch (_) {
       // Keep the last known count; badge failure should not block the screen.
     } finally {

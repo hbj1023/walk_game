@@ -46,6 +46,8 @@ class _HomePageState extends State<HomePage>
 
   late AnimationController _bgController;
   double _bgAspectRatio = 2.0; // 이미지 로드 전 기본값
+  bool _isRouteVisible = true;
+  bool _isAppForeground = true;
 
   bool _chapter2HomeBgUnlocked = false;
   bool _chapter3HomeBgUnlocked = false;
@@ -83,14 +85,15 @@ class _HomePageState extends State<HomePage>
       },
       onStartError: (error) => _showSnackBar(error.toString()),
       onSyncError: (error) => _showSnackBar(error.toString()),
-    )..addListener(_onStepTrackerChanged);
+    );
     _loadUserName();
     _loadMissions();
     _loadAppSettings();
     _bgController = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 30),
-    )..repeat();
+    );
+    _syncBackgroundAnimation();
     _loadBgAspectRatio();
     _loadHomeBackgroundState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -139,11 +142,7 @@ class _HomePageState extends State<HomePage>
     setState(() {
       _appSettings = settings;
     });
-    if (settings.powerSavingMode) {
-      if (_bgController.isAnimating) _bgController.stop();
-    } else if (!_bgController.isAnimating) {
-      _bgController.repeat();
-    }
+    _syncBackgroundAnimation();
     final nextAsset = _homeBgAsset;
     if (nextAsset != previousAsset) {
       _loadBgAspectRatio(nextAsset);
@@ -152,17 +151,29 @@ class _HomePageState extends State<HomePage>
 
   void _loadBgAspectRatio([String? assetPath]) {
     final image = AssetImage(assetPath ?? _homeBgAsset);
-    image
-        .resolve(const ImageConfiguration())
-        .addListener(
-          ImageStreamListener((info, _) {
-            if (mounted) {
-              setState(() {
-                _bgAspectRatio = info.image.width / info.image.height;
-              });
-            }
-          }),
-        );
+    final stream = image.resolve(const ImageConfiguration());
+    late final ImageStreamListener listener;
+    listener = ImageStreamListener((info, _) {
+      stream.removeListener(listener);
+      if (mounted) {
+        setState(() {
+          _bgAspectRatio = info.image.width / info.image.height;
+        });
+      }
+    }, onError: (_, _) => stream.removeListener(listener));
+    stream.addListener(listener);
+  }
+
+  void _syncBackgroundAnimation() {
+    final shouldAnimate =
+        _isRouteVisible && _isAppForeground && !_appSettings.powerSavingMode;
+    if (shouldAnimate) {
+      if (!_bgController.isAnimating) {
+        _bgController.repeat();
+      }
+    } else if (_bgController.isAnimating) {
+      _bgController.stop(canceled: false);
+    }
   }
 
   Future<void> _loadHomeBackgroundState() async {
@@ -204,7 +215,6 @@ class _HomePageState extends State<HomePage>
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     unawaited(_stepTracker.stop(syncPending: true, updateState: false));
-    _stepTracker.removeListener(_onStepTrackerChanged);
     _stepTracker.dispose();
     _bgController.dispose();
     AppSettingsService.notifier.removeListener(_onAppSettingsChanged);
@@ -215,6 +225,8 @@ class _HomePageState extends State<HomePage>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
+      _isAppForeground = true;
+      _syncBackgroundAnimation();
       unawaited(OfflineStepReconciliationService.instance.refreshAccount());
       unawaited(_stepTracker.start());
       return;
@@ -223,6 +235,8 @@ class _HomePageState extends State<HomePage>
         state == AppLifecycleState.hidden ||
         state == AppLifecycleState.paused ||
         state == AppLifecycleState.detached) {
+      _isAppForeground = false;
+      _syncBackgroundAnimation();
       unawaited(_stepTracker.stop(syncPending: true, updateState: false));
     }
   }
@@ -230,12 +244,16 @@ class _HomePageState extends State<HomePage>
   @override
   void didPushNext() {
     super.didPushNext();
+    _isRouteVisible = false;
+    _syncBackgroundAnimation();
     unawaited(_stepTracker.stop(syncPending: true, updateState: false));
   }
 
   @override
   void didPopNext() {
     super.didPopNext();
+    _isRouteVisible = true;
+    _syncBackgroundAnimation();
     unawaited(_stepTracker.start());
   }
 
@@ -244,11 +262,6 @@ class _HomePageState extends State<HomePage>
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) setState(() {});
     });
-  }
-
-  void _onStepTrackerChanged() {
-    if (!mounted) return;
-    setState(() {});
   }
 
   Future<void> _loadUserName() async {
@@ -338,36 +351,10 @@ class _HomePageState extends State<HomePage>
             const Positioned.fill(child: ColoredBox(color: Color(0xFF050505)))
           else
             Positioned.fill(
-              child: AnimatedBuilder(
-                animation: _bgController,
-                builder: (context, child) {
-                  final h = MediaQuery.of(context).size.height;
-                  final tileW = h * _bgAspectRatio;
-                  final offset = _bgController.value * tileW;
-                  return Stack(
-                    children: [
-                      Positioned(
-                        left: -offset,
-                        top: 0,
-                        bottom: 0,
-                        width: tileW,
-                        child: child!,
-                      ),
-                      Positioned(
-                        left: tileW - offset,
-                        top: 0,
-                        bottom: 0,
-                        width: tileW,
-                        child: child,
-                      ),
-                    ],
-                  );
-                },
-                child: Image.asset(
-                  _homeBgAsset,
-                  key: ValueKey(_homeBgAsset),
-                  fit: BoxFit.fill,
-                ),
+              child: _ScrollingHomeBackground(
+                controller: _bgController,
+                assetPath: _homeBgAsset,
+                aspectRatio: _bgAspectRatio,
               ),
             ),
           if (powerSaving)
@@ -455,10 +442,13 @@ class _HomePageState extends State<HomePage>
                       ),
                     ),
                     const SizedBox(height: 12),
-                    _powerSavingStatusRow(
-                      '상태',
-                      _stepTracker.statusLabel,
-                      maxLines: 2,
+                    AnimatedBuilder(
+                      animation: _stepTracker,
+                      builder: (context, _) => _powerSavingStatusRow(
+                        '상태',
+                        _stepTracker.statusLabel,
+                        maxLines: 2,
+                      ),
                     ),
                     _powerSavingStatusRow('공격권', '${_gs.attackCountBalance}회'),
                     _powerSavingStatusRow(
@@ -1555,6 +1545,84 @@ class _SimpleTabMessage extends StatelessWidget {
             Shadow(color: Colors.black, blurRadius: 6, offset: Offset(1, 1)),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _ScrollingHomeBackground extends StatelessWidget {
+  final Animation<double> controller;
+  final String assetPath;
+  final double aspectRatio;
+
+  const _ScrollingHomeBackground({
+    required this.controller,
+    required this.assetPath,
+    required this.aspectRatio,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final height = constraints.maxHeight;
+        final tileWidth = height * aspectRatio;
+        return ClipRect(
+          child: AnimatedBuilder(
+            animation: controller,
+            child: OverflowBox(
+              alignment: Alignment.topLeft,
+              minWidth: tileWidth * 2,
+              maxWidth: tileWidth * 2,
+              minHeight: height,
+              maxHeight: height,
+              child: Row(
+                children: [
+                  _HomeBackgroundTile(
+                    assetPath: assetPath,
+                    width: tileWidth,
+                    height: height,
+                  ),
+                  _HomeBackgroundTile(
+                    assetPath: assetPath,
+                    width: tileWidth,
+                    height: height,
+                  ),
+                ],
+              ),
+            ),
+            builder: (context, child) => Transform.translate(
+              offset: Offset(-controller.value * tileWidth, 0),
+              child: child,
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _HomeBackgroundTile extends StatelessWidget {
+  final String assetPath;
+  final double width;
+  final double height;
+
+  const _HomeBackgroundTile({
+    required this.assetPath,
+    required this.width,
+    required this.height,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return RepaintBoundary(
+      child: Image.asset(
+        assetPath,
+        key: ValueKey(assetPath),
+        width: width,
+        height: height,
+        fit: BoxFit.fill,
+        filterQuality: FilterQuality.low,
       ),
     );
   }

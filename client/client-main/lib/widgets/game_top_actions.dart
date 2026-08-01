@@ -20,7 +20,8 @@ class GameTopActions extends StatefulWidget {
   State<GameTopActions> createState() => _GameTopActionsState();
 }
 
-class _GameTopActionsState extends State<GameTopActions> {
+class _GameTopActionsState extends State<GameTopActions>
+    with WidgetsBindingObserver {
   static const _raidInvitationRefreshInterval = Duration(seconds: 2);
 
   bool _isLoggingOut = false;
@@ -28,19 +29,41 @@ class _GameTopActionsState extends State<GameTopActions> {
   bool _hasLoadedRaidInvitations = false;
   Set<String> _raidInvitationIds = const <String>{};
   Timer? _raidInvitationRefreshTimer;
+  bool _isAppForeground = true;
 
   @override
   void initState() {
     super.initState();
-    unawaited(_refreshRaidInvitations(announce: false));
+    WidgetsBinding.instance.addObserver(this);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        unawaited(_refreshRaidInvitations(announce: false));
+      }
+    });
     _raidInvitationRefreshTimer = Timer.periodic(
       _raidInvitationRefreshInterval,
-      (_) => unawaited(_refreshRaidInvitations()),
+      (_) {
+        if (_shouldRefresh) {
+          unawaited(_refreshRaidInvitations());
+        }
+      },
     );
+  }
+
+  bool get _shouldRefresh =>
+      _isAppForeground && (ModalRoute.of(context)?.isCurrent ?? false);
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    _isAppForeground = state == AppLifecycleState.resumed;
+    if (_isAppForeground && _shouldRefresh) {
+      unawaited(_refreshRaidInvitations(announce: false));
+    }
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _raidInvitationRefreshTimer?.cancel();
     super.dispose();
   }
