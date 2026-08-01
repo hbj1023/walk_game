@@ -2,10 +2,10 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
-import 'package:flutter/services.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:pedometer/pedometer.dart';
 
+import 'activity_recognition_permission_service.dart';
 import 'game_api_service.dart';
 
 typedef StepSyncCallback =
@@ -53,10 +53,6 @@ class StepTrackingController extends ChangeNotifier {
   static const _gpsMaxAcceptedSpeedMps = 8.0;
   static const _gpsAssistMismatchMinM = 80.0;
   static const _gpsAssistMismatchRatio = 0.6;
-  static const _activityPermissionChannel = MethodChannel(
-    'cap1/activity_permission',
-  );
-
   final StepSyncCallback onSyncSteps;
   final StepSyncSuccessCallback? onSyncSuccess;
   final StepTrackingErrorCallback? onStartError;
@@ -184,7 +180,9 @@ class StepTrackingController extends ChangeNotifier {
 
     _change(() {
       isStarting = true;
-      statusLabel = permissionStatusLabel;
+      statusLabel = ActivityRecognitionPermissionService.isGranted
+          ? sensorConnectingStatusLabel
+          : permissionStatusLabel;
     });
 
     try {
@@ -521,11 +519,7 @@ class StepTrackingController extends ChangeNotifier {
     }
     if (defaultTargetPlatform != TargetPlatform.android) return;
 
-    final granted =
-        await _activityPermissionChannel.invokeMethod<bool>(
-          'ensureActivityRecognitionPermission',
-        ) ??
-        false;
+    final granted = await ActivityRecognitionPermissionService.ensureGranted();
     if (!granted) {
       throw const GameApiException('걸음 수 권한이 필요합니다. 앱 설정에서 신체 활동 권한을 허용해주세요.');
     }

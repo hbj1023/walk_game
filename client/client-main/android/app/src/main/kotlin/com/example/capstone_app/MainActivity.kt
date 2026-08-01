@@ -23,6 +23,9 @@ class MainActivity : FlutterActivity() {
             activityPermissionChannel
         ).setMethodCallHandler { call, result ->
             when (call.method) {
+                "checkActivityRecognitionPermission" -> result.success(
+                    hasActivityRecognitionPermission()
+                )
                 "ensureActivityRecognitionPermission" -> ensureActivityRecognitionPermission(result)
                 else -> result.notImplemented()
             }
@@ -131,12 +134,7 @@ class MainActivity : FlutterActivity() {
     }
 
     private fun ensureActivityRecognitionPermission(result: MethodChannel.Result) {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
-            result.success(true)
-            return
-        }
-
-        if (checkSelfPermission(Manifest.permission.ACTIVITY_RECOGNITION) == PackageManager.PERMISSION_GRANTED) {
+        if (hasActivityRecognitionPermission()) {
             result.success(true)
             return
         }
@@ -155,6 +153,12 @@ class MainActivity : FlutterActivity() {
             arrayOf(Manifest.permission.ACTIVITY_RECOGNITION),
             activityRecognitionRequestCode
         )
+    }
+
+    private fun hasActivityRecognitionPermission(): Boolean {
+        return Build.VERSION.SDK_INT < Build.VERSION_CODES.Q ||
+            checkSelfPermission(Manifest.permission.ACTIVITY_RECOGNITION) ==
+            PackageManager.PERMISSION_GRANTED
     }
 
     override fun onRequestPermissionsResult(
