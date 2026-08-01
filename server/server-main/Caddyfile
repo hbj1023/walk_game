@@ -1,0 +1,3 @@
+walk-master.com, www.walk-master.com {
+	reverse_proxy web:80
+}

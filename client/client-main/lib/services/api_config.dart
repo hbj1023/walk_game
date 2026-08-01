@@ -1,7 +1,7 @@
 class ApiConfig {
   static const baseUrl = String.fromEnvironment(
     'API_BASE_URL',
-    defaultValue: 'http://15.165.116.173:8080',
+    defaultValue: 'https://walk-master.com',
   );
 
   static Uri uri(String path) {

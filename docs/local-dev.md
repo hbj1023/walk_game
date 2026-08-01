@@ -10,7 +10,7 @@ cd C:\Users\hbj10\Documents\Codex\2026-06-27\dlr\work
 This starts the local Flutter web app, but points it at the production API:
 
 ```text
-http://15.165.116.173:8080
+https://walk-master.com
 ```
 
 Use local DB mode only when testing backend, PocketBase migrations, or brand-new local accounts:
@@ -76,7 +76,7 @@ To test with the existing production account and progress data, run either:
 That starts the same local Flutter web app, but points it at:
 
 ```text
-http://15.165.116.173:8080
+https://walk-master.com
 ```
 
 Use this when local PocketBase shows a new level 1 character but you want to test the real server account.

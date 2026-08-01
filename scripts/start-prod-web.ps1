@@ -6,7 +6,7 @@ $LogDir = Join-Path $Root "logs"
 $Flutter = Join-Path $Root "..\tools\flutter\bin\flutter.bat"
 
 $WebPort = 52733
-$ProdApiBaseUrl = "http://15.165.116.173:8080"
+$ProdApiBaseUrl = "https://walk-master.com"
 
 function Stop-WebServerPort {
   param([int]$Port)

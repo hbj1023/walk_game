@@ -36,8 +36,8 @@ services:
       context: ../..
       dockerfile: server/server-main/Dockerfile.web
     container_name: game-web
-    ports:
-      - "${WEB_PORT:-80}:80"
+    expose:
+      - "80"
     depends_on:
       - api
     restart: unless-stopped
@@ -48,5 +48,22 @@ services:
       retries: 6
       start_period: 10s
 
+  gateway:
+    image: caddy:2-alpine
+    container_name: game-gateway
+    ports:
+      - "${WEB_PORT:-80}:80"
+      - "${HTTPS_PORT:-443}:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      web:
+        condition: service_healthy
+    restart: unless-stopped
+
 volumes:
   pocketbase_data:
+  caddy_data:
+  caddy_config:
