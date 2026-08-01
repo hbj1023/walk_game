@@ -38,6 +38,8 @@ services:
     container_name: game-web
     expose:
       - "80"
+    volumes:
+      - ./web_dist/downloads:/usr/share/nginx/html/downloads:ro
     depends_on:
       - api
     restart: unless-stopped
