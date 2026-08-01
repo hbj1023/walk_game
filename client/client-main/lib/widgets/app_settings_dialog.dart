@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -15,6 +17,15 @@ const _kBlue = Color(0xFF245A8F);
 const _kChapter1HomeBg = 'assets/images/bg/home_bg.png';
 const _kChapter2HomeBg = 'assets/images/bg/home_bg_chapter2_shadow_forest.png';
 const _kChapter3HomeBg = 'assets/images/bg/home_bg_chapter3_ancient_quarry.png';
+
+Future<void> _dismissKeyboard() async {
+  FocusManager.instance.primaryFocus?.unfocus();
+  try {
+    await SystemChannels.textInput.invokeMethod<void>('TextInput.hide');
+  } catch (_) {
+    // The text input channel can already be detached while a dialog is closing.
+  }
+}
 
 class AppSettingsDialog extends StatefulWidget {
   final Future<void> Function() onLogout;
@@ -110,11 +121,14 @@ class _AppSettingsDialogState extends State<AppSettingsDialog> {
   }
 
   Future<void> _openCustomerCenter() async {
+    await _dismissKeyboard();
+    if (!mounted) return;
     final deleted = await showDialog<bool>(
       context: context,
       barrierColor: Colors.black.withValues(alpha: 0.72),
       builder: (_) => _CustomerCenterDialog(email: _email, name: _name),
     );
+    await _dismissKeyboard();
     if (deleted != true || !mounted) return;
     Navigator.pop(context);
     await widget.onAccountDeleted();
@@ -536,6 +550,7 @@ class _CustomerCenterDialogState extends State<_CustomerCenterDialog> {
   final _screenController = TextEditingController();
   final _messageController = TextEditingController();
   final _scrollController = ScrollController();
+  final _screenFocusNode = FocusNode();
   final _messageFocusNode = FocusNode();
   bool _isSubmitting = false;
   String? _notice;
@@ -549,8 +564,10 @@ class _CustomerCenterDialogState extends State<_CustomerCenterDialog> {
 
   @override
   void dispose() {
+    unawaited(_dismissKeyboard());
     _screenController.dispose();
     _messageController.dispose();
+    _screenFocusNode.dispose();
     _messageFocusNode.removeListener(_scrollToMessageField);
     _messageFocusNode.dispose();
     _scrollController.dispose();
@@ -590,6 +607,8 @@ class _CustomerCenterDialogState extends State<_CustomerCenterDialog> {
         message: message,
       );
       if (!mounted) return;
+      await _dismissKeyboard();
+      if (!mounted) return;
       _messageController.clear();
       setState(() {
         _isSubmitting = false;
@@ -607,6 +626,8 @@ class _CustomerCenterDialogState extends State<_CustomerCenterDialog> {
   }
 
   Future<void> _openDeleteDialog() async {
+    await _dismissKeyboard();
+    if (!mounted) return;
     final deleted = await showDialog<bool>(
       context: context,
       barrierColor: Colors.black.withValues(alpha: 0.72),
@@ -654,9 +675,12 @@ class _CustomerCenterDialogState extends State<_CustomerCenterDialog> {
           const SizedBox(height: 8),
           _darkTextField(
             controller: _screenController,
+            focusNode: _screenFocusNode,
             label: '발생 화면',
             hint: '예: 상점, 레이드, 전투',
             maxLength: 80,
+            textInputAction: TextInputAction.next,
+            onSubmitted: (_) => _messageFocusNode.requestFocus(),
           ),
           const SizedBox(height: 8),
           _darkTextField(
@@ -705,13 +729,18 @@ class _AccountDeleteDialog extends StatefulWidget {
 class _AccountDeleteDialogState extends State<_AccountDeleteDialog> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
+  final _emailFocusNode = FocusNode();
+  final _passwordFocusNode = FocusNode();
   bool _isDeleting = false;
   String? _error;
 
   @override
   void dispose() {
+    unawaited(_dismissKeyboard());
     _emailController.dispose();
     _passwordController.dispose();
+    _emailFocusNode.dispose();
+    _passwordFocusNode.dispose();
     super.dispose();
   }
 
@@ -724,6 +753,8 @@ class _AccountDeleteDialogState extends State<_AccountDeleteDialog> {
   }
 
   Future<bool> _confirmPermanentDelete() async {
+    await _dismissKeyboard();
+    if (!mounted) return false;
     final confirmed = await showDialog<bool>(
       context: context,
       barrierDismissible: false,
@@ -816,19 +847,27 @@ class _AccountDeleteDialogState extends State<_AccountDeleteDialog> {
             const SizedBox(height: 12),
             _darkTextField(
               controller: _emailController,
+              focusNode: _emailFocusNode,
               label: '이메일 확인',
               hint: widget.email,
               keyboardType: TextInputType.emailAddress,
+              textInputAction: TextInputAction.next,
+              autofocus: true,
               onChanged: (_) => setState(() {}),
+              onSubmitted: (_) => _passwordFocusNode.requestFocus(),
             ),
           ],
           const SizedBox(height: 8),
           _darkTextField(
             controller: _passwordController,
+            focusNode: _passwordFocusNode,
             label: '비밀번호',
             hint: '현재 비밀번호',
             obscureText: true,
+            textInputAction: TextInputAction.done,
+            autofocus: widget.email.isEmpty,
             onChanged: (_) => setState(() {}),
+            onSubmitted: (_) => unawaited(_dismissKeyboard()),
           ),
           if (_error != null) ...[
             const SizedBox(height: 8),
@@ -864,49 +903,57 @@ class _SettingsShell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Dialog(
-      backgroundColor: Colors.transparent,
-      child: ConstrainedBox(
-        constraints: BoxConstraints(maxWidth: maxWidth, maxHeight: 680),
-        child: Container(
-          padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
-          decoration: BoxDecoration(
-            color: _kPanelBg,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: _kBorder, width: 2),
-          ),
-          child: SingleChildScrollView(
-            controller: scrollController,
-            keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Row(
-                  children: [
-                    Icon(icon, color: _kGold, size: 19),
-                    const SizedBox(width: 8),
-                    Text(
-                      title,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 17,
-                        fontWeight: FontWeight.bold,
+    return PopScope<void>(
+      onPopInvokedWithResult: (didPop, _) {
+        if (didPop) unawaited(_dismissKeyboard());
+      },
+      child: Dialog(
+        backgroundColor: Colors.transparent,
+        child: ConstrainedBox(
+          constraints: BoxConstraints(maxWidth: maxWidth, maxHeight: 680),
+          child: Container(
+            padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
+            decoration: BoxDecoration(
+              color: _kPanelBg,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: _kBorder, width: 2),
+            ),
+            child: SingleChildScrollView(
+              controller: scrollController,
+              keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Row(
+                    children: [
+                      Icon(icon, color: _kGold, size: 19),
+                      const SizedBox(width: 8),
+                      Text(
+                        title,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 17,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
-                    ),
-                    const Spacer(),
-                    GestureDetector(
-                      onTap: () => Navigator.pop(context),
-                      child: const Icon(
-                        Icons.close,
-                        color: Colors.white54,
-                        size: 20,
+                      const Spacer(),
+                      GestureDetector(
+                        onTap: () async {
+                          await _dismissKeyboard();
+                          if (context.mounted) Navigator.pop(context);
+                        },
+                        child: const Icon(
+                          Icons.close,
+                          color: Colors.white54,
+                          size: 20,
+                        ),
                       ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                child,
-              ],
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  child,
+                ],
+              ),
             ),
           ),
         ),
@@ -1088,8 +1135,11 @@ Widget _darkTextField({
   int maxLines = 1,
   int? maxLength,
   bool obscureText = false,
+  bool autofocus = false,
   TextInputType? keyboardType,
+  TextInputAction? textInputAction,
   ValueChanged<String>? onChanged,
+  ValueChanged<String>? onSubmitted,
 }) {
   return TextField(
     controller: controller,
@@ -1098,8 +1148,11 @@ Widget _darkTextField({
     maxLines: obscureText ? 1 : maxLines,
     maxLength: maxLength,
     obscureText: obscureText,
+    autofocus: autofocus,
     keyboardType: keyboardType,
+    textInputAction: textInputAction,
     onChanged: onChanged,
+    onSubmitted: onSubmitted,
     style: const TextStyle(color: Colors.white, fontSize: 12),
     cursorColor: _kGold,
     decoration: InputDecoration(
