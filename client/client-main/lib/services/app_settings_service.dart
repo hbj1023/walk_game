@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -124,10 +126,12 @@ class AppSettingsService {
           prefs.getBool(_allowNightNotificationsKey) ??
           defaults.allowNightNotifications,
     );
-    await OfflineAttackNotificationService.updatePreferences(
-      allowNightNotifications: settings.allowNightNotifications,
-    );
     notifier.value = settings;
+    unawaited(
+      OfflineAttackNotificationService.updatePreferences(
+        allowNightNotifications: settings.allowNightNotifications,
+      ),
+    );
     return settings;
   }
 
@@ -154,10 +158,12 @@ class AppSettingsService {
       _allowNightNotificationsKey,
       normalized.allowNightNotifications,
     );
-    await OfflineAttackNotificationService.updatePreferences(
-      allowNightNotifications: normalized.allowNightNotifications,
-    );
     notifier.value = normalized;
+    unawaited(
+      OfflineAttackNotificationService.updatePreferences(
+        allowNightNotifications: normalized.allowNightNotifications,
+      ),
+    );
   }
 
   static void resetPowerSavingAfterLogin() {

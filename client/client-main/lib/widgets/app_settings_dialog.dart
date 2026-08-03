@@ -21,9 +21,11 @@ const _kChapter3HomeBg = 'assets/images/bg/home_bg_chapter3_ancient_quarry.png';
 Future<void> _dismissKeyboard() async {
   FocusManager.instance.primaryFocus?.unfocus();
   try {
-    await SystemChannels.textInput.invokeMethod<void>('TextInput.hide');
+    await SystemChannels.textInput
+        .invokeMethod<void>('TextInput.hide')
+        .timeout(const Duration(milliseconds: 200));
   } catch (_) {
-    // The text input channel can already be detached while a dialog is closing.
+    // Closing the dialog must not wait on an unavailable platform input service.
   }
 }
 
@@ -61,29 +63,33 @@ class _AppSettingsDialogState extends State<AppSettingsDialog> {
       AuthService.getSavedEmail(),
       AuthService.getSavedName(),
     ]);
-    var chapter2Unlocked = false;
-    var chapter3Unlocked = false;
-    try {
-      final stages = await BattleApiService.fetchNormalStages();
-      chapter2Unlocked =
-          stages.any((stage) => stage.stageNo >= 6 && stage.isUnlocked) ||
-          stages.any((stage) => stage.stageNo == 5 && stage.isCleared);
-      chapter3Unlocked =
-          stages.any((stage) => stage.stageNo >= 11 && stage.isUnlocked) ||
-          stages.any((stage) => stage.stageNo == 10 && stage.isCleared);
-    } catch (_) {
-      chapter2Unlocked = false;
-      chapter3Unlocked = false;
-    }
     if (!mounted) return;
     setState(() {
       _settings = results[0] as AppSettingsData;
       _email = (results[1] as String?)?.trim() ?? '';
       _name = (results[2] as String?)?.trim() ?? '';
-      _chapter2BackgroundUnlocked = chapter2Unlocked;
-      _chapter3BackgroundUnlocked = chapter3Unlocked;
       _isLoading = false;
     });
+    unawaited(_loadBackgroundUnlocks());
+  }
+
+  Future<void> _loadBackgroundUnlocks() async {
+    try {
+      final stages = await BattleApiService.fetchNormalStages();
+      final chapter2Unlocked =
+          stages.any((stage) => stage.stageNo >= 6 && stage.isUnlocked) ||
+          stages.any((stage) => stage.stageNo == 5 && stage.isCleared);
+      final chapter3Unlocked =
+          stages.any((stage) => stage.stageNo >= 11 && stage.isUnlocked) ||
+          stages.any((stage) => stage.stageNo == 10 && stage.isCleared);
+      if (!mounted) return;
+      setState(() {
+        _chapter2BackgroundUnlocked = chapter2Unlocked;
+        _chapter3BackgroundUnlocked = chapter3Unlocked;
+      });
+    } catch (_) {
+      // Local settings remain usable when stage metadata is unavailable.
+    }
   }
 
   Future<void> _save(AppSettingsData settings) async {
