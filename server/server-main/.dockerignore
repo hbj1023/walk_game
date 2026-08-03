@@ -1,0 +1,7 @@
+.git
+.gocache
+.gotmp
+backups
+web_dist/downloads
+web_dist.previous.*
+*.db
