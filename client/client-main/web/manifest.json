@@ -1,11 +1,11 @@
 {
-    "name": "capstone_app",
-    "short_name": "capstone_app",
+    "name": "Walk Master",
+    "short_name": "Walk Master",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",
     "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "description": "A walking RPG where every step grows your character.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [
