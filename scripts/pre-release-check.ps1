@@ -112,7 +112,9 @@ if ($needsAsciiWorktree) {
 
 try {
   $ClientDir = Join-Path $BuildRoot "client\client-main"
-  $ServerDir = Join-Path $BuildRoot "server\server-main"
+  # Windows Application Control can block Go test executables created below
+  # %TEMP%. The server sources do not need the ASCII-only Flutter worktree.
+  $ServerDir = Join-Path $SourceRoot "server\server-main"
 
   $gradle = Get-Content -Raw -LiteralPath (Join-Path $ClientDir "android\app\build.gradle.kts")
   if ($gradle -notmatch 'applicationId\s*=\s*"com\.hbj1023\.walkmaster"') {
@@ -140,7 +142,9 @@ try {
   Push-Location $ServerDir
   try {
     New-Item -ItemType Directory -Force -Path ".gocache" | Out-Null
+    New-Item -ItemType Directory -Force -Path ".gotmp" | Out-Null
     $env:GOCACHE = (Resolve-Path ".gocache").Path
+    $env:GOTMPDIR = (Resolve-Path ".gotmp").Path
     Invoke-Checked "Go test" { & go test ./... }
   } finally {
     Pop-Location
@@ -165,6 +169,20 @@ try {
 } finally {
   if ($TemporaryWorktree) {
     & git -C $SourceRoot worktree remove --force $TemporaryWorktree
+    if ($LASTEXITCODE -ne 0) {
+      & git -C $SourceRoot worktree prune
+
+      $resolvedWorktree = [System.IO.Path]::GetFullPath($TemporaryWorktree)
+      $resolvedTempRoot = [System.IO.Path]::GetFullPath([System.IO.Path]::GetTempPath())
+      $isExpectedTemp = $resolvedWorktree.StartsWith(
+        $resolvedTempRoot,
+        [System.StringComparison]::OrdinalIgnoreCase
+      ) -and (Split-Path -Leaf $resolvedWorktree).StartsWith("walkmaster-release-")
+
+      if ($isExpectedTemp -and (Test-Path -LiteralPath $resolvedWorktree)) {
+        Remove-Item -LiteralPath ("\\?\" + $resolvedWorktree) -Recurse -Force
+      }
+    }
     if ($LASTEXITCODE -ne 0) {
       Write-Warning "임시 작업공간을 자동 정리하지 못했습니다: $TemporaryWorktree"
     }

@@ -2,4 +2,5 @@ logs/
 reports/item-catalog/
 *.log
 **/.gocache/
+**/.gotmp/
 artifacts/
