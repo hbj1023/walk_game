@@ -1,4 +1,4 @@
-package com.example.capstone_app
+package com.hbj1023.walkmaster
 
 import android.Manifest
 import android.content.Context

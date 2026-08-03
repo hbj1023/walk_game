@@ -5,13 +5,15 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/mail"
 	"net/url"
 	"strings"
 )
 
 const (
-	supportReportsCollection        = "support_reports"
-	accountDeleteStepLogsCollection = "step_sync_logs"
+	supportReportsCollection          = "support_reports"
+	accountDeletionRequestsCollection = "account_deletion_requests"
+	accountDeleteStepLogsCollection   = "step_sync_logs"
 )
 
 type supportBugReportRequest struct {
@@ -23,6 +25,14 @@ type accountDeleteRequest struct {
 	Email    string `json:"email"`
 	Password string `json:"password"`
 }
+
+type publicAccountDeletionRequest struct {
+	Email   string `json:"email"`
+	Reason  string `json:"reason"`
+	Website string `json:"website"`
+}
+
+const publicAccountDeletionMessage = "계정 삭제 요청이 접수되었습니다. 입력한 이메일을 확인한 뒤 처리하겠습니다."
 
 func supportBugReportHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
@@ -121,6 +131,73 @@ func accountDeleteHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeInventoryResponse(w, http.StatusOK, "account deleted", map[string]any{"deleted": true})
+}
+
+func publicAccountDeletionRequestHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeJSON(w, http.StatusMethodNotAllowed, map[string]string{"message": "account deletion request failed", "error": "method not allowed"})
+		return
+	}
+	if r.URL.Path != "/api/account-deletion-requests" {
+		writeJSON(w, http.StatusNotFound, map[string]string{"message": "account deletion request failed", "error": "not found"})
+		return
+	}
+
+	r.Body = http.MaxBytesReader(w, r.Body, 16*1024)
+	decoder := json.NewDecoder(r.Body)
+	decoder.DisallowUnknownFields()
+
+	var req publicAccountDeletionRequest
+	if err := decoder.Decode(&req); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"message": "account deletion request failed", "error": "invalid request body"})
+		return
+	}
+
+	// This hidden field is filled by simple form bots. Return the same public
+	// response without creating a record so the endpoint is less useful to spam.
+	if strings.TrimSpace(req.Website) != "" {
+		writeInventoryResponse(w, http.StatusAccepted, publicAccountDeletionMessage, map[string]any{"accepted": true})
+		return
+	}
+
+	email := strings.ToLower(strings.TrimSpace(req.Email))
+	address, err := mail.ParseAddress(email)
+	if err != nil || !strings.EqualFold(address.Address, email) || len(email) > 160 {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"message": "account deletion request failed", "error": "valid email is required"})
+		return
+	}
+
+	reason := strings.TrimSpace(req.Reason)
+	if len([]rune(reason)) > 1000 {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"message": "account deletion request failed", "error": "reason is too long"})
+		return
+	}
+
+	if err := createPublicAccountDeletionRequest(r.Context(), email, reason); err != nil {
+		writeJSON(w, http.StatusServiceUnavailable, map[string]string{"message": "account deletion request failed", "error": "request service unavailable"})
+		return
+	}
+
+	writeInventoryResponse(w, http.StatusAccepted, publicAccountDeletionMessage, map[string]any{"accepted": true})
+}
+
+func createPublicAccountDeletionRequest(ctx context.Context, email string, reason string) error {
+	payload := map[string]any{
+		"email":  email,
+		"reason": reason,
+		"status": "pending",
+		"source": "web",
+	}
+
+	resp, err := pocketBaseRequest(ctx, http.MethodPost, pocketBaseCollectionURL(accountDeletionRequestsCollection), "", payload)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return mapPocketBaseError(resp, "failed to create account deletion request")
+	}
+	return nil
 }
 
 func createSupportBugReport(ctx context.Context, token string, user pocketBaseUser, screen string, message string) (map[string]any, error) {

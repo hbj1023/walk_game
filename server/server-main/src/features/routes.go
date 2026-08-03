@@ -52,6 +52,7 @@ func RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("/api/users/profile-emote", userProfileHandler)
 	mux.HandleFunc("/api/users/profile-image", userProfileHandler)
 	mux.HandleFunc("/api/users/delete-account", accountDeleteHandler)
+	mux.HandleFunc("/api/account-deletion-requests", publicAccountDeletionRequestHandler)
 	mux.HandleFunc("/api/support/bug-reports", supportBugReportHandler)
 	mux.HandleFunc("/api/users/", userMissionsHandler)
 	mux.HandleFunc("/api/user-missions/", userMissionClaimHandler)

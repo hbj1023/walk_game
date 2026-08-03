@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <title>Walk Master 계정 삭제 요청</title>
+  <style>
+    :root { color-scheme: dark; }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: #11100f;
+      color: #e8e2d9;
+      font-family: system-ui, -apple-system, "Noto Sans KR", sans-serif;
+      line-height: 1.6;
+    }
+    main { width: min(560px, calc(100% - 32px)); margin: 0 auto; padding: 42px 0 72px; }
+    h1 { margin: 0 0 8px; color: #ffd15c; font-size: 27px; }
+    .lead { margin: 0 0 24px; color: #bdb5aa; }
+    .panel { padding: 20px; border: 1px solid #6f4931; background: #1b1714; border-radius: 8px; }
+    label { display: block; margin: 0 0 6px; color: #fff; font-weight: 700; }
+    input, textarea {
+      width: 100%;
+      border: 1px solid #4e443c;
+      border-radius: 6px;
+      background: #0d0c0b;
+      color: #fff;
+      font: inherit;
+      padding: 11px 12px;
+    }
+    input:focus, textarea:focus { outline: 2px solid #ffd15c; outline-offset: 1px; }
+    textarea { min-height: 120px; resize: vertical; }
+    .field { margin-bottom: 16px; }
+    .check { display: flex; gap: 10px; align-items: flex-start; margin: 18px 0; color: #d9d1c7; }
+    .check input { width: 18px; height: 18px; margin-top: 3px; }
+    button {
+      width: 100%;
+      min-height: 46px;
+      border: 1px solid #b65b47;
+      border-radius: 6px;
+      background: #8f3f31;
+      color: #fff;
+      font: inherit;
+      font-weight: 800;
+      cursor: pointer;
+    }
+    button:disabled { cursor: wait; opacity: .55; }
+    .notice { margin: 0 0 20px; padding: 13px; border-left: 3px solid #c66b47; background: #251813; }
+    .result { display: none; margin-top: 16px; padding: 12px; border-radius: 6px; }
+    .result.ok { display: block; border: 1px solid #6e9b66; background: #142114; color: #bde5b6; }
+    .result.error { display: block; border: 1px solid #a6493e; background: #281311; color: #ffb1a7; }
+    .honeypot { position: absolute; left: -10000px; width: 1px; height: 1px; overflow: hidden; }
+    a { color: #ffd15c; }
+    .foot { margin-top: 22px; color: #9e958a; font-size: 14px; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Walk Master 계정 삭제 요청</h1>
+    <p class="lead">앱을 사용할 수 없는 경우 이 양식으로 계정과 연결된 게임 데이터 삭제를 요청할 수 있습니다.</p>
+
+    <div class="notice">
+      요청을 처리하려면 가입한 이메일 확인이 필요합니다. 비밀번호는 절대 입력하지 마세요. 삭제가 완료되면 계정, 캐릭터, 장비, 재화와 진행 기록은 복구할 수 없습니다.
+    </div>
+
+    <form id="deletion-form" class="panel">
+      <div class="field">
+        <label for="email">가입 이메일</label>
+        <input id="email" name="email" type="email" autocomplete="email" maxlength="160" required>
+      </div>
+      <div class="field">
+        <label for="reason">요청 사유 (선택)</label>
+        <textarea id="reason" name="reason" maxlength="1000" placeholder="삭제 요청과 함께 전달할 내용이 있다면 입력해 주세요."></textarea>
+      </div>
+      <div class="honeypot" aria-hidden="true">
+        <label for="website">웹사이트</label>
+        <input id="website" name="website" type="text" tabindex="-1" autocomplete="off">
+      </div>
+      <label class="check">
+        <input id="confirm" type="checkbox" required>
+        <span>계정과 연결된 게임 데이터가 영구 삭제되며 복구할 수 없음을 확인했습니다.</span>
+      </label>
+      <button id="submit" type="submit">계정 삭제 요청 보내기</button>
+      <div id="result" class="result" role="status" aria-live="polite"></div>
+    </form>
+
+    <p class="foot">앱에 로그인할 수 있다면 <strong>설정 &gt; 고객센터 &gt; 계정 삭제</strong>에서 더 빠르게 직접 삭제할 수 있습니다. 자세한 내용은 <a href="/privacy.html">개인정보 처리방침</a>을 확인하세요.</p>
+  </main>
+  <script>
+    const form = document.getElementById('deletion-form');
+    const submit = document.getElementById('submit');
+    const result = document.getElementById('result');
+
+    form.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      submit.disabled = true;
+      result.className = 'result';
+      result.textContent = '';
+
+      try {
+        const response = await fetch('/api/account-deletion-requests', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            email: form.email.value,
+            reason: form.reason.value,
+            website: form.website.value,
+          }),
+        });
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          throw new Error(response.status === 400
+            ? '이메일과 입력 내용을 다시 확인해 주세요.'
+            : '지금은 요청을 접수할 수 없습니다. 잠시 후 다시 시도해 주세요.');
+        }
+
+        result.className = 'result ok';
+        result.textContent = payload.message || '계정 삭제 요청이 접수되었습니다.';
+        form.reset();
+      } catch (error) {
+        result.className = 'result error';
+        result.textContent = error.message || '요청을 처리하지 못했습니다.';
+      } finally {
+        submit.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>

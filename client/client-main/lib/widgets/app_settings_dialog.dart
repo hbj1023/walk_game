@@ -143,6 +143,14 @@ class _AppSettingsDialogState extends State<AppSettingsDialog> {
     await widget.onAccountDeleted();
   }
 
+  Future<void> _openPrivacyPolicy() async {
+    await showDialog<void>(
+      context: context,
+      barrierColor: Colors.black.withValues(alpha: 0.72),
+      builder: (_) => const _PrivacyPolicyDialog(),
+    );
+  }
+
   String get _backgroundSubtitle {
     switch (_settings.homeBackgroundChapter) {
       case AppSettingsData.homeBackgroundChapter1:
@@ -198,6 +206,13 @@ class _AppSettingsDialogState extends State<AppSettingsDialog> {
                 ),
                 const SizedBox(height: 8),
                 _powerTile(),
+                const SizedBox(height: 8),
+                _menuTile(
+                  icon: Icons.privacy_tip_outlined,
+                  title: '개인정보 처리방침',
+                  subtitle: '수집 정보와 이용 목적 확인',
+                  onTap: _openPrivacyPolicy,
+                ),
                 const SizedBox(height: 8),
                 _menuTile(
                   icon: Icons.support_agent,
@@ -286,6 +301,95 @@ class _AppSettingsDialogState extends State<AppSettingsDialog> {
                 },
               ),
             ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PrivacyPolicyDialog extends StatelessWidget {
+  const _PrivacyPolicyDialog();
+
+  @override
+  Widget build(BuildContext context) {
+    return _SettingsShell(
+      title: '개인정보 처리방침',
+      icon: Icons.privacy_tip_outlined,
+      maxWidth: 480,
+      child: const Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            '시행일: 2026년 8월 3일',
+            style: TextStyle(color: _kGold, fontSize: 12),
+          ),
+          SizedBox(height: 12),
+          _PrivacySection(
+            title: '수집하는 정보',
+            body:
+                '계정 생성과 로그인을 위해 이메일, 닉네임, 사용자 식별자를 처리합니다. 사용자가 선택하면 프로필 이미지를 저장합니다. 게임 진행을 위해 레벨, 장비, 재화, 전투 및 미션 기록을 저장합니다.',
+          ),
+          _PrivacySection(
+            title: '걸음 및 위치 정보',
+            body:
+                '걸음 수와 활동 인식 정보는 이동 기반 게임 기능과 오프라인 공격 기회 계산에 사용됩니다. 위치 좌표는 이동 거리 확인과 부정 이용 방지를 위해 기기에서 처리하며, 서버에는 걸음 수와 계산된 이동 거리 및 판정 결과만 전송합니다.',
+          ),
+          _PrivacySection(
+            title: '알림과 고객센터',
+            body:
+                '알림 권한은 오프라인 공격 기회가 가득 찼을 때 안내하는 데 사용합니다. 고객센터 제보에는 계정 정보와 사용자가 작성한 화면명 및 제보 내용이 포함됩니다.',
+          ),
+          _PrivacySection(
+            title: '보관과 삭제',
+            body:
+                '정보는 서비스 제공에 필요한 기간 동안 보관합니다. 설정의 고객센터에서 계정을 즉시 삭제하거나, 앱을 사용할 수 없다면 https://walk-master.com/delete-account.html 에서 삭제를 요청할 수 있습니다. 삭제가 완료되면 계정과 연결된 게임 데이터가 삭제됩니다. 법적 의무 또는 보안상 필요한 기록은 해당 목적에 필요한 기간 동안만 별도로 보관할 수 있습니다.',
+          ),
+          _PrivacySection(
+            title: '제3자 제공과 보호',
+            body:
+                '개인정보를 판매하지 않습니다. 비밀번호 재설정 메일과 사용자가 선택한 외부 로그인 기능을 제공하는 데 필요한 범위에서만 관련 서비스 제공자가 정보를 처리할 수 있습니다. 통신은 HTTPS로 암호화합니다.',
+          ),
+          _PrivacySection(
+            title: '문의',
+            body:
+                '개인정보 열람, 정정, 삭제 및 기타 문의는 설정의 고객센터에서 접수할 수 있습니다. 최신 방침은 https://walk-master.com/privacy.html 에서도 확인할 수 있습니다.',
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PrivacySection extends StatelessWidget {
+  final String title;
+  final String body;
+
+  const _PrivacySection({required this.title, required this.body});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 13),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 13,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            body,
+            style: const TextStyle(
+              color: Colors.white70,
+              fontSize: 11,
+              height: 1.55,
+            ),
           ),
         ],
       ),
