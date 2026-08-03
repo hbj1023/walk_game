@@ -1,0 +1,5 @@
+FROM nginx:1.27-alpine
+
+COPY nginx/game.conf /etc/nginx/conf.d/default.conf
+COPY nginx/proxy-common.inc /etc/nginx/proxy-common.inc
+COPY web_dist/ /usr/share/nginx/html/

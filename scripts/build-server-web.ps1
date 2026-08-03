@@ -1,3 +1,7 @@
+param(
+  [string]$FlutterPath = ""
+)
+
 $ErrorActionPreference = "Stop"
 
 $Root = Split-Path -Parent $PSScriptRoot
@@ -6,7 +10,11 @@ $ServerDir = Join-Path $Root "server\server-main"
 $WebDist = Join-Path $ServerDir "web_dist"
 $ArtifactDir = Join-Path $Root "artifacts"
 $Artifact = Join-Path $ArtifactDir "dlr-web.tar.gz"
-$Flutter = Join-Path $Root "..\tools\flutter\bin\flutter.bat"
+$Flutter = if ($FlutterPath) {
+  (Resolve-Path -LiteralPath $FlutterPath).Path
+} else {
+  Join-Path $Root "..\tools\flutter\bin\flutter.bat"
+}
 
 if (!(Test-Path $Flutter)) {
   throw "Flutter was not found at $Flutter"
@@ -53,7 +61,7 @@ if (!$resolvedWebDist.StartsWith($resolvedServer, [System.StringComparison]::Ord
 
 New-Item -ItemType Directory -Force -Path $WebDist, $ArtifactDir | Out-Null
 Get-ChildItem -LiteralPath $WebDist -Force |
-  Where-Object { $_.Name -ne ".gitignore" } |
+  Where-Object { $_.Name -notin @(".gitignore", "downloads") } |
   Remove-Item -Recurse -Force
 Copy-Item -Path (Join-Path $ClientDir "build\web\*") -Destination $WebDist -Recurse -Force
 

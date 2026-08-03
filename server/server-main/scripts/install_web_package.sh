@@ -25,7 +25,11 @@ case "$web_dist" in
 esac
 
 mkdir -p "$web_dist"
-find "$web_dist" -mindepth 1 -maxdepth 1 ! -name .gitignore -exec rm -rf -- {} +
+mkdir -p "$web_dist/downloads"
+find "$web_dist" -mindepth 1 -maxdepth 1 \
+  ! -name .gitignore \
+  ! -name downloads \
+  -exec rm -rf -- {} +
 tar -xzf "$archive" -C "$web_dist"
 
 if [ ! -f "$web_dist/index.html" ]; then
