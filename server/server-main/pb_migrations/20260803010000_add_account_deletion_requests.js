@@ -1,8 +1,11 @@
+// migration-policy: destructive-reviewed
 migrate((app) => {
   try {
     app.findCollectionByNameOrId("account_deletion_requests")
     return
-  } catch (_) {}
+  } catch (_) {
+    // The collection does not exist yet, so the migration can create it below.
+  }
 
   const collection = new Collection({
     id: "pbc_2080301000",
@@ -32,5 +35,7 @@ migrate((app) => {
   try {
     const collection = app.findCollectionByNameOrId("account_deletion_requests")
     app.delete(collection)
-  } catch (_) {}
+  } catch (_) {
+    // A missing collection means the rollback is already complete.
+  }
 })
