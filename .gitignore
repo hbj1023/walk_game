@@ -4,3 +4,8 @@ reports/item-catalog/
 **/.gocache/
 **/.gotmp/
 artifacts/
+reports/playtests/
+scripts/__pycache__/
+client/client-main/android/key.properties
+client/client-main/android/app/*.jks
+client/client-main/android/app/*.keystore

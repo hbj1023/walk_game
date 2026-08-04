@@ -5,12 +5,13 @@ from __future__ import annotations
 
 import datetime as dt
 import json
+import os
 import urllib.error
 import urllib.request
 from pathlib import Path
 
 
-BASE_URL = "http://15.165.116.173"
+BASE_URL = os.environ.get("WALKMASTER_API_BASE_URL", "https://walk-master.com").rstrip("/")
 REPORT_DIR = Path(__file__).resolve().parents[1] / "reports" / "playtests"
 
 
