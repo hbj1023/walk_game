@@ -16,7 +16,11 @@ REPORT_DIR = Path(__file__).resolve().parents[1] / "reports" / "playtests"
 
 
 def request(path: str, payload: dict[str, object], token: str = "") -> tuple[int, dict[str, object]]:
-    headers = {"Content-Type": "application/json; charset=utf-8"}
+    headers = {
+        "Accept": "application/json",
+        "Content-Type": "application/json; charset=utf-8",
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/139 Safari/537.36",
+    }
     if token:
         headers["Authorization"] = f"Bearer {token}"
     body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
@@ -72,7 +76,7 @@ def main() -> int:
     check(results, "잘못된 비밀번호 차단", status, {400, 401, 403}, wrong_password)
 
     status, invalid_reset = request(
-        "/password-reset/request",
+        "/api/password-reset/request",
         {"email": "invalid-email"},
     )
     check(results, "잘못된 재설정 이메일 차단", status, {400}, invalid_reset)
