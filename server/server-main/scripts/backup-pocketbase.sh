@@ -22,9 +22,10 @@ start_services() {
   if [ "$STOPPED" -eq 1 ]; then
     cd "$SERVER_DIR"
     docker compose up -d pocketbase api >/dev/null
+    STOPPED=0
   fi
 }
-trap start_services EXIT INT TERM
+trap start_services EXIT HUP INT TERM
 
 cd "$SERVER_DIR"
 docker compose stop api pocketbase
@@ -36,13 +37,14 @@ docker run --rm \
   caddy:2-alpine \
   tar -czf "/backup/$ARCHIVE" -C /pb/pb_data .
 
+# Restore gameplay services before checksum and retention work to minimize downtime.
+start_services
+
 sha256sum "$BACKUP_DIR/$ARCHIVE" > "$BACKUP_DIR/$ARCHIVE.sha256"
 find "$BACKUP_DIR" -maxdepth 1 -type f -name 'pocketbase-*.tar.gz' -mtime +30 -delete
 find "$BACKUP_DIR" -maxdepth 1 -type f -name 'pocketbase-*.tar.gz.sha256' -mtime +30 -delete
 
-start_services
-STOPPED=0
-trap - EXIT INT TERM
+trap - EXIT HUP INT TERM
 
 echo "PocketBase backup: $BACKUP_DIR/$ARCHIVE"
 echo "Checksum: $BACKUP_DIR/$ARCHIVE.sha256"
